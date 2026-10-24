@@ -3,9 +3,15 @@
 Appli web installable (PWA) pour iPhone **et** Android. **100 % gratuit** : GitHub Pages (hébergement) + Supabase (données partagées et notifications). Aucune carte bancaire.
 
 Ce que fait l'appli :
-- 🧹 **Tâches** : planning de la semaine en cours + 4 suivantes, case à cocher, tâche barrée une fois faite, prénom du responsable. Les tâches tournent automatiquement entre vous 5 (sur 5 semaines, chacun fait exactement 9 tâches).
+- 🧹 **Tâches** : tableau de la semaine (7 colonnes = les jours, 1 ligne par type de tâche, une couleur par tâche). La lettre dans une case = le responsable. On touche une case pour la valider : une fenêtre de **confirmation** s'ouvre, et la tâche rapporte des **pièces** 🪙 à la personne qui l'a faite. On peut aussi **sauter** une tâche ou **annuler** une validation. Semaine en cours + 4 suivantes, et 2 semaines passées à revoir.
+- 👥 **Tâches pour tous / exceptions** : une tâche peut être à faire par tout le monde (une case par personne) et certaines personnes peuvent en être exclues (ex. Victor). Voir « Personnaliser ».
 - 🛒 **Stocks** : 13 produits sous forme de cartes. 1 clic = rouge « en rupture », 2e clic = réapprovisionné. Chaque rupture envoie une notification à **tous** les colocs.
-- 🔔 **Rappel chaque soir à 20h** (heure de La Réunion) à ceux dont la tâche du jour n'est pas cochée.
+- 👤 **Toi** : ton **profil** (pièces, victoires, records, couleur de fond, titre affiché), ton **personnage** (homme/femme, peau, cheveux, apparence), la **boutique** (singe, pirate, ninja, astronaute, Zippo), tes **défis** et tes prochaines tâches. On peut ouvrir le profil des autres colocs.
+- 🏆 **Classement** : 6 classements (pièces, tâches faites, victoires au chifoumi, Flappy, Le Grand Raid, Sudoku).
+- 🎮 **Jeux** : 4 cases. **Chifoumi** (liste déroulante pour choisir l'adversaire, défi amical à 0 pièce), **Coucou** (oiseau et colonnes, façon Flappy), **Le Grand Raid** (course sans fin sur la plage : sauter, glisser) et **Sudoku** chronométré.
+- 🎁 **Récompense quotidienne** : se connecter chaque jour (jours 1 à 6 : des pièces) ; le jour 7 débloque la **roue de la fortune** (50 à 1000 🪙). Rater un jour remet la série à zéro.
+- 🏅 **20 défis** qui débloquent des titres, des pièces et des personnages (Roi, Sorcier, Chevalier, Zeus, Poussin, Détective, Hugo Deck, Monsieur Nickel, Clochard). Tout le monde démarre avec **500 pièces**.
+- 🔔 **Rappel chaque soir à 20h** (heure de La Réunion) à ceux dont la tâche du jour n'est ni faite ni sautée.
 
 > Tu peux déjà l'essayer sans rien configurer : sans les clés Supabase, l'appli tourne en **mode démo** (données stockées sur ton téléphone uniquement). Les étapes 1 à 5 activent le partage et les notifications.
 
@@ -23,6 +29,12 @@ Ce que fait l'appli :
 1. Va sur **supabase.com** → *Start your project* → connecte-toi avec GitHub.
 2. **New project** : nom `coloc`, choisis un mot de passe (note-le), région proche (Europe), offre **Free**.
 3. Menu **SQL Editor → New query** : colle le contenu de `supabase/schema.sql` → **Run**.
+   *(Tu avais déjà lancé une ancienne version du schéma ? Ne relance pas `schema.sql` :*
+   - *base de la toute première version : lance d'abord `supabase/migration-v2.sql`, puis `migration-v3.sql`, puis `migration-v4.sql` ;*
+   - *base en version 2 : lance `migration-v3.sql` puis `migration-v4.sql` ;*
+   - ***base en version 3 (appli déjà en ligne) : lance seulement `supabase/migration-v4.sql`.** Rien n'est effacé : chacun reçoit 500 🪙 en plus de ses pièces actuelles, et les apparences déjà achetées sont conservées.)*
+
+   *Puis redéploie la fonction `notify` à l'étape 4.)*
 4. Menu **Project Settings → API** : copie l'**URL du projet** et la clé **anon / publishable**. Dans `config.js` (sur GitHub : ouvre le fichier → ✏️), colle-les dans `SUPABASE_URL` et `SUPABASE_ANON_KEY`.
 
 ## Étape 3 — Générer les clés de notification
@@ -65,12 +77,22 @@ Puis sur chaque téléphone : choisis ton prénom, appuie sur **Activer** dans l
 
 ## Personnaliser
 
-- **Jour des poubelles, tâches, fréquences** : `config.js` → `TASK_TEMPLATES` (`day` : 0 = lundi … 6 = dimanche). Ne s'applique qu'aux semaines pas encore créées.
+- **Tâches faites par tous / personnes exclues** : dans `config.js` → `TASK_TEMPLATES`, ajoute une option à la ligne de la tâche :
+  - `{ kind: 'aspijour', day: 5, everyone: true }` → tout le monde doit la faire (une case par personne, « 2/5 » dans le tableau) ;
+  - `{ kind: 'wc', day: 1, exclude: ['Victor'] }` → Victor n'est pas concerné (la rotation se fait entre les autres) ;
+  - `fewer: { Victor: 2 }` → Victor est moins souvent concerné (1 semaine sur 2 ; `3` = 1 semaine sur 3) ;
+  - `only: ['Anthony', 'Lily']` → seulement ces personnes. Les options se combinent. La règle complète est la fonction `participants()` en bas du fichier.
+- **Personnages** : `config.js` → `OUTFITS` (`price` = achat en boutique, `challenge` = gagné avec un défi), `SKIN_COLORS` / `HAIR_COLORS` / `BG_COLORS`. Les dessins sont dans `avatar.js` : « Hugo Deck » et « Zippo » sont des copies du chevalier et du singe, à la fin du fichier (`OUTFIT_DRAW.hugodeck = …`) : remplace-les par ton dessin.
+- **Défis, récompenses, roue** : `challenges.js` (conditions), `config.js` (`DAILY_COINS`, `WHEEL_MIN/MAX`, `START_COINS`). ⚠️ Si tu changes un prix, une récompense ou un défi, relance `node tools/build-sql.mjs` (génère `supabase/migration-v4.sql`) puis exécute-le de nouveau dans Supabase : c'est la base qui verse les pièces.
+- **Pièces** : `config.js` → `TASK_KINDS` (champ `coins` de chaque tâche), `SKIP_PENALTY` (pièces perdues quand on saute une tâche, 0 par défaut) et `ALLOW_EARLY_VALIDATION` (valider une tâche avant son jour, interdit par défaut).
+- **Jour des poubelles, tâches, couleurs** : `config.js` (`day` : 0 = lundi … 6 = dimanche). Ne s'applique qu'aux semaines pas encore créées.
 - **Prénoms / produits** : `supabase/schema.sql` avant de le lancer, ou plus tard dans Supabase → *Table Editor*.
 - **Autre fuseau horaire** : change l'heure UTC dans `cron.sql` et ajoute le secret `TZ_NAME` (ex. `Europe/Paris`).
 
 ## À savoir
 
+- **Comment marchent les pièces** : ton solde = 500 de départ + pièces gagnées au ménage + récompenses (quotidienne, roue, défis) − achats. Les défis chifoumi sont à 0 pièce. Le classement « Pièces » montre le solde actuel.
+- **Triche** : le coup de celui qui lance un défi est stocké dans une table que personne ne peut lire avec la clé publique, et les duels et achats ne passent que par des fonctions de la base (vérifiées côté serveur). En revanche, comme il n'y a pas de mot de passe, rien n'empêche techniquement quelqu'un de jouer « à la place » d'un autre prénom. Les **scores de jeux sont envoyés par le téléphone** (un bidouilleur pourrait tricher), mais la base fixe les prix et les récompenses, tire la roue elle-même et refuse de porter une apparence non possédée.
 - **Pas de mot de passe** : chacun choisit son prénom, et n'importe qui connaissant l'adresse de l'appli peut cocher une tâche ou signaler une rupture. Pour un usage entre colocs c'est suffisant ; on peut ajouter un code d'accès si besoin.
 - La clé « anon » dans `config.js` est faite pour être publique. Les secrets (clé privée VAPID, code du cron) restent dans Supabase.
 - Les notifications iPhone sont parfois un peu en retard : c'est iOS, pas l'appli.
