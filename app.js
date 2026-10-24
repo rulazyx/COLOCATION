@@ -137,7 +137,9 @@ function computeInitials(members) {
   }
 }
 
-async function refresh() {
+async function refresh(force = false) {
+  // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
+  if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   const m0 = mondayOf();
   [state.members, state.tasks, state.scores, state.balances, state.products, state.purchases, state.duels,
@@ -371,7 +373,7 @@ async function openGame(id) {
       async onEnd({ score }) {
         try {
           await state.api.reportGame(state.me.id, id, score);
-          await refresh(); showBest();
+          await refresh(true); showBest();
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }
       },
     });
@@ -382,7 +384,7 @@ function closeGame() {
   gameHandle = null;
   document.getElementById('gamelayer')?.remove();
   state.game = null;
-  render();
+  if (state.pendingRefresh) { state.pendingRefresh = false; refresh().catch(() => {}); } else render();
 }
 
 async function syncSub() {
