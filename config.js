@@ -17,18 +17,20 @@ export const ALLOW_EARLY_VALIDATION = false; // true = on peut valider une tâch
 // ---------- Les 6 types de tâches ----------
 // color : couleur de la ligne dans le tableau · coins : pièces gagnées quand la tâche est faite
 export const TASK_KINDS = {
-  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 10,
+  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 100,
                detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles' },
-  poubelles: { label: 'Sortir les poubelles',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', coins: 8,
-               detail: 'Tri sélectif, compost, ménagère + sacs propres' },
-  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', coins: 12,
+  poubelles: { label: 'Sortir la poubelle verte',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', coins: 30,
+               detail: 'Ménager' },
+  tri: { label: 'Sortir la poubelle jaune',           short: 'Poubelles',  emoji: '♻️', color: '#FFFF00', coins: 30,
+               detail: 'Tri sélectif' },
+  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', coins: 50,
                detail: 'Cuvette, lunette, balayette, papier' },
-  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', coins: 10,
+  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', coins: 100,
                detail: 'Salon, salle à manger, cuisine, couloirs' },
-  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', coins: 15,
+  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', coins: 100,
                detail: 'Douche/baignoire, lavabo, miroir, désinfection' },
-  aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', coins: 8,
-               detail: 'Sols de la salle de bain et des WC' },
+  balais:   { label: 'Balais sur la terrasse',  short: 'Terasse',   emoji: '🧹', color: '#ec4899', coins: 80,
+               detail: 'Passage du balais sur la terrasse' },
 };
 
 // ---------- Le planning type d'une semaine ----------
@@ -46,14 +48,15 @@ export const TASK_KINDS = {
 //                               (Victor: 3 = 1 semaine sur 3, etc.)
 export const TASK_TEMPLATES = [
   { kind: 'cuisine',   day: 0 },
-  { kind: 'poubelles', day: 1 },
+  { kind: 'poubelles', day: 0 },
+  { kind: 'tri', day: 1 },
   { kind: 'wc',        day: 1, exclude: ['Victor'] },          // Victor ne nettoie pas les toilettes
   { kind: 'aspijour',  day: 2, fewer: { Victor: 2 } },         // salon : Victor moins souvent
   { kind: 'cuisine',   day: 3 },
   { kind: 'wc',        day: 4, exclude: ['Victor'] },
-  { kind: 'sdb',       day: 5, fewer: { Victor: 2 } },         // salle de bain : Victor moins souvent
+  { kind: 'sdb',       day: 5, exclude: ['Victor'] },         // salle de bain : Victor moins souvent
   { kind: 'aspijour',  day: 5, fewer: { Victor: 2 } },
-  { kind: 'aspieau',   day: 6 },
+  { kind: 'balais',   day: 6 },
 ];
 
 // ---------- Rotation : qui fait la tâche cette semaine ? ----------
