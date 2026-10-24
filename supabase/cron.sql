@@ -13,10 +13,10 @@ select cron.schedule(
   '0 16 * * *',
   $$
   select net.http_post(
-    url     := 'https://Coloc.supabase.co/functions/v1/notify',
+    url     := 'https://VOTRE-PROJET.supabase.co/functions/v1/notify',
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'x-cron-secret', 'PommedeterreDu83!!'
+      'x-cron-secret', 'VOTRE_CODE_SECRET'
     ),
     body    := '{"type":"reminder"}'::jsonb
   );

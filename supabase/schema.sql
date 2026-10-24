@@ -14,14 +14,28 @@ create table tasks (
   id          bigint generated always as identity primary key,
   week        date   not null,                 -- lundi de la semaine
   slot        int    not null,                 -- numéro de la tâche dans la liste de config.js
+  kind        text   not null,                 -- type de tâche (cuisine, wc…)
   label       text   not null,
   detail      text,
   day_index   int    not null check (day_index between 0 and 6), -- 0 = lundi
-  assignee_id int    not null references members(id),
-  done        boolean not null default false,
-  done_at     timestamptz,
-  unique (week, slot)
+  assignee_id int    not null references members(id),  -- à qui la tâche est confiée
+  reward      int    not null default 0,       -- pièces que rapporte la tâche
+  status      text   not null default 'todo' check (status in ('todo', 'done', 'skipped')),
+  actor_id    int    references members(id),   -- qui l'a faite / sautée (peut différer de assignee_id)
+  coins       int    not null default 0,       -- pièces gagnées (ou perdues) au moment de l'action
+  acted_at    timestamptz,
+  unique (week, slot, assignee_id)             -- 1 ligne par personne (plusieurs si "pour tous")
 );
+
+-- Score de chacun (sert au classement) : somme des pièces et nombre de tâches faites
+create view scores as
+  select actor_id as member_id,
+         sum(coins)::int as coins,
+         (count(*) filter (where status = 'done'))::int as done_count
+  from tasks
+  where status <> 'todo' and actor_id is not null
+  group by actor_id;
+grant select on scores to anon, authenticated;
 
 -- Les produits communs
 create table products (

@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
     if (req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
     const { dayIndex, monday } = today();
     const { data: tasks } = await db.from("tasks").select("label,assignee_id")
-      .eq("week", monday).eq("day_index", dayIndex).eq("done", false);
+      .eq("week", monday).eq("day_index", dayIndex).eq("status", "todo");
     const byMember = new Map<number, string[]>();
     for (const t of tasks ?? []) byMember.set(t.assignee_id, [...(byMember.get(t.assignee_id) ?? []), t.label]);
     let sent = 0;

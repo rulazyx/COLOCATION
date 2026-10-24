@@ -10,19 +10,83 @@ export const CONFIG = {
   VAPID_PUBLIC_KEY: '',    // clé publique générée avec tools/vapid.html
 };
 
-// Les tâches de la semaine. day : 0 = lundi … 6 = dimanche.
-// ⚠️ Poubelles : mets le vrai jour de collecte (1 = mardi par défaut).
-// Les tâches tournent d'un colocataire à l'autre chaque semaine :
-// sur 5 semaines, chacun fait exactement les mêmes tâches que les autres.
-// (Modifier cette liste n'affecte que les semaines pas encore créées.)
+// ---------- Pièces ----------
+export const SKIP_PENALTY = 0;              // pièces perdues quand on saute une tâche (0 = aucune pénalité)
+export const ALLOW_EARLY_VALIDATION = false; // true = on peut valider une tâche avant son jour
+
+// ---------- Les 6 types de tâches ----------
+// color : couleur de la ligne dans le tableau · coins : pièces gagnées quand la tâche est faite
+export const TASK_KINDS = {
+  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 10,
+               detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles' },
+  poubelles: { label: 'Sortir les poubelles',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', coins: 8,
+               detail: 'Tri sélectif, compost, ménagère + sacs propres' },
+  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', coins: 12,
+               detail: 'Cuvette, lunette, balayette, papier' },
+  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', coins: 10,
+               detail: 'Salon, salle à manger, cuisine, couloirs' },
+  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', coins: 15,
+               detail: 'Douche/baignoire, lavabo, miroir, désinfection' },
+  aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', coins: 8,
+               detail: 'Sols de la salle de bain et des WC' },
+};
+
+// ---------- Le planning type d'une semaine ----------
+// day : 0 = lundi … 6 = dimanche   (⚠️ poubelles : mets le vrai jour de collecte)
+//
+// Par défaut, une tâche est confiée à UNE personne, qui change chaque semaine (rotation).
+// Deux options pour les cas particuliers :
+//   everyone: true            → la tâche doit être faite par TOUS (une case à valider par personne)
+//   exclude: ['Victor']       → ces personnes ne sont pas concernées par cette tâche
+//   only: ['Anthony', 'Lily'] → seules ces personnes sont concernées
+// Les options se combinent. Exemples (à décommenter / adapter) :
+//   { kind: 'aspijour', day: 5, everyone: true },
+//   { kind: 'wc', day: 1, exclude: ['Victor'] },
+//   fewer: { Victor: 2 }      → moins souvent : Victor n'est dans la rotation qu'1 semaine sur 2
+//                               (Victor: 3 = 1 semaine sur 3, etc.)
 export const TASK_TEMPLATES = [
-  { label: 'Nettoyage cuisine',            detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles', day: 0 },
-  { label: 'Sortir les poubelles',         detail: 'Tri, compost, ménagère + sacs propres',                      day: 1 },
-  { label: 'Nettoyage WC',                 detail: 'Cuvette, lunette, balayette, papier',                        day: 1 },
-  { label: 'Aspi & serpillière (zone jour)', detail: 'Salon, salle à manger, cuisine, couloirs',                 day: 2 },
-  { label: 'Nettoyage cuisine',            detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles', day: 3 },
-  { label: 'Nettoyage WC',                 detail: 'Cuvette, lunette, balayette, papier',                        day: 4 },
-  { label: 'Nettoyage salle de bain',      detail: 'Douche/baignoire, lavabo, miroir, désinfection',             day: 5 },
-  { label: 'Aspi & serpillière (zone jour)', detail: 'Salon, salle à manger, cuisine, couloirs',                 day: 5 },
-  { label: 'Aspi & serpillière (zone eau)', detail: 'Sols de la salle de bain et des WC',                        day: 6 },
+  { kind: 'cuisine',   day: 0 },
+  { kind: 'poubelles', day: 1 },
+  { kind: 'wc',        day: 1, exclude: ['Victor'] },          // Victor ne nettoie pas les toilettes
+  { kind: 'aspijour',  day: 2, fewer: { Victor: 2 } },         // salon : Victor moins souvent
+  { kind: 'cuisine',   day: 3 },
+  { kind: 'wc',        day: 4, exclude: ['Victor'] },
+  { kind: 'sdb',       day: 5, fewer: { Victor: 2 } },         // salle de bain : Victor moins souvent
+  { kind: 'aspijour',  day: 5, fewer: { Victor: 2 } },
+  { kind: 'aspieau',   day: 6 },
 ];
+
+// ---------- Rotation : qui fait la tâche cette semaine ? ----------
+// On fait tourner la tâche sur TOUS les colocs. Si la personne désignée n'est pas concernée
+// (exclue, ou "moins souvent"), la tâche passe à quelqu'un d'autre parmi les personnes concernées.
+export function pickAssignee(template, members, slot, weekIdx) {
+  const pool = participants(template, members, weekIdx);
+  if (!pool.length) return null;
+  const n = members.length;
+  const base = members[(((slot + weekIdx) % n) + n) % n];
+  if (pool.some((m) => m.id === base.id)) return base;
+  return pool[(((slot + weekIdx) % pool.length) + pool.length) % pool.length];
+}
+
+// ---------- Fonction d'exception : qui est concerné par une tâche ? ----------
+// Appelée pour chaque tâche à chaque génération de semaine. Modifie-la si tu veux une règle plus fine.
+export function participants(template, members, weekIdx = 0) {
+  const norm = (s) => String(s).trim().toLowerCase();
+  let list = members;
+  if (template.fewer) {
+    // "fewer: { Victor: 2 }" → Victor n'est concerné que les semaines paires (1 semaine sur 2)
+    list = list.filter((m) => {
+      const entry = Object.entries(template.fewer).find(([name]) => norm(name) === norm(m.name));
+      return !entry || weekIdx % entry[1] === 0;
+    });
+  }
+  if (template.only) {
+    const only = template.only.map(norm);
+    list = list.filter((m) => only.includes(norm(m.name)));
+  }
+  if (template.exclude) {
+    const excl = template.exclude.map(norm);
+    list = list.filter((m) => !excl.includes(norm(m.name)));
+  }
+  return list;
+}
