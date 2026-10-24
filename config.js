@@ -5,32 +5,60 @@
 export const CONFIG = {
   // Laisse vide pour tester en "mode démo" (données stockées sur ton téléphone uniquement).
   // Renseigne les 3 valeurs pour activer le partage entre colocataires + les notifications.
-  SUPABASE_URL: 'https://eycnuihgitlqvittyppj.supabase.co',        // ex : 'https://eycnuihgitlqvittyppj.supabase.co'
-  SUPABASE_ANON_KEY: 'sb_publishable_VkyT4OtTmcTX794nI4ed4A_W_84jlld',   // clé "anon" / "publishable" (publique, elle peut rester dans GitHub)
-  VAPID_PUBLIC_KEY: 'BAYsAhsOsPicmgqqPzVFva0aypmWw4X3n334traZcZlyFwhcVsIFWgHkcnrXvU4wO33TuCSpAan4X3KHoOVm8Pw',    // clé publique générée avec tools/vapid.html
+  SUPABASE_URL: '',        // ex : 'https://abcdefgh.supabase.co'
+  SUPABASE_ANON_KEY: '',   // clé "anon" / "publishable" (publique, elle peut rester dans GitHub)
+  VAPID_PUBLIC_KEY: '',    // clé publique générée avec tools/vapid.html
 };
 
 // ---------- Pièces ----------
-export const SKIP_PENALTY = 100;              // pièces perdues quand on saute une tâche (0 = aucune pénalité)
+export const SKIP_PENALTY = 0;              // pièces perdues quand on saute une tâche (0 = aucune pénalité)
 export const ALLOW_EARLY_VALIDATION = false; // true = on peut valider une tâche avant son jour
+
+// ---------- Personnage, boutique, jeux ----------
+export const SKIN_COLORS = [
+  { c: '#fde0cc', name: 'Très clair' }, { c: '#f5c9a0', name: 'Clair' }, { c: '#e0a878', name: 'Hâlé' },
+  { c: '#c68642', name: 'Mat' }, { c: '#8d5524', name: 'Brun' }, { c: '#5c3a21', name: 'Foncé' },
+];
+export const HAIR_COLORS = [
+  { c: '#1f1a17', name: 'Noir' }, { c: '#5b3a29', name: 'Brun' }, { c: '#9a6a3a', name: 'Châtain' },
+  { c: '#e6c068', name: 'Blond' }, { c: '#c4571f', name: 'Roux' }, { c: '#b8bcc4', name: 'Gris' },
+  { c: '#ec4899', name: 'Rose' }, { c: '#3b82f6', name: 'Bleu' },
+];
+// Apparences vendues dans la boutique (price en pièces). hidesHair / hidesSkin : la tenue cache cheveux / peau.
+// nameF : nom au féminin (facultatif)
+export const OUTFITS = {
+  none:       { name: 'Tenue de base', price: 0 },
+  singe:      { name: 'Singe',        price: 30,  hidesHair: true, hidesSkin: true },
+  chevalier:  { name: 'Chevalier',    nameF: 'Chevalière', price: 60, hidesHair: true },
+  pirate:     { name: 'Pirate',       price: 80 },
+  ninja:      { name: 'Ninja',        price: 100, hidesHair: true },
+  astronaute: { name: 'Astronaute',   price: 120 },
+  sorcier:    { name: 'Sorcier',      nameF: 'Sorcière', price: 150 },
+  roi:        { name: 'Roi',          nameF: 'Reine', price: 200 },
+};
+export const DUEL_WAGERS = [5, 10, 20, 50]; // mises proposées en un clic (on peut aussi taper un montant)
+// Chifoumi : chaque coup bat celui indiqué dans "beats"
+export const MOVES = {
+  pierre:  { emoji: '✊', label: 'Pierre',  beats: 'ciseaux' },
+  feuille: { emoji: '✋', label: 'Feuille', beats: 'pierre' },
+  ciseaux: { emoji: '✌️', label: 'Ciseaux', beats: 'feuille' },
+};
 
 // ---------- Les 6 types de tâches ----------
 // color : couleur de la ligne dans le tableau · coins : pièces gagnées quand la tâche est faite
 export const TASK_KINDS = {
-  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 100,
+  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 10,
                detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles' },
-  poubelles: { label: 'Sortir la poubelle verte',           short: 'Pb verte',  emoji: '🗑️', color: '#10b981', coins: 30,
-               detail: 'Ménager' },
-  tri: { label: 'Sortir la poubelle jaune',           short: 'Pb jaune',  emoji: '♻️', color: '#FFFF00', coins: 30,
-               detail: 'Tri sélectif' },
-  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', coins: 50,
+  poubelles: { label: 'Sortir les poubelles',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', coins: 8,
+               detail: 'Tri sélectif, compost, ménagère + sacs propres' },
+  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', coins: 12,
                detail: 'Cuvette, lunette, balayette, papier' },
-  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Salon',  emoji: '🧹', color: '#8b5cf6', coins: 100,
+  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', coins: 10,
                detail: 'Salon, salle à manger, cuisine, couloirs' },
-  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', coins: 100,
+  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', coins: 15,
                detail: 'Douche/baignoire, lavabo, miroir, désinfection' },
-  balais:   { label: 'Balais sur la terrasse',  short: 'Terrasse',   emoji: '🍃', color: '#ec4899', coins: 80,
-               detail: 'Passage du balais sur la terrasse' },
+  aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', coins: 8,
+               detail: 'Sols de la salle de bain et des WC' },
 };
 
 // ---------- Le planning type d'une semaine ----------
@@ -48,14 +76,14 @@ export const TASK_KINDS = {
 //                               (Victor: 3 = 1 semaine sur 3, etc.)
 export const TASK_TEMPLATES = [
   { kind: 'cuisine',   day: 0 },
-  { kind: 'poubelles', day: 0 },
-  { kind: 'tri', day: 1 },
+  { kind: 'poubelles', day: 1 },
   { kind: 'wc',        day: 1, exclude: ['Victor'] },          // Victor ne nettoie pas les toilettes
-  { kind: 'aspijour',  day: 1, fewer: { Victor: 2 } },         // salon : Victor moins souvent
+  { kind: 'aspijour',  day: 2, fewer: { Victor: 2 } },         // salon : Victor moins souvent
+  { kind: 'cuisine',   day: 3 },
   { kind: 'wc',        day: 4, exclude: ['Victor'] },
-  { kind: 'sdb',       day: 5, exclude: ['Victor'] },         // salle de bain : Victor moins souvent
-  { kind: 'aspijour',  day: 4, fewer: { Victor: 2 } },
-  { kind: 'balais',   day: 6 },
+  { kind: 'sdb',       day: 5, fewer: { Victor: 2 } },         // salle de bain : Victor moins souvent
+  { kind: 'aspijour',  day: 5, fewer: { Victor: 2 } },
+  { kind: 'aspieau',   day: 6 },
 ];
 
 // ---------- Rotation : qui fait la tâche cette semaine ? ----------
