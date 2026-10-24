@@ -10,7 +10,7 @@ const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dima
 const DAYS_SHORT = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-const WEEKS_AHEAD = 4; // semaine en cours + 4 suivantes
+const WEEKS_AHEAD = 1; // semaine en cours + 4 suivantes
 const WEEKS_BACK = 2;  // on peut revoir les 2 semaines passées
 
 const pad = (n) => String(n).padStart(2, '0');
