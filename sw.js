@@ -1,6 +1,6 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v3';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './avatar.js', './manifest.webmanifest', './icon-192.png'];
+const CACHE = 'coloc-v1';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './manifest.webmanifest', './icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

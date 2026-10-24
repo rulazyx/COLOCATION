@@ -56,7 +56,7 @@ function today() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  let body: { type?: string; productId?: number; duelId?: number; event?: string } = {};
+  let body: { type?: string; productId?: number } = {};
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
   if (body.type === "stock") {
@@ -78,40 +78,11 @@ Deno.serve(async (req) => {
     return json({ sent });
   }
 
-  if (body.type === "duel") {
-    // {type:"duel", event:"challenge"|"result", duelId} → prévient l'adversaire d'un défi, ou le challenger du résultat
-    const { data: d } = await db.from("duels").select("*").eq("id", body.duelId).single();
-    if (!d) return json({ sent: 0 });
-    const age = (iso: string | null) => (iso ? Date.now() - new Date(iso).getTime() : Infinity);
-    const name = async (id: number) => (await db.from("members").select("name").eq("id", id).single()).data?.name ?? "?";
-    const emoji: Record<string, string> = { pierre: "✊", feuille: "✋", ciseaux: "✌️" };
-    let target: number, payload: { title: string; body: string; tag: string };
-    if (body.event === "challenge") {
-      if (d.status !== "pending" || age(d.created_at) > 2 * 60_000) return json({ sent: 0 });
-      target = d.opponent_id;
-      payload = { title: "⚔️ Défi chifoumi !", body: `${await name(d.challenger_id)} te défie. Mise : ${d.wager} 🪙`, tag: `duel-${d.id}` };
-    } else if (body.event === "result") {
-      if (d.status !== "done" || age(d.played_at) > 2 * 60_000) return json({ sent: 0 });
-      target = d.challenger_id;
-      const other = await name(d.opponent_id);
-      const moves = `${emoji[d.challenger_move]} contre ${emoji[d.opponent_move]}`;
-      payload = {
-        title: "🎮 Résultat du duel",
-        body: !d.winner_id ? `Égalité contre ${other} (${moves})`
-          : d.winner_id === d.challenger_id ? `Tu as gagné ${d.wager} 🪙 contre ${other} (${moves})`
-          : `Tu as perdu ${d.wager} 🪙 contre ${other} (${moves})`,
-        tag: `duel-${d.id}`,
-      };
-    } else return json({ error: "unknown event" }, 400);
-    const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", target);
-    return json({ sent: await send((subs ?? []) as Sub[], payload) });
-  }
-
   if (body.type === "reminder") {
     if (req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
     const { dayIndex, monday } = today();
     const { data: tasks } = await db.from("tasks").select("label,assignee_id")
-      .eq("week", monday).eq("day_index", dayIndex).eq("status", "todo");
+      .eq("week", monday).eq("day_index", dayIndex).eq("done", false);
     const byMember = new Map<number, string[]>();
     for (const t of tasks ?? []) byMember.set(t.assignee_id, [...(byMember.get(t.assignee_id) ?? []), t.label]);
     let sent = 0;
