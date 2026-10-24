@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Générateur de clés VAPID</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; line-height: 1.4; }
+    button { font: inherit; padding: 12px 18px; border-radius: 10px; border: 0; background: #2f9e6b; color: #fff; font-weight: 600; }
+    textarea { width: 100%; font-family: monospace; font-size: 13px; padding: 8px; }
+    .warn { background: #fff4d6; padding: 10px 12px; border-radius: 10px; }
+  </style>
+</head>
+<body>
+  <h1>🔑 Clés VAPID</h1>
+  <p>Ces 2 clés autorisent ton serveur à envoyer des notifications. Elles sont générées <b>dans ton navigateur</b>, rien n'est envoyé nulle part.</p>
+  <p><button id="go">Générer mes clés</button></p>
+  <div id="out" hidden>
+    <p><b>Clé publique</b> → à coller dans <code>config.js</code> (<code>VAPID_PUBLIC_KEY</code>) et dans les secrets Supabase (<code>VAPID_PUBLIC_KEY</code>)</p>
+    <textarea id="pub" rows="3" readonly></textarea>
+    <p><b>Clé privée</b> → à coller UNIQUEMENT dans les secrets Supabase (<code>VAPID_PRIVATE_KEY</code>)</p>
+    <textarea id="priv" rows="2" readonly></textarea>
+    <p class="warn">⚠️ Ne mets jamais la clé privée dans GitHub ni dans <code>config.js</code>. Une fois les clés copiées, tu peux supprimer ce fichier du dépôt.</p>
+  </div>
+  <script>
+    const b64url = (u8) => btoa(String.fromCharCode(...u8)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    document.getElementById('go').onclick = async () => {
+      const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+      const pub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey)); // 65 octets, format attendu par Web Push
+      const jwk = await crypto.subtle.exportKey('jwk', kp.privateKey);                  // jwk.d = clé privée en base64url
+      document.getElementById('pub').value = b64url(pub);
+      document.getElementById('priv').value = jwk.d;
+      document.getElementById('out').hidden = false;
+    };
+  </script>
+</body>
+</html>
