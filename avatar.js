@@ -70,6 +70,50 @@ const OUTFIT_DRAW = {
     '<circle cx="50" cy="44" r="30" fill="#bfe3ff" fill-opacity=".28" stroke="#f1f5f9" stroke-width="4.5"/>' +
     '<path d="M32 30 Q36 24 44 22" stroke="#fff" stroke-width="3" opacity=".75" fill="none" stroke-linecap="round"/>',
 
+chien: () =>
+  body('#F4F4F5', '') +
+
+  // Oreilles noires
+  '<path d="M27 30 C10 26 8 47 18 59 C24 62 29 49 31 39Z" fill="#1C1917"/>' +
+  '<path d="M73 30 C90 26 92 47 82 59 C76 62 71 49 69 39Z" fill="#1C1917"/>' +
+
+  // Tête blanche
+  '<path d="M29 33 C27 53 36 66 50 67 C64 66 73 53 71 33 C69 17 31 17 29 33Z" fill="#FFFFFF"/>' +
+
+  // Côtés noirs et large bande blanche centrale
+  '<path d="M50 20 C39 20 30 25 29 34 C27 46 31 55 39 60 C45 53 46 42 46 33 C46 27 48 23 50 20Z" fill="#1C1917"/>' +
+  '<path d="M50 20 C61 20 70 25 71 34 C73 46 69 55 61 60 C55 53 54 42 54 33 C54 27 52 23 50 20Z" fill="#1C1917"/>' +
+
+  // Sourcils gris clair identiques
+  '<ellipse cx="40" cy="34" rx="3.5" ry="1.6" fill="#E4E4E7" transform="rotate(-15 40 34)"/>' +
+  '<ellipse cx="60" cy="34" rx="3.5" ry="1.6" fill="#E4E4E7" transform="rotate(15 60 34)"/>' +
+
+  // Yeux noirs avec éclats blancs
+  '<circle cx="40" cy="41" r="4" fill="#000000"/>' +
+  '<circle cx="39" cy="40" r="1.4" fill="#FFFFFF"/>' +
+  '<circle cx="60" cy="41" r="4" fill="#000000"/>' +
+  '<circle cx="59" cy="40" r="1.4" fill="#FFFFFF"/>' +
+
+  // Museau
+  '<ellipse cx="50" cy="53" rx="12" ry="9" fill="#F4F4F5"/>' +
+
+  // Truffe et reflet
+  '<path d="M44 49 C44 46 56 46 56 49 C56 53 52 55 50 55 C48 55 44 53 44 49Z" fill="#18181B"/>' +
+  '<ellipse cx="47.5" cy="48.5" rx="1.5" ry=".8" fill="#52525B"/>' +
+
+  // Bouche
+  '<path d="M47 56 Q50 59 50 56 Q50 59 53 56" fill="none" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>' +
+
+  // Joues roses
+  '<ellipse cx="33.5" cy="51" rx="2.5" ry="1.6" fill="#FECDD3" opacity=".7"/>' +
+  '<ellipse cx="66.5" cy="51" rx="2.5" ry="1.6" fill="#FECDD3" opacity=".7"/>' +
+
+  // Collier orange
+  '<path d="M35 65 Q50 72 65 65 L64 70 Q50 77 36 70Z" fill="#E65100"/>' +
+  '<rect x="46" y="68" width="8" height="5" rx="1.5" fill="#9E9E9E"/>' +
+  '<rect x="47.5" y="69" width="5" height="3" rx=".7" fill="#BDBDBD"/>' +
+  '<circle cx="50" cy="75" r="1.8" fill="none" stroke="#BDBDBD" stroke-width="1.2"/>',
+
   ninja: ({ skin }) =>
     body('#23262d', '<rect x="14" y="93" width="72" height="7" fill="#e5484d"/>') +
     '<rect x="42" y="60" width="16" height="18" rx="6" fill="#23262d"/>' +
