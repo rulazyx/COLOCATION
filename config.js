@@ -28,8 +28,9 @@ export const HAIR_COLORS = [
 export const OUTFITS = {
   none:       { name: 'Tenue de base', price: 0 },
   singe:      { name: 'Singe',        price: 500,  hidesHair: true, hidesSkin: true },
+  zippo:      { name: 'Zippo',        price: 800,  hidesHair: true, hidesSkin: true },
   chevalier:  { name: 'Chevalier',    nameF: 'Chevalière', price: 800, hidesHair: true },
-  pirate:     { name: 'Pirate',       price: 800 },
+  pirate:     { name: 'Pirate',       price: 1000 },
   ninja:      { name: 'Ninja',        price: 1000, hidesHair: true },
   astronaute: { name: 'Astronaute',   price: 1200 },
   sorcier:    { name: 'Sorcier',      nameF: 'Sorcière', price: 1500 },
