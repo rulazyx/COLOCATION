@@ -82,7 +82,10 @@ export async function makeCloudApi() {
       ch.subscribe();
     },
     async saveSub(memberId, sub) {
-      check(await sb.from('push_subs').upsert({ endpoint: sub.endpoint, member_id: memberId, sub }, { onConflict: 'endpoint' }));
+      const row = { endpoint: sub.endpoint, member_id: memberId, sub };
+      const up = await sb.from('push_subs').update({ member_id: memberId, sub }).eq('endpoint', sub.endpoint).select('endpoint');
+      if (up.error) throw up.error;
+      if (!up.data.length) check(await sb.from('push_subs').insert(row));
     },
   };
 }
