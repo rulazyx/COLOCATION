@@ -12,8 +12,8 @@ const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dima
 const DAYS_SHORT = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-const WEEKS_AHEAD = 4; // semaine en cours + 4 suivantes
-const WEEKS_BACK = 2;  // on peut revoir les 2 semaines passées
+const WEEKS_AHEAD = 1;
+const WEEKS_BACK = 1;  
 
 const pad = (n) => String(n).padStart(2, '0');
 // Date locale AAAA-MM-JJ (surtout pas toISOString : il décale d'un jour selon le fuseau)
@@ -778,13 +778,13 @@ function resumeHTML() {
   const me = state.me;
   const byId = Object.fromEntries(state.scores.map((s) => [s.member_id, s]));
   const ranking = state.members
-    .map((m) => ({ ...m, earned: byId[m.id]?.coins ?? 0, done: byId[m.id]?.done_count ?? 0 }))
+    .map((m) => ({ ...m, earned: m.coins ?? 0, done: byId[m.id]?.done_count ?? 0 }))
     .sort((a, b) => b.earned - a.earned || b.done - a.done || a.name.localeCompare(b.name));
   const medals = ['🥇', '🥈', '🥉'];
   const up = myUpcoming();
   const today = startOfToday();
   return `
-    <h3 class="sec">Classement · pièces gagnées au ménage</h3>
+    <h3 class="sec">Classement · pièces possédées</h3>
     <ol class="rank">${ranking.map((m, i) => `
       <li class="${m.id === me.id ? 'me' : ''}"><span class="pos">${medals[i] ?? i + 1}</span><span class="rav">${av(m, 34)}</span><span class="nm">${esc(m.name)}${m.id === me.id ? ' (toi)' : ''}</span><span class="pts">${m.earned} 🪙</span></li>`).join('')}
     </ol>
