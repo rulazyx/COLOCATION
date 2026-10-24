@@ -70,7 +70,7 @@ const OUTFIT_DRAW = {
     '<circle cx="50" cy="44" r="30" fill="#bfe3ff" fill-opacity=".28" stroke="#f1f5f9" stroke-width="4.5"/>' +
     '<path d="M32 30 Q36 24 44 22" stroke="#fff" stroke-width="3" opacity=".75" fill="none" stroke-linecap="round"/>',
 
-chien: () =>
+zippo: () =>
   body('#F4F4F5', '') +
 
   // Oreilles noires
