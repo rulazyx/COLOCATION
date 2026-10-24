@@ -34,10 +34,20 @@ export function createGame(rng = Math.random) {
   return g;
 }
 
+// Le ciel (dégradé) est dessiné une seule fois, puis recopié à chaque image : bien plus léger
+let skyCache = null;
+function sky() {
+  if (!skyCache) {
+    skyCache = document.createElement('canvas'); skyCache.width = W; skyCache.height = H;
+    const c = skyCache.getContext('2d'), gr = c.createLinearGradient(0, 0, 0, H);
+    gr.addColorStop(0, '#7ec8e3'); gr.addColorStop(1, '#fde7b0');
+    c.fillStyle = gr; c.fillRect(0, 0, W, H);
+  }
+  return skyCache;
+}
+
 function draw(ctx, g, frame) {
-  const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, '#7ec8e3'); sky.addColorStop(1, '#fde7b0');
-  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  ctx.drawImage(sky(), 0, 0);
   // collines + nuages
   ctx.fillStyle = '#ffffffaa';
   for (const [cx, cy, r] of [[50 - (frame * 0.2) % 340 + 340, 90, 18], [190 - (frame * 0.2) % 340 + 340, 140, 14], [120 - (frame * 0.2) % 340 + 340, 60, 12]]) {
@@ -83,7 +93,7 @@ function draw(ctx, g, frame) {
 export function mount(root, { onEnd }) {
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jeu Flappy"></canvas>
     <div class="gover" hidden><h2>Perdu !</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer</button></div>`;
-  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d'), over = root.querySelector('.gover');
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
   let g = createGame(), raf = 0, last = 0, acc = 0, frame = 0, reported = false, destroyed = false;
   const flap = () => { if (!g.dead) g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
