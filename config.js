@@ -70,8 +70,8 @@ export const OUTFITS = {
 // Introduction au premier lancement : on invite à toucher chaque onglet (une étape = un bit de member_stats.quest_mask)
 export const INTRO_STEPS = [
   { n: 1, tab: 'tasks', title: 'Tâches', text: "Choisis la tâche ménagère que tu viens de faire : un autre coloc la confirme et tu gagnes des savons 🧼 et de l'XP. Dans cet onglet, trois parties : Tâches, Plateau (un jeu de l'oie où les savons achètent des dés) et Stocks (signale ce qui manque)." },
-  { n: 2, tab: 'defis', title: 'Défis', text: "Chaque jour, récupère tout en haut 50 jetons et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
-  { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (trophées 🏆), le blackjack se joue avec tes jetons 🪙, et les autres jeux rapportent de l'XP." },
+  { n: 2, tab: 'defis', title: 'Défis', text: "Chaque jour, récupère tout en haut 50 dollars et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
+  { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (trophées 🏆), le blackjack se joue avec tes dollars 💵, et les autres jeux rapportent de l'XP." },
   { n: 4, tab: 'rank', title: 'Classement', text: "Le classement de la semaine : celui qui gagne le plus de trophées du lundi au dimanche devient champion 👑 (prince, roi, dieu de la coloc…)." },
   { n: 6, tab: 'heads', title: 'Les têtes', text: "Touche ta tête en haut à gauche : tu vois celles de tous les colocs et copains. Touche une tête pour ouvrir son profil, le défier au chifoumi ou lui envoyer un message. Ta propre tête montre ton profil tel que les autres le voient." },
   { n: 5, tab: 'me', title: 'Profil', text: "Ici tu personnalises ton personnage (genre, peau, cheveux, fond, titre), tu ouvres ta garde-robe, tu vois tes badges et tes messages." },
@@ -107,7 +107,7 @@ export const TASK_KINDS = {
 
 // ---------- Plateau : jeu de l'oie (remis à zéro chaque lundi) ----------
 // Un lancer de dé coûte des savons : 1 le premier de la journée, puis +1 à chaque achat (le prix repart de 1 à minuit).
-// Cases : xp / chips (jetons) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. L'arrivée donne un gros bonus (une fois par semaine).
+// Cases : xp / chips (dollars) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. L'arrivée donne un gros bonus (une fois par semaine).
 export const GOOSE = {
   size: 30,
   cells: {
@@ -125,11 +125,11 @@ export const PERKS = [
   { key: 'vacances', title: 'Prenez une semaine de vacances !', short: 'Une semaine sans tâche ménagère', confirm: false, days: 7 },
 ];
 export const perkOfWeek = (monday) => PERKS[((Math.round((Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()) - Date.UTC(2024, 0, 1)) / 86400000) / 7) % PERKS.length + PERKS.length) % PERKS.length];
-// Jetons (monnaie du blackjack) : récompense du jour = 50 jetons + 50 XP
+// Dollars (monnaie du blackjack) : récompense du jour = 50 dollars + 50 XP
 export const DAILY = { chips: 50, xp: 50 };
-// Blackjack : on mise des jetons. Au-dessus de 500 jetons, les mises passent à l'échelle supérieure.
+// Blackjack : on mise des dollars. Au-dessus de 500 dollars, les mises passent à l'échelle supérieure.
 export const BJ_BETS = { low: [10, 20, 30, 50], high: [100, 200, 300, 500], threshold: 500 };
 export const betsFor = (chips) => (chips > BJ_BETS.threshold ? BJ_BETS.high : BJ_BETS.low);
-// Paliers de jetons qui débloquent un défi
+// Paliers de dollars qui débloquent un défi
 export const CHIP_GOALS = [500, 1000, 10000];
 export const MESSAGE_MAX = 140; // longueur d'un message court

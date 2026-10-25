@@ -1245,7 +1245,9 @@ end $$;
 -- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
 update member_stats set quest_mask = 63 where quest_mask in (15, 31);
 
--- ---------- Jetons (monnaie du blackjack) ----------
+-- ---------- Dollars (monnaie du blackjack) ----------
+alter table members add column if not exists badge text;   -- badge mis en avant sur le profil
+
 create table if not exists chip_ledger (
   id         bigint generated always as identity primary key,
   member_id  int  not null references members(id) on delete cascade,
@@ -1268,7 +1270,7 @@ do $$ begin
   begin alter publication supabase_realtime add table chip_ledger; exception when duplicate_object then null; end;
 end $$;
 
--- Récompense du jour : 50 jetons + 50 XP (plus de série ni de roue)
+-- Récompense du jour : 50 dollars + 50 XP (plus de série ni de roue)
 create or replace function claim_daily(p_member int, p_day date) returns json
 language plpgsql security definer set search_path = public as $$
 declare s member_stats; v_streak int;
@@ -1285,13 +1287,24 @@ begin
 end $$;
 grant execute on function claim_daily(int, date) to anon, authenticated;
 
--- Remise à zéro unique des niveaux (XP de tout le monde)
-do $$ begin
-  if not exists (select 1 from app_meta where key = 'reset_v11') then
-    delete from xp_log;
-    insert into app_meta (key, value) values ('reset_v11', 'done');
+-- ---------- Chifoumi : un seul défi en attente à la fois avec un même joueur (dans un sens ou dans l'autre) ----------
+create or replace function create_duel(p_challenger int, p_opponent int, p_wager int, p_move text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint;
+begin
+  if p_move not in ('pierre', 'feuille', 'ciseaux') then raise exception 'Coup invalide.'; end if;
+  if coalesce(p_wager, 0) <> 0 then raise exception 'Le chifoumi se joue sans mise.'; end if;
+  if p_challenger = p_opponent then raise exception 'Tu ne peux pas te défier toi-même.'; end if;
+  perform pg_advisory_xact_lock(hashtext('duel:' || least(p_challenger, p_opponent) || '-' || greatest(p_challenger, p_opponent)));
+  if exists (select 1 from duels where status = 'pending'
+             and ((challenger_id = p_challenger and opponent_id = p_opponent) or (challenger_id = p_opponent and opponent_id = p_challenger))) then
+    raise exception 'Un défi est déjà en attente avec ce joueur.';
   end if;
+  insert into duels (challenger_id, opponent_id, wager) values (p_challenger, p_opponent, 0) returning id into v_id;
+  insert into duel_secrets (duel_id, move) values (v_id, p_move);
+  return v_id;
 end $$;
+grant execute on function create_duel(int, int, int, text) to anon, authenticated;
 
 -- ---------- Savons dépensés (dés du plateau) ----------
 create table if not exists goose_cells (cell int primary key, kind text not null, v int not null default 0);
@@ -1396,7 +1409,7 @@ begin
     exit when not found or v_depth >= 3;
     v_depth := v_depth + 1;
     if v_cell.kind = 'xp' then v_xp := v_xp + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' XP'; exit;
-    elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' jetons'; exit;
+    elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' dollars'; exit;
     elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' piège : recule de ' || v_cell.v;
     elsif v_cell.kind = 'goose' then v_to := least(v_to + v_roll, v_size); v_note := v_note || ' oie : avance encore de ' || v_roll;
     else exit; end if;
@@ -1494,8 +1507,8 @@ begin
   return d;
 end $$;
 
--- ---------- Blackjack : on mise des jetons (10-20-30-50, puis 100-200-300-500 au-delà de 500 jetons) ----------
--- p_net = gain (+) ou perte (−) de jetons de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
+-- ---------- Blackjack : on mise des dollars (10-20-30-50, puis 100-200-300-500 au-delà de 500 dollars) ----------
+-- p_net = gain (+) ou perte (−) de dollars de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
 create or replace function report_blackjack(p_member int, p_bet int, p_net int, p_hands int, p_wins int, p_blackjack boolean) returns member_stats
 language plpgsql security definer set search_path = public as $$
 declare s member_stats; v_xp int; v_net int; v_bal int;
@@ -1537,9 +1550,40 @@ insert into challenges (key, coins, skin, xp) values
   ('prince', 0, null, 300),
   ('roi_coloc', 0, 'roi', 600),
   ('dieu_coloc', 0, 'zeus', 2000),
-  ('jetons_500', 0, null, 300),
-  ('jetons_1000', 0, null, 800),
-  ('jetons_10000', 0, null, 3000),
+  ('dollars_500', 0, null, 300),
+  ('dollars_1000', 0, null, 800),
+  ('dollars_10000', 0, null, 3000),
   ('noob', 0, 'zippo', 100),
   ('mathematicien', 0, null, 200),
   ('inspecteur', 0, 'detective', 200);;
+
+-- ---------- REMISE À ZÉRO COMPLÈTE (une seule fois) : XP, records, trophées, dollars, savons, défis, apparences ----------
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_v11b') then
+    create temp table _qm on commit drop as select member_id, quest_mask from member_stats;
+    delete from xp_log;
+    delete from coin_ledger;
+    delete from chip_ledger;
+    delete from duel_secrets;
+    delete from duels;
+    delete from unlocks;
+    delete from purchases;
+    delete from profile_views;
+    delete from task_logs;
+    delete from dice_rolls;
+    delete from perks;
+    delete from member_stats;
+    insert into member_stats (member_id) select id from members;
+    update member_stats s set quest_mask = q.quest_mask from _qm q where q.member_id = s.member_id;   -- l'introduction déjà vue n'est pas rejouée
+    update members set outfit = 'none', title = null, badge = null;
+    insert into app_meta (key, value) values ('reset_v11b', 'done');
+  end if;
+end $$;
+
+-- ---------- Tout le monde revoit l'introduction (une seule fois) ----------
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'intro_again_v11') then
+    update member_stats set quest_mask = 0;
+    insert into app_meta (key, value) values ('intro_again_v11', 'done');
+  end if;
+end $$;

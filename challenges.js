@@ -17,7 +17,7 @@ export const BADGES = {
   chifoumi: { th: [3, 15, 40, 100] },
   flappy:   { th: [10, 40, 100, 300] },
   raid:     { th: [1000, 3070, 6000, 10000] },
-  jetons:   { th: [100, 500, 1000, 10000] },
+  dollars:   { th: [100, 500, 1000, 10000] },
   blackjack: { th: [5, 25, 75, 200] },
 };
 // Renvoie 0..4 (bois..platine), ou null s'il n'y a encore aucun résultat
@@ -145,10 +145,10 @@ export const CHALLENGES = [
   { key: 'prince', cat: 'Coloc', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Terminer une semaine à la 1re place du classement des trophées.', check: (c) => prog(weekWins(c).length, 1) },
   { key: 'roi_coloc', cat: 'Coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Terminer 2 semaines d\'affilée à la 1re place.', check: (c) => prog(longestRun(weekWins(c)), 2) },
   { key: 'dieu_coloc', cat: 'Coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Terminer 6 semaines à la 1re place (cumulées).', check: (c) => prog(weekWins(c).length, 6) },
-  // — Jetons (blackjack, récompense du jour) —
-  { key: 'jetons_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '🪙', desc: 'Atteindre 500 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
-  { key: 'jetons_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
-  { key: 'jetons_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
+  // — Dollars (blackjack, récompense du jour) —
+  { key: 'dollars_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '💵', desc: 'Atteindre 500 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
+  { key: 'dollars_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
+  { key: 'dollars_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
   // — Divers —
   { key: 'noob', cat: 'Coloc', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
   { key: 'mathematicien', cat: 'Jeux', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },

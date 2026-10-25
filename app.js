@@ -74,7 +74,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', anim: false, levelUps: [], auth: null,
+  tasksSeg: 'tasks', open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'profil', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -444,7 +444,7 @@ function nextStreak() {
 async function claimDailyNow() {
   try {
     const r = await state.api.claimDaily(state.me.id, iso(new Date()));
-    toast(`+${r.chips} jetons · +${r.xp} XP`);
+    toast(`+${r.chips} dollars · +${r.xp} XP`);
     await refresh();
   } catch (e) { toast(e.message || 'Impossible de récupérer la récompense.'); refresh().catch(() => {}); }
 }
@@ -478,7 +478,7 @@ const GAMES = {
   flappy: { name: 'Jumpy Cardinal', cls: 'flap', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
   raid: { name: 'Le Grand Raid', cls: 'raid', mod: './games/raid.js', blurb: 'Une course sans fin sur la plage : saute les obstacles et grimpe le plus haut possible. Atteins 3 070 m pour le sommet du Piton.' },
   sudoku: { name: 'Sudoku', cls: 'sudo', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
-  blackjack: { name: 'Blackjack', cls: 'blk', mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes jetons : 10, 20, 30 ou 50 (100, 200, 300 ou 500 au-delà de 500 jetons). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 jetons chaque jour dans Défis.' },
+  blackjack: { name: 'Blackjack', cls: 'blk', mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes dollars : 10, 20, 30 ou 50 (100, 200, 300 ou 500 au-delà de 500 dollars). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 dollars chaque jour dans Défis.' },
 };
 let gameHandle = null;
 async function openGame(id) {
@@ -586,8 +586,9 @@ function render() {
   app.innerHTML = `
     ${tab === 'me' ? '' : `<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau">${lvlOf(me.id)}</span></button>
+      ${tab === 'games' ? `<span class="hchip" title="Dollars">💵 ${chipsOf(me.id)}</span>` : ''}
       <span class="grow"></span>
-      ${tab === 'games' ? `<span class="hchip" title="Jetons">🪙 ${chipsOf(me.id)}</span>` : `<button class="hchip" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>`}
+      <button class="hchip" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>
       <button class="hchip" data-action="hist-tr" title="Historique des trophées">🏆 ${balanceOf(me.id)}</button>
     </header>
     ${state.heads ? headsHTML() : ''}`}
@@ -681,7 +682,7 @@ function cellLabel(n) {
   if (n === GOOSE.size) return '<em class="cl fin">Arrivée</em>';
   if (!c) return '';
   if (c.xp) return `<em class="cl xp">+${c.xp} XP</em>`;
-  if (c.chips) return `<em class="cl tr">+${c.chips} 🪙</em>`;
+  if (c.chips) return `<em class="cl tr">+${c.chips} 💵</em>`;
   if (c.back) return `<em class="cl bk">−${c.back}</em>`;
   if (c.goose) return '<em class="cl go">Oie</em>';
   return '';
@@ -701,11 +702,11 @@ function plateauHTML() {
   const can = isColoc && !done && have >= cost && !state.rolling;
   const hist = state.dice.slice(0, 15);
   return `
-    <p class="summary" style="margin-top:0">Chaque semaine le plateau repart de zéro. Un dé coûte <b>${DICE_PRICES.join(' puis ')} 🧼</b> au fil des lancers de la journée (retour à ${DICE_PRICES[0]} à minuit). Pendant la course, les cases rapportent de l'XP et des jetons 🪙 (pas de trophées) ; l'arrivée rapporte en plus des trophées.</p>
+    <p class="summary" style="margin-top:0">Chaque semaine le plateau repart de zéro. Un dé coûte <b>${DICE_PRICES.join(' puis ')} 🧼</b> au fil des lancers de la journée (retour à ${DICE_PRICES[0]} à minuit). Pendant la course, les cases rapportent de l'XP et des dollars 💵 (pas de trophées) ; l'arrivée rapporte en plus des trophées.</p>
     <div class="perkbox"><b>Récompense d'arrivée de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)} · en plus de ${GOOSE.finish.xp} XP et ${GOOSE.finish.trophy} 🏆</small></div>
     <div class="goose"><div class="gstart"><b>Départ</b><div class="pw">${(pawns[0] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''}" title="${esc(m.name)}">${av(m, 22)}</span>`).join('')}</div></div>
       <div class="ggrid">${cells.join('')}</div></div>
-    <div class="legend"><span><i class="cl xp">XP</i> bonus d'XP</span><span><i class="cl tr">🪙</i> jetons</span><span><i class="cl bk">−1</i> piège : recule d'une case</span><span><i class="cl go">Oie</i> avance encore</span></div>
+    <div class="legend"><span><i class="cl xp">XP</i> bonus d'XP</span><span><i class="cl tr">💵</i> dollars</span><span><i class="cl bk">−1</i> piège : recule d'une case</span><span><i class="cl go">Oie</i> avance encore</span></div>
     <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : done ? 'Arrivé ! Reviens lundi' : state.rolling ? 'Le dé roule…' : `Lancer le dé · ${cost} 🧼`}</button>
     <div class="det" style="text-align:center">Tu as ${have} 🧼 · case ${pos || 'départ'} sur ${GOOSE.size}</div>
     <h3 class="sec">Derniers lancers</h3>
@@ -784,7 +785,7 @@ function dailyCardHTML() {
   const st = statsOf(state.me.id), due = dailyDue();
   return `<div class="dailycard ${due ? 'due' : ''}">
     <div class="dh"><b>🎁 Récompense du jour</b><small>${due ? 'À récupérer' : 'Récupérée · reviens demain'}</small></div>
-    <div class="dreward"><span>🪙 +${DAILY.chips} jetons</span><span>⭐ +${DAILY.xp} XP</span></div>
+    <div class="dreward"><span>💵 +${DAILY.chips} dollars</span><span>⭐ +${DAILY.xp} XP</span></div>
     ${due ? `<button class="btn primary" data-action="daily-claim">Récupérer</button>` : ''}
     ${st.wheel_ready ? `<button class="wheelban" data-action="wheel">🎡 Ta roue de la fortune est prête ! <b>Tourner</b></button>` : ''}
   </div>`;
@@ -978,7 +979,7 @@ function gameInfoHTML(s) {
   if (!g) return '';
   const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
   const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`,
-    sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé', blackjack: `${chipsOf(me.id)} jetons · ${st.blackjack_wins || 0} main${(st.blackjack_wins || 0) > 1 ? 's' : ''} gagnée${(st.blackjack_wins || 0) > 1 ? 's' : ''}` }[s.id];
+    sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé', blackjack: `${chipsOf(me.id)} dollars · ${st.blackjack_wins || 0} main${(st.blackjack_wins || 0) > 1 ? 's' : ''} gagnée${(st.blackjack_wins || 0) > 1 ? 's' : ''}` }[s.id];
   const others = state.members.filter((m) => m.id !== me.id);
   if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
   return sheetWrap(`
@@ -993,30 +994,40 @@ function gameInfoHTML(s) {
 function meHTML() {
   const seg = state.meSeg;
   return `
-    <div class="seg">${[['profil', 'Profil'], ['robe', 'Garde-robe']].map(([k, l]) =>
+    <div class="seg">${[['profil', 'Profil'], ['robe', 'Garde-robe'], ['gens', 'Colocs & copains']].map(([k, l]) =>
       `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'robe' ? robeHTML() : persoHTML()}`;
+    ${seg === 'robe' ? robeHTML() : seg === 'gens' ? gensHTML() : persoHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
-function statGrid(m) {
+function badgeCells(m) {
   const st = statsOf(m.id);
-  const soap = earnedSoap(m.id);
   const wins = state.duelStats.find((x) => x.member_id === m.id)?.wins ?? 0;
-  const cells = [
+  return [
     ['level', '⭐', 'Niveau', lvlOf(m.id)],
     ['coins', '🏆', 'Trophées', balanceOf(m.id)],
-    ['chores', '🧼', 'Savons', soap],
-    ['jetons', '🪙', 'Jetons', chipsOf(m.id)],
+    ['chores', '🧼', 'Savons', earnedSoap(m.id)],
+    ['dollars', '💵', 'Dollars', chipsOf(m.id)],
     ['chifoumi', '✊', 'Victoires chifoumi', wins],
     ['flappy', '🐦', 'Jumpy Cardinal', st.flappy_best || 0],
     ['raid', '🏃', 'Grand Raid', st.raid_best || 0, `${st.raid_best || 0} m`],
     ['blackjack', '🃏', 'Blackjack (mains gagnées)', st.blackjack_wins || 0],
   ];
-  return `<div class="stgrid">${cells.map(([k, e, l, raw, shown]) => {
-    const t = tierOf(k, raw);
-    return `<div class="stc"><span class="medal ${t == null ? 'none' : 't' + t}" title="${t == null ? 'Pas encore de résultat' : TIER_NAMES[t]}">${e}</span><b>${esc(shown ?? raw)}</b><small>${l}</small><i class="tier ${t == null ? 'none' : 't' + t}">${t == null ? '—' : TIER_NAMES[t]}</i></div>`;
+}
+// pick = true : on peut toucher un badge pour le mettre en avant sur son profil
+function statGrid(m, pick = false) {
+  return `<div class="stgrid">${badgeCells(m).map(([k, e, l, raw, shown]) => {
+    const t = tierOf(k, raw), on = m.badge === k;
+    const inner = `<span class="medal ${t == null ? 'none' : 't' + t}" title="${t == null ? 'Pas encore de résultat' : TIER_NAMES[t]}">${e}</span><b>${esc(shown ?? raw)}</b><small>${l}</small><i class="tier ${t == null ? 'none' : 't' + t}">${t == null ? '—' : TIER_NAMES[t]}</i>${on ? '<em class="star">★ affiché</em>' : ''}`;
+    return pick ? `<button class="stc ${on ? 'feat' : ''}" data-action="badge" data-id="${k}" aria-pressed="${on}">${inner}</button>` : `<div class="stc ${on ? 'feat' : ''}">${inner}</div>`;
   }).join('')}</div>`;
+}
+// Le badge mis en avant par la personne (les autres sont dans un sous-menu)
+function featuredBadgeHTML(m) {
+  const c = badgeCells(m).find((x) => x[0] === m.badge);
+  if (!c) return '';
+  const [k, e, l, raw, shown] = c, t = tierOf(k, raw);
+  return `<div class="featbadge"><span class="medal ${t == null ? 'none' : 't' + t}">${e}</span><div><b>${esc(shown ?? raw)}</b><small>${l}${t == null ? '' : ` · ${TIER_NAMES[t]}`}</small></div></div>`;
 }
 
 // Réglages du profil : titre affiché
@@ -1076,25 +1087,40 @@ function persoHTML() {
     <div class="center-av">${av(me, 150)}</div>
     <div class="lvlline"><b>Niveau ${levelProgress(xpOf(me.id)).level}</b> · ${xpOf(me.id)} XP · encore ${levelProgress(xpOf(me.id)).need - levelProgress(xpOf(me.id)).into} pour le niveau ${levelProgress(xpOf(me.id)).level + 1}
       <div class="bar sm lvlbar"><i style="width:${levelProgress(xpOf(me.id)).pct}%"></i></div></div>
-    <h3 class="sec">Genre</h3>
-    <div class="seg small">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
-      `<button class="${me.gender === k ? 'on' : ''}" data-action="gender" data-v="${k}">${l}</button>`).join('')}</div>
-    <h3 class="sec">Couleur de peau ${cur.hidesSkin ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
-    <div class="swatches">${swatches(SKIN_COLORS, 'skin', me.skin)}</div>
-    <h3 class="sec">Couleur de cheveux ${cur.hidesHair ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
-    <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
-    <h3 class="sec">Couleur de fond du profil</h3>
-    <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>
+    <button class="btn foldbtn" data-action="tog" data-id="sexe" aria-expanded="${!!state.open.sexe}">Changer de sexe ${state.open.sexe ? '▴' : '▾'}</button>
+    ${state.open.sexe ? `<div class="seg small" style="margin-top:8px">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
+      `<button class="${me.gender === k ? 'on' : ''}" data-action="gender" data-v="${k}">${l}</button>`).join('')}</div>` : ''}
+    <button class="btn foldbtn" data-action="tog" data-id="couleur" aria-expanded="${!!state.open.couleur}">Changer de couleur ${state.open.couleur ? '▴' : '▾'}</button>
+    ${state.open.couleur ? `
+      <h3 class="sec">Couleur de peau ${cur.hidesSkin ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
+      <div class="swatches">${swatches(SKIN_COLORS, 'skin', me.skin)}</div>
+      <h3 class="sec">Couleur de cheveux ${cur.hidesHair ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
+      <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
+      <h3 class="sec">Couleur de fond du profil</h3>
+      <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>` : ''}
     ${profileEdit(me)}
     ${activePerksOf(me.id).length || perksOwed().length ? `<h3 class="sec">Récompenses du plateau</h3>
       ${activePerksOf(me.id).map((pk) => perkCardHTML(pk, true)).join('')}
       ${perksOwed().length ? `<div class="det">À offrir :</div>${perksOwed().map((pk) => perkCardHTML(pk, false)).join('')}` : ''}` : ''}
     <h3 class="sec">Mes badges</h3>
-    ${statGrid(me)}
+    <p class="summary" style="margin-top:0">Touche un badge pour le mettre en avant sur ton profil. Les autres restent visibles dans un sous-menu.</p>
+    ${statGrid(me, true)}
     <h3 class="sec">Mes messages</h3>
     ${inboxHTML()}
     <button class="btn" style="margin-top:14px" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="link" data-action="switch">Changer de prénom (actuellement ${esc(me.name)})</button>`;
+}
+
+// Liste des colocs et des copains : niveau, savons, trophées ; on ouvre le profil en touchant la ligne
+function gensHTML() {
+  const me = state.me;
+  const row = (m) => `<button class="rrow gens" data-action="profile" data-id="${m.id}">
+      <span class="rav">${av(m, 46)}</span>
+      <span class="nm">${esc(m.name)}${titleLabel(m) ? `<small class="ptitle">${esc(titleLabel(m))}</small>` : ''}<small class="muted">Niveau ${lvlOf(m.id)}</small></span>
+      <span class="pts2"><b>${earnedSoap(m.id)} 🧼</b><b>${balanceOf(m.id)} 🏆</b></span></button>`;
+  const cl = colocs().filter((m) => m.id !== me.id), co = copains().filter((m) => m.id !== me.id);
+  return `<h3 class="sec">Les colocs</h3>${cl.length ? cl.map(row).join('') : '<div class="det">Aucun autre coloc.</div>'}
+    <h3 class="sec">Les copains</h3>${co.length ? co.map(row).join('') : '<div class="det">Aucun copain pour l\'instant.</div>'}`;
 }
 
 function robeHTML() {
@@ -1156,7 +1182,8 @@ function profileSheetHTML(s) {
     <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
     <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${esc(m.name)}</b></div>
-    ${statGrid(m)}
+    ${featuredBadgeHTML(m)}
+    <details class="allbadges"><summary>${m.badge ? 'Voir tous les badges' : 'Badges'}</summary>${statGrid(m)}</details>
     ${activePerksOf(m.id).map((pk) => perkCardHTML(pk, mine)).join('')}
     ${mine ? '' : `<div class="sact two"><button class="btn primary" data-action="duel-with" data-id="${m.id}">Défier au chifoumi</button><button class="btn" data-action="msg" data-id="${m.id}">Envoyer un message</button></div>`}
     ${m.kind === 'copain' ? '' : `<h3 class="sec">3 dernières tâches</h3>
@@ -1243,6 +1270,7 @@ document.addEventListener('click', (e) => {
       if (tab === 'me') markRead();
       break;
     }
+    case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'heads': state.heads = !state.heads; render(); if (state.heads) questStep(6); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
@@ -1266,6 +1294,7 @@ document.addEventListener('click', (e) => {
     // --- Toi : personnage et boutique ---
     case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
     case 'bg': saveProfile({ bg: v }); break;
+    case 'badge': saveProfile({ badge: state.me.badge === id ? null : id }); break;
     case 'title': saveTitle(state.me.title === id ? null : id); break;
     case 'profile': openProfile(Number(id)); break;
     case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'profil'; state.anim = true; markRead(); render(); window.scrollTo(0, 0); break;

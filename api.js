@@ -212,6 +212,7 @@ export function makeDemoApi() {
     async createDuel(challenger, opponent, wager, move) {
       if (!MOVES[move]) fail('Coup invalide.');
       if (challenger === opponent) fail('Tu ne peux pas te défier toi-même.');
+      if (db.duels.some((x) => x.status === 'pending' && ((x.challenger_id === challenger && x.opponent_id === opponent) || (x.challenger_id === opponent && x.opponent_id === challenger)))) fail('Un défi est déjà en attente avec ce joueur.');
       const d = { id: db.nextDuel++, challenger_id: challenger, opponent_id: opponent, wager: 0, status: 'pending',
         challenger_move: null, opponent_move: null, winner_id: null, created_at: now(), played_at: null, _move: move };
       db.duels.push(d); save(); return d.id;
@@ -330,7 +331,7 @@ export function makeDemoApi() {
       for (let depth = 0; depth < 3; depth++) {
         const c = GOOSE.cells[to]; if (!c) break;
         if (c.xp) { xp += c.xp; note += ` +${c.xp} XP`; break; }
-        if (c.chips) { ch += c.chips; note += ` +${c.chips} jetons`; break; }
+        if (c.chips) { ch += c.chips; note += ` +${c.chips} dollars`; break; }
         if (c.back) { to = Math.max(to - c.back, 0); note += ` piège : recule de ${c.back}`; }
         else if (c.goose) { to = Math.min(to + roll, GOOSE.size); note += ` oie : avance encore de ${roll}`; }
       }

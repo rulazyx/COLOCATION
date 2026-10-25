@@ -1,4 +1,4 @@
-// Blackjack : mises en trophées (jetons), doubler, séparer, tirage animé.
+// Blackjack : mises en trophées (dollars), doubler, séparer, tirage animé.
 // La banque tire jusqu'à 17. Le résultat de chaque main est envoyé à la fin :
 //   onEnd({ bet, net, hands, wins, blackjack }) — net = trophées gagnés (+) ou perdus (−)
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -70,12 +70,12 @@ export function mount(root, { onEnd, balance }) {
          <div class="bj-btns"><button class="bj-b sm" data-act="double" ${canDouble ? '' : 'disabled'}>Doubler</button><button class="bj-b sm" data-act="split" ${canSplit ? '' : 'disabled'}>Séparer</button></div>`
       : phase === 'bet' || phase === 'over'
         ? `<div class="bj-bets">${bets().map((b) => `<button class="bj-chip ${b === bet ? 'sel' : ''}" data-bet="${b}" ${b > bal ? 'disabled' : ''}>${b}</button>`).join('')}</div>
-           ${bal < bets()[0] ? `<div class="bj-msg lose" style="min-height:0">Il te faut au moins ${bets()[0]} jetons pour jouer. Tu en reçois 50 chaque jour dans Défis.</div>` : ''}
+           ${bal < bets()[0] ? `<div class="bj-msg lose" style="min-height:0">Il te faut au moins ${bets()[0]} dollars pour jouer. Tu en reçois 50 chaque jour dans Défis.</div>` : ''}
            <div class="bj-btns"><button class="bj-b" data-act="deal" ${bal < bets()[0] || bet < 1 ? 'disabled' : ''}>${phase === 'bet' ? 'Distribuer' : 'Nouvelle main'}</button></div>`
         : '';
     root.innerHTML = `<div class="bj">
       <div class="dealer ${fresh && fresh !== 'flip' ? 'dealing' : ''}">${DEALER}</div>
-      <div class="bj-bal">Jetons : <b>${bal}</b>${bet ? ` · Mise : <b>${bet}</b>` : ''}</div>
+      <div class="bj-bal">Dollars : <b>${bal}</b>${bet ? ` · Mise : <b>${bet}</b>` : ''}</div>
       <div class="bj-side"><div class="bj-lab">Banque ${dealer.length ? `<b>${dTot}</b>` : ''}</div>
         <div class="bj-hand">${dealer.map((c, k) => card(c, k === 1 && !hideDealer && fresh === 'flip' ? 'flip' : `d${k}`, hideDealer && k === 1, true)).join('')}</div></div>
       ${TABLE_ARC}
