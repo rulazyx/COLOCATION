@@ -4,7 +4,7 @@ import {
 } from './config.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
-import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners } from './challenges.js';
+import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, PITON_M } from './challenges.js';
 
 /* =========================================================
    Utilitaires
@@ -97,7 +97,7 @@ function buildWeek(monday, members) {
    ========================================================= */
 const state = {
   api: null, members: [], me: null, tasks: [], products: [], scores: [], balances: [], purchases: [], duels: [],
-  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], requests: [], tasksSeg: 'plan', levelUps: [],
+  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], requests: [], tasksSeg: 'plan', questSeg: 'quests', anim: false, levelUps: [],
   tab: 'tasks', weekOffset: 0, meSeg: 'profil', board: 'all', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], dailyDismissed: false, viewedNow: new Set(),
 };
@@ -390,7 +390,7 @@ async function openGame(id) {
   questStep(3);
   state.game = id; state.sheet = null; render();
   const layer = document.createElement('div');
-  layer.id = 'gamelayer'; layer.className = 'gamelayer';
+  layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
   layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button><b>${G.emoji} ${esc(G.name)}</b><span class="gbest"></span></div><div class="gbody"></div>`;
   document.body.appendChild(layer);
   layer.addEventListener('click', (e) => { if (e.target.closest('[data-gact="close"]')) closeGame(); });
@@ -481,17 +481,14 @@ function render() {
   const reqForMe = state.requests.filter((r) => r.status === 'pending' && r.to_id === state.me.id).length;
   const duelsForMe = pendingForMe().length;
   const tab = state.tab;
+  const anim = state.anim; state.anim = false;
   const badge = (n, color) => (n ? `<span class="badge" ${color ? `style="background:${color}"` : ''}>${n}</span>` : '');
   app.innerHTML = `
-    <header class="top">
-      <h1>🏠 Coloc${state.api.mode === 'demo' ? ' <small style="font-weight:400;color:var(--muted)">(démo)</small>' : ''}</h1>
-      <button class="chip" data-action="push" aria-label="Notifications">${pushOn() ? '🔔' : '🔕'}</button>
-    </header>
-    <main>
+    <main class="${anim ? 'pg' : ''}">
       ${pushOn() || store.get('coloc-push-dismiss') === '1' ? '' : `
         <div class="banner">
           <span>Active les notifications pour recevoir les rappels, les alertes de rupture et les défis.</span>
-          <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:#fff;padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
+          <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${tab === 'tasks' ? tasksHTML() : tab === 'quests' ? questsHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : meHTML()}
     </main>
@@ -500,7 +497,7 @@ function render() {
       <button data-action="tab" data-tab="quests" class="${tab === 'quests' ? 'active' : ''}"><span class="ico">🧭</span>Quêtes</button>
       <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''}"><span class="ico">🎮</span>Jeux${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''}"><span class="ico">🥇</span>Classement</button>
-      <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''}"><span class="ico">👤</span>Toi${badge(statsOf(state.me.id).wheel_ready ? 1 : 0, 'var(--accent)')}</button>
+      <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''}"><span class="ico">👤</span>Toi${badge(statsOf(state.me.id).wheel_ready ? 1 : 0, 'var(--danger)')}</button>
     </nav>
     ${sheetHTML()}`;
 }
@@ -559,6 +556,14 @@ function upcomingHTML() {
 
 /* ---------- Onglet Quêtes (bientôt) ---------- */
 function questsHTML() {
+  const seg = state.questSeg;
+  const n = unlockedKeys(state.me.id).size;
+  return `<div class="seg" style="margin-bottom:12px">${[['quests', '🧭 Quêtes'], ['defis', `🏅 Défis ${n}/${CHALLENGES.length}`]].map(([k, l]) =>
+    `<button class="${seg === k ? 'on' : ''}" data-action="qseg" data-v="${k}">${l}</button>`).join('')}</div>
+    ${seg === 'defis' ? defisHTML() : mainQuestHTML() + pitonHTML()}`;
+}
+
+function mainQuestHTML() {
   const mask = statsOf(state.me.id).quest_mask ?? 0;
   const q = MAIN_QUEST, got = q.steps.filter((x) => mask & (1 << (x.n - 1))).length, done = got === q.steps.length;
   return `<div class="quest ${done ? 'done' : ''}">
@@ -567,6 +572,17 @@ function questsHTML() {
     <ol class="q-steps">${q.steps.map((x) => { const ok = mask & (1 << (x.n - 1));
       return `<li class="${ok ? 'ok' : ''}"><button data-action="tab" data-tab="${x.tab}" ${ok ? 'disabled' : ''}><span class="q-n">${ok ? '✓' : x.n}</span><span>Étape ${x.n} : ${esc(x.text)}</span><em>${x.emoji}</em></button></li>`; }).join('')}</ol>
     ${done ? '<p class="q-end">🎉 Quête terminée ! Le défi « Le noob » est à toi.</p>' : ''}
+  </div>`;
+}
+
+// Quête secondaire : monter le Piton des Neiges (3 070 m) en une course du Grand Raid
+function pitonHTML() {
+  const best = statsOf(state.me.id).raid_best || 0, done = best >= PITON_M;
+  return `<div class="quest ${done ? 'done' : ''}">
+    <div class="q-head"><span class="q-ico">⛰️</span><div><small>Quête secondaire</small><h2>Monter le Piton des Neiges</h2></div><b class="q-count">${Math.min(best, PITON_M)} / ${PITON_M} m</b></div>
+    <div class="lvlbar"><i style="width:${Math.min(100, best / PITON_M * 100)}%"></i></div>
+    <p class="q-desc">Atteins ${PITON_M} m en une seule course du Grand Raid : l'altitude du Piton des Neiges, le toit de La Réunion.</p>
+    ${done ? '<p class="q-end">🏔️ Sommet atteint !</p>' : `<button class="btn" data-action="tab" data-tab="games" style="margin-top:8px">🏃 Aller courir</button>`}
   </div>`;
 }
 
@@ -617,7 +633,6 @@ function planningHTML() {
     </div>
     ${kinds.length ? `
       <div class="table">${cells}</div>
-      <div class="legend">Touche une case pour la valider · lettre = responsable · ✓ faite · ↷ sautée</div>
       <div class="progress">${doneN} / ${list.length} faites<div class="bar"><i style="width:${list.length ? (doneN / list.length) * 100 : 0}%"></i></div></div>`
       : '<div class="empty-msg">Aucune tâche cette semaine.</div>'}`;
 }
@@ -845,7 +860,6 @@ function gamesHTML() {
 function meHTML() {
   const me = state.me;
   const seg = state.meSeg;
-  const n = unlockedKeys(me.id).size;
   const p = levelProgress(xpOf(me.id));
   const mine = state.scores.find((s) => s.member_id === me.id) ?? { done_count: 0 };
   return `
@@ -856,9 +870,9 @@ function meHTML() {
         <div class="sub">${xpOf(me.id)} XP · encore ${p.need - p.into} pour le niveau ${p.level + 1}</div>
         <div class="sub"><b>${balanceOf(me.id)} 🏆</b> trophées · ${mine.done_count} tâche${mine.done_count > 1 ? 's' : ''} faite${mine.done_count > 1 ? 's' : ''}</div></div>
     </section>
-    <div class="seg">${[['profil', 'Profil'], ['perso', 'Perso'], ['defis', `Défis ${n}/${CHALLENGES.length}`]].map(([k, l]) =>
+    <div class="seg">${[['profil', 'Profil'], ['perso', 'Personnalisation']].map(([k, l]) =>
       `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'perso' ? persoHTML() : seg === 'defis' ? defisHTML() : profilTabHTML()}`;
+    ${seg === 'perso' ? persoHTML() : profilTabHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
@@ -867,20 +881,25 @@ function statGrid(m) {
   const chores = state.scores.find((x) => x.member_id === m.id)?.done_count ?? 0;
   const wins = state.duelStats.find((x) => x.member_id === m.id)?.wins ?? 0;
   const cells = [
-    ['⭐', 'Niveau', lvlOf(m.id)], ['🏆', 'Trophées', balanceOf(m.id)], ['🧹', 'Tâches faites', chores], ['✊', 'Victoires chifoumi', wins],
-    ['🐤', 'Coucou', st.flappy_best || 0], ['🏃', 'Grand Raid', `${st.raid_best || 0} m`],
-    ['🔢', 'Sudoku', st.sudoku_best ? fmtTime(st.sudoku_best) : '—'],
-    ['👑', 'Semaines gagnées', weeksWon(m.id)],
+    ['level', '⭐', 'Niveau', lvlOf(m.id), lvlOf(m.id)],
+    ['coins', '🏆', 'Trophées', balanceOf(m.id), balanceOf(m.id)],
+    ['chores', '🧹', 'Tâches faites', chores, chores],
+    ['chifoumi', '✊', 'Victoires chifoumi', wins, wins],
+    ['flappy', '🐤', 'Coucou', st.flappy_best || 0, st.flappy_best || 0],
+    ['raid', '🏃', 'Grand Raid', `${st.raid_best || 0} m`, st.raid_best || 0],
+    ['sudoku', '🔢', 'Sudoku', st.sudoku_best ? fmtTime(st.sudoku_best) : '—', st.sudoku_best ?? null],
+    ['weeks', '👑', 'Semaines gagnées', weeksWon(m.id), weeksWon(m.id)],
   ];
-  return `<div class="stgrid">${cells.map(([e, l, v]) => `<div class="stc"><span>${e}</span><b>${esc(v)}</b><small>${l}</small></div>`).join('')}</div>`;
+  return `<div class="stgrid">${cells.map(([k, e, l, shown, raw]) => {
+    const t = tierOf(k, raw);
+    return `<div class="stc"><span class="medal ${t == null ? 'none' : 't' + t}" title="${t == null ? 'Pas encore de résultat' : TIER_NAMES[t]}">${e}</span><b>${esc(shown)}</b><small>${l}</small><i class="tier ${t == null ? 'none' : 't' + t}">${t == null ? '—' : TIER_NAMES[t]}</i></div>`;
+  }).join('')}</div>`;
 }
 
-// Réglages du profil : couleur de fond, titre affiché
+// Réglages du profil : titre affiché
 function profileEdit(m) {
   const unlocked = CHALLENGES.filter((c) => unlockedKeys(m.id).has(c.key));
   return `
-    <h3 class="sec">Couleur de fond</h3>
-    <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(m.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>
     <h3 class="sec">Titre affiché</h3>
     <select class="dd" data-input="title" aria-label="Titre affiché">
       <option value="">Aucun titre</option>
@@ -900,7 +919,8 @@ function profilTabHTML() {
     <div class="pname"><b>${esc(me.name)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div>
     ${statGrid(me)}
     ${profileEdit(me)}
-    <button class="btn" style="margin-top:14px" data-action="seg" data-seg="perso">🎭 Changer de personnage</button>
+    <button class="btn" style="margin-top:14px" data-action="seg" data-seg="perso">🎭 Personnalisation</button>
+    <button class="btn" style="margin-top:8px" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
 
     <h3 class="sec">Les colocs</h3>${faces(cl)}
     ${co.length ? `<h3 class="sec">Les copains</h3>${faces(co)}` : ''}
@@ -944,6 +964,8 @@ function persoHTML() {
     <div class="swatches">${swatches(SKIN_COLORS, 'skin', me.skin)}</div>
     <h3 class="sec">Couleur de cheveux ${cur.hidesHair ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
     <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
+    <h3 class="sec">Couleur de fond du profil</h3>
+    <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>
     <h3 class="sec">Ma garde-robe</h3>
     <div class="shop">${Object.entries(OUTFITS).filter(([id]) => owned.has(id)).map(([id]) => `
       <button class="item ${me.outfit === id || (!me.outfit && id === 'none') ? 'eq' : ''}" data-action="equip" data-id="${id}">
@@ -1123,13 +1145,13 @@ document.addEventListener('click', (e) => {
       store.set('coloc-me', String(state.me.id));
       render(); syncSub(); checkNewResults(); render(); break;
     case 'switch': state.me = null; state.tab = 'tasks'; state.sheet = null; render(); break;
-    case 'tab': state.tab = tab; state.sheet = null; render(); window.scrollTo(0, 0); if (tab === 'rank') questStep(2); break;
+    case 'tab': state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; render(); window.scrollTo(0, 0); if (tab === 'rank') questStep(2); break;
     case 'week': state.weekOffset = Math.max(-WEEKS_BACK, Math.min(WEEKS_AHEAD, state.weekOffset + Number(d))); render(); break;
     case 'cell': state.sheet = { type: 'task', week: el.dataset.week, kind: el.dataset.kind, day: Number(el.dataset.day), mode: 'auto' }; render(); questStep(4); break;
     case 'open': if (task) { state.sheet = { type: 'task', week: task.week, kind: task.kind, day: task.day_index, mode: el.dataset.mode }; render(); questStep(4); } break;
     case 'close': if (e.target === el) closeSheet(); break;
     case 'do': if (task) act(task, 'done'); break;
-    case 'tseg': state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
+    case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
     case 'propose': state.sheet = { type: 'propose', taskId: Number(id) }; render(); break;
     case 'propose-to': proposeTo(Number(id), Number(el.dataset.to)); break;
     case 'req-accept': answerRequest(Number(id), true); break;
@@ -1141,11 +1163,12 @@ document.addEventListener('click', (e) => {
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
     // --- Toi : personnage et boutique ---
-    case 'seg': state.meSeg = seg; state.sheet = null; render(); break;
+    case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
+    case 'qseg': state.anim = state.questSeg !== v; state.questSeg = v; render(); window.scrollTo(0, 0); break;
     case 'bg': saveProfile({ bg: v }); break;
     case 'title': saveTitle(state.me.title === id ? null : id); break;
     case 'profile': openProfile(Number(id)); break;
-    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'profil'; render(); window.scrollTo(0, 0); break;
+    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'profil'; state.anim = true; render(); window.scrollTo(0, 0); break;
     case 'board': state.board = v; render(); window.scrollTo(0, 0); break;
     case 'daily-claim': claimDailyNow(); break;
     case 'wheel': state.sheet = { type: 'wheel' }; render(); break;

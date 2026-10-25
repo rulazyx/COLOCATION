@@ -41,7 +41,21 @@ insert into challenges (key, coins, skin) values
   ('prince', 0, null),
   ('roi_coloc', 0, 'roi'),
   ('dieu_coloc', 0, 'zeus'),
-  ('noob', 0, null),
+  ('noob', 0, 'zippo'),
   ('mathematicien', 0, null),
   ('inspecteur', 0, 'detective')
 on conflict (key) do update set coins = excluded.coins, skin = excluded.skin;
+
+-- Zippo n'est plus débloqué au niveau 10 mais par le défi « Le noob »
+delete from skin_levels where item = 'zippo';
+-- ceux qui ont déjà « Le noob » reçoivent tout de suite l'apparence
+insert into purchases (member_id, item, price)
+  select member_id, 'zippo', 0 from unlocks where key = 'noob' on conflict do nothing;
+
+-- Niveaux des apparences (Singe 3, Pirate 5, Ninja 8, Astronaute 10)
+delete from skin_levels;
+insert into skin_levels (item, level) values
+  ('singe', 3),
+  ('pirate', 5),
+  ('ninja', 8),
+  ('astronaute', 10);

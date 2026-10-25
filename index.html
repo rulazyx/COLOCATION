@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Coloc</title>
   <meta name="description" content="Tâches ménagères et ruptures de stock de la coloc">
-  <meta name="theme-color" content="#2f9e6b">
+  <meta name="theme-color" content="#ffc928">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -25,8 +25,8 @@
   .ray.on{opacity:1;transform:scale(1)}
   .disc{transform-box:view-box;transform-origin:100px 100px;animation:breathe 1.6s ease-in-out infinite}
   @keyframes breathe{50%{transform:scale(1.04)}}
-  .face{opacity:0;transition:opacity .3s}
-  #splash.full .face{opacity:1}
+  .sunface{opacity:0;transition:opacity .3s}
+  #splash.full .sunface{opacity:1}
   .eye{transform-box:fill-box;transform-origin:center;animation:blink 3s infinite}
   @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
   .brand{margin-top:26px;font-weight:800;font-size:1.7rem;letter-spacing:.04em;color:#e08a00;text-transform:lowercase}
@@ -49,7 +49,7 @@
       <g id="rays" stroke="#ffb300" stroke-width="9" stroke-linecap="round"></g>
       <g class="disc">
         <circle cx="100" cy="100" r="50" fill="#ffd23f" stroke="#ffb300" stroke-width="5"/>
-        <g class="face">
+        <g class="sunface">
           <ellipse class="eye" cx="84" cy="94" rx="5" ry="7" fill="#5a3a00"/>
           <ellipse class="eye" cx="116" cy="94" rx="5" ry="7" fill="#5a3a00"/>
           <circle cx="76" cy="108" r="7" fill="#ff8a65" opacity=".55"/>

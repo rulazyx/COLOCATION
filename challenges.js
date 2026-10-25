@@ -8,6 +8,26 @@ import { OUTFITS, CHALLENGES_SINCE, levelOf } from './config.js';
 const st = (c) => c.stats[c.meId] ?? {};
 const chores = (c) => c.scores[c.meId]?.done_count ?? 0;
 const num = (v) => Number(v) || 0;
+// Badges (bois → platine). th = seuils bronze, argent, or, platine ; low = plus petit = mieux (sudoku)
+export const TIER_NAMES = ['Bois', 'Bronze', 'Argent', 'Or', 'Platine'];
+export const BADGES = {
+  level:    { th: [3, 6, 10, 15] },
+  coins:    { th: [50, 150, 400, 1000] },
+  chores:   { th: [5, 20, 50, 100] },
+  chifoumi: { th: [1, 5, 15, 30] },
+  flappy:   { th: [5, 15, 30, 60] },
+  raid:     { th: [1000, 3070, 6000, 10000] },
+  sudoku:   { th: [900, 600, 420, 300], low: true },
+  weeks:    { th: [1, 3, 6, 12] },
+};
+// Renvoie 0..4 (bois..platine), ou null s'il n'y a encore aucun résultat
+export function tierOf(key, v) {
+  const b = BADGES[key];
+  if (v == null || (!b.low && !(v > 0) && key !== 'level')) return null;
+  return b.th.filter((t) => (b.low ? v <= t : v >= t)).length;
+}
+// Quête secondaire : monter le Piton des Neiges (3 070 m) en une course du Grand Raid
+export const PITON_M = 3070;
 export const questDone = (mask) => (mask & 15) === 15;
 
 // Séries de victoires au chifoumi (toutes parties terminées, dans l'ordre)

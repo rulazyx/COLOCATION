@@ -40,11 +40,11 @@ export const HAIR_COLORS = [
 // hidesHair / hidesSkin : la tenue cache cheveux / peau. nameF : nom au féminin (facultatif)
 export const OUTFITS = {
   none:         { name: 'Tenue de base' },
-  singe:        { name: 'Singe',        level: 2,  hidesHair: true, hidesSkin: true },
-  pirate:       { name: 'Pirate',       level: 4 },
-  ninja:        { name: 'Ninja',        level: 6,  hidesHair: true },
-  astronaute:   { name: 'Astronaute',   level: 8 },
-  zippo:        { name: 'Zippo',        challenge:'zippo', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
+  singe:        { name: 'Singe',        level: 3,  hidesHair: true, hidesSkin: true },
+  pirate:       { name: 'Pirate',       level: 5 },
+  ninja:        { name: 'Ninja',        level: 8,  hidesHair: true },
+  astronaute:   { name: 'Astronaute',   level: 10 },
+  zippo:        { name: 'Zippo',        challenge: 'noob', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
   chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', challenge: 'pilier',            hidesHair: true },
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'roi_coloc' },

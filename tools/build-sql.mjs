@@ -21,7 +21,7 @@ const shop = ['singe', 'pirate', 'ninja', 'astronaute', 'zippo'].map((k, i) => `
 const v4 = sub(read('supabase/v4.template.sql').replace('__CHALLENGES__', chal + ';').replace('__SHOP__', shop + ';'));
 const skins = Object.entries(OUTFITS).filter(([, o]) => o.level).map(([k, o]) => `  (${q(k)}, ${o.level})`).join(',\n');
 const v5 = sub(read('supabase/v5.template.sql').replace('__SKINS__', skins + ';'));
-const v6 = sub(read('supabase/v6.template.sql').replace('__CHALLENGES__', chal));
+const v6 = sub(read('supabase/v6.template.sql').replace('__CHALLENGES__', chal).replace('__SKINS__', skins + ';'));
 writeFileSync(new URL('supabase/migration-v6.sql', root), v6);
 writeFileSync(new URL('supabase/migration-v4.sql', root), v4);
 writeFileSync(new URL('supabase/migration-v5.sql', root), v5);

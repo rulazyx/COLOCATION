@@ -96,11 +96,10 @@ create trigger products_xp after update of out_of_stock on products for each row
 create table if not exists skin_levels (item text primary key, level int not null);
 delete from skin_levels;
 insert into skin_levels (item, level) values
-  ('singe', 2),
-  ('pirate', 4),
-  ('ninja', 6),
-  ('astronaute', 8),
-  ('zippo', 10);;
+  ('singe', 3),
+  ('pirate', 5),
+  ('ninja', 8),
+  ('astronaute', 10);;
 alter table skin_levels enable row level security;
 drop policy if exists "skin_levels lecture" on skin_levels;
 create policy "skin_levels lecture" on skin_levels for select using (true);

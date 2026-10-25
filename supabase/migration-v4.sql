@@ -70,7 +70,7 @@ insert into challenges (key, coins, skin) values
   ('prince', 0, null),
   ('roi_coloc', 0, 'roi'),
   ('dieu_coloc', 0, 'zeus'),
-  ('noob', 0, null),
+  ('noob', 0, 'zippo'),
   ('mathematicien', 0, null),
   ('inspecteur', 0, 'detective');;
 create table if not exists shop_prices (item text primary key, price int not null check (price >= 0));
