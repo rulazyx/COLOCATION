@@ -21,7 +21,7 @@ export const XP_RULES = {
 };
 // Paliers de score : XP offerte UNE fois quand on franchit chaque palier (at = seuils, xp = récompenses)
 export const MILESTONES = {
-  flappy: { at: [10, 25, 50, 100, 250, 500, 1000], xp: [50, 100, 150, 250, 400, 600, 1000] },
+  flappy: { at: [10, 50, 100, 250, 500, 1000], xp: [5, 50, 100, 250, 350, 1000] },
   raid:   { at: [500, 1000, 3070, 6000, 10000, 20000], xp: [50, 100, 200, 300, 500, 800] },
   sudoku: { at: [900, 600, 420, 300, 240], xp: [50, 100, 200, 400, 700], low: true }, // temps en secondes : plus petit = mieux
 };
@@ -50,10 +50,10 @@ export const HAIR_COLORS = [
 // hidesHair / hidesSkin : la tenue cache cheveux / peau. nameF : nom au féminin (facultatif)
 export const OUTFITS = {
   none:         { name: 'Tenue de base' },
-  singe:        { name: 'Singe',        level: 3,  hidesHair: true, hidesSkin: true },
-  pirate:       { name: 'Pirate',       level: 5 },
-  ninja:        { name: 'Ninja',        level: 8,  hidesHair: true },
-  astronaute:   { name: 'Astronaute',   level: 10 },
+  singe:        { name: 'Singe',        level: 5,  hidesHair: true, hidesSkin: true },
+  pirate:       { name: 'Pirate',       level: 8 },
+  ninja:        { name: 'Ninja',        level: 12,  hidesHair: true },
+  astronaute:   { name: 'Astronaute',   level: 15 },
   zippo:        { name: 'Zippo',        challenge: 'noob', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
   chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', challenge: 'pilier',            hidesHair: true },
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
