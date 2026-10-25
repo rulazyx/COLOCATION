@@ -128,3 +128,5 @@ Nouveautés : header avec ta tête (touche-la pour voir tous les colocs et copai
 Réglages : `config.js` (`GOOSE` = cases du plateau, `LEVEL_K` = difficulté des niveaux, `BJ_BETS`, `XP_RULES`).
 
 Ajouts : historique des trophées et des savons (touche les chips en haut à droite), récompense d'arrivée du plateau qui change chaque semaine (bière, mini cadeau aux courses, semaine de vacances ; réglable dans `PERKS`), prix du dé `DICE_PRICES` (1, 3, 5, 10, 20), plus d'essai au blackjack, nouvelle icône soleil. La migration `migration-v8.sql` contient tout : si tu l'as déjà lancée, relance-la simplement.
+
+Ajouts v11c : jetons 🪙 (monnaie du blackjack, 50 offerts par jour avec 50 XP ; mises 10-20-30-50 puis 100-200-300-500 au-delà de 500 jetons ; défis à 500, 1 000 et 10 000 jetons), plateau sans trophées pendant la course (jetons, pièges −1), défis triés par type avec les terminés en bas, profil sans header, tuiles de jeux redessinées, nouvelle introduction (6 étapes dont les têtes). ⚠️ `migration-v8.sql` **remet les niveaux à zéro** (XP de tout le monde, une seule fois).

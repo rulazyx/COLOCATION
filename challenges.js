@@ -1,7 +1,7 @@
 // Défis (titres à débloquer) et classements. Fonctions pures : elles ne touchent ni au DOM ni à la base.
 // ⚠️ Les clés (key), les trophées et les apparences de récompense doivent rester identiques à la table
 //    "challenges" de supabase/migration-v4.sql (c'est la base qui verse la récompense).
-import { OUTFITS, levelOf } from './config.js';
+import { OUTFITS, levelOf, CHIP_GOALS } from './config.js';
 
 // ctx = { meId, members, stats:{id→ligne}, scores:{id→{coins=savons,done_count}}, balances:{id→trophées}, wins:{id→n},
 //         duels:[…], owned:Set, viewed:Set, xp:{id→xp} }
@@ -17,6 +17,8 @@ export const BADGES = {
   chifoumi: { th: [3, 15, 40, 100] },
   flappy:   { th: [10, 40, 100, 300] },
   raid:     { th: [1000, 3070, 6000, 10000] },
+  jetons:   { th: [100, 500, 1000, 10000] },
+  blackjack: { th: [5, 25, 75, 200] },
 };
 // Renvoie 0..4 (bois..platine), ou null s'il n'y a encore aucun résultat
 export function tierOf(key, v) {
@@ -24,7 +26,7 @@ export function tierOf(key, v) {
   if (v == null || (!b.low && !(v > 0) && key !== 'level')) return null;
   return b.th.filter((t) => (b.low ? v <= t : v >= t)).length;
 }
-export const questDone = (mask) => (mask & 31) === 31; // introduction terminée
+export const questDone = (mask) => (mask & 63) === 63; // introduction terminée
 
 // Séries de victoires au chifoumi (toutes parties terminées, dans l'ordre)
 export function duelRuns(duels, meId) {
@@ -118,35 +120,39 @@ const skinsToCollect = Object.keys(OUTFITS).filter((k) => k !== 'none');
 
 export const CHALLENGES = [
   // — Ménage —
-  { key: 'propre_soi', xp: 100, title: 'Le Propre sur soi', emoji: '🧼', desc: 'Faire 1 tâche de ménage (validée par un coloc).', check: (c) => prog(chores(c), 1) },
-  { key: 'fee_logis', xp: 400, title: 'Fée du Logis', emoji: '🧚', desc: 'Faire 10 tâches de ménage.', check: (c) => prog(chores(c), 10) },
-  { key: 'nickel', xp: 800, title: 'Monsieur Nickel', emoji: '🧽', desc: 'Faire 20 tâches de ménage.', check: (c) => prog(chores(c), 20) },
+  { key: 'propre_soi', cat: 'Ménage', xp: 100, title: 'Le Propre sur soi', emoji: '🧼', desc: 'Faire 1 tâche de ménage (validée par un coloc).', check: (c) => prog(chores(c), 1) },
+  { key: 'fee_logis', cat: 'Ménage', xp: 400, title: 'Fée du Logis', emoji: '🧚', desc: 'Faire 10 tâches de ménage.', check: (c) => prog(chores(c), 10) },
+  { key: 'nickel', cat: 'Ménage', xp: 800, title: 'Monsieur Nickel', emoji: '🧽', desc: 'Faire 20 tâches de ménage.', check: (c) => prog(chores(c), 20) },
   // — Jumpy Cardinal (score atteint en UNE partie) —
-  { key: 'premier_envol', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
-  { key: 'employe_friterie', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 30 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 30) },
-  { key: 'maitre_poussin', xp: 800, title: 'Maître poussin', emoji: '🐥', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 100) },
-  { key: 'legende_airs', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
+  { key: 'premier_envol', cat: 'Jeux', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
+  { key: 'employe_friterie', cat: 'Jeux', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 30 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 30) },
+  { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître poussin', emoji: '🐥', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 100) },
+  { key: 'legende_airs', cat: 'Jeux', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Le Grand Raid —
-  { key: 'mascareigne', xp: 300, title: 'Finisher de la Mascareigne', emoji: '🌴', desc: 'Faire 1000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 1000) },
-  { key: 'diagonale', xp: 1000, title: 'Finisher de la Diagonale des Fous', emoji: '🌋', desc: 'Faire 10 000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 10000) },
+  { key: 'mascareigne', cat: 'Jeux', xp: 300, title: 'Finisher de la Mascareigne', emoji: '🌴', desc: 'Faire 1000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 1000) },
+  { key: 'diagonale', cat: 'Jeux', xp: 1000, title: 'Finisher de la Diagonale des Fous', emoji: '🌋', desc: 'Faire 10 000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 10000) },
   // — Chifoumi —
-  { key: 'roc', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
-  { key: 'tailladeur', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },
-  { key: 'mentaliste', xp: 600, title: 'Le mentaliste', emoji: '🔮', desc: 'Gagner 10 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 10) },
-  { key: 'clochard', xp: 100, title: 'Le clochard', emoji: '🥫', desc: 'Perdre 5 duels de chifoumi.', check: (c) => prog(duelLosses(c.duels, c.meId), 5) },
+  { key: 'roc', cat: 'Jeux', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
+  { key: 'tailladeur', cat: 'Jeux', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },
+  { key: 'mentaliste', cat: 'Jeux', xp: 600, title: 'Le mentaliste', emoji: '🔮', desc: 'Gagner 10 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 10) },
+  { key: 'clochard', cat: 'Jeux', xp: 100, title: 'Le clochard', emoji: '🥫', desc: 'Perdre 5 duels de chifoumi.', check: (c) => prog(duelLosses(c.duels, c.meId), 5) },
   // — Personnages —
-  { key: 'petit_nouveau', xp: 100, title: 'Le petit nouveau', emoji: '🎒', desc: 'Débloquer ton premier personnage.', check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, 1) },
-  { key: 'maitre_rh', xp: 1000, title: 'Maître RH', emoji: '👔', desc: 'Débloquer tous les personnages.',
+  { key: 'petit_nouveau', cat: 'Personnages', xp: 100, title: 'Le petit nouveau', emoji: '🎒', desc: 'Débloquer ton premier personnage.', check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, 1) },
+  { key: 'maitre_rh', cat: 'Personnages', xp: 1000, title: 'Maître RH', emoji: '👔', desc: 'Débloquer tous les personnages.',
     check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, skinsToCollect.length) },
   // — Coloc —
-  { key: 'pilier', xp: 800, title: 'Pilier de la coloc', emoji: '🏛️', desc: 'Te connecter 30 jours (cumulés).', check: (c) => prog(num(st(c).login_days), 30) },
-  { key: 'prince', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Terminer une semaine à la 1re place du classement des trophées.', check: (c) => prog(weekWins(c).length, 1) },
-  { key: 'roi_coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Terminer 2 semaines d\'affilée à la 1re place.', check: (c) => prog(longestRun(weekWins(c)), 2) },
-  { key: 'dieu_coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Terminer 6 semaines à la 1re place (cumulées).', check: (c) => prog(weekWins(c).length, 6) },
+  { key: 'pilier', cat: 'Coloc', xp: 800, title: 'Pilier de la coloc', emoji: '🏛️', desc: 'Te connecter 30 jours (cumulés).', check: (c) => prog(num(st(c).login_days), 30) },
+  { key: 'prince', cat: 'Coloc', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Terminer une semaine à la 1re place du classement des trophées.', check: (c) => prog(weekWins(c).length, 1) },
+  { key: 'roi_coloc', cat: 'Coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Terminer 2 semaines d\'affilée à la 1re place.', check: (c) => prog(longestRun(weekWins(c)), 2) },
+  { key: 'dieu_coloc', cat: 'Coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Terminer 6 semaines à la 1re place (cumulées).', check: (c) => prog(weekWins(c).length, 6) },
+  // — Jetons (blackjack, récompense du jour) —
+  { key: 'jetons_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '🪙', desc: 'Atteindre 500 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
+  { key: 'jetons_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
+  { key: 'jetons_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 jetons.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
   // — Divers —
-  { key: 'noob', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
-  { key: 'mathematicien', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
-  { key: 'inspecteur', xp: 200, title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
+  { key: 'noob', cat: 'Coloc', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
+  { key: 'mathematicien', cat: 'Jeux', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
+  { key: 'inspecteur', cat: 'Coloc', xp: 200, title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
     check: (c) => { const o = allOthers(c); return prog(o.filter((m) => c.viewed.has(m.id)).length, Math.max(o.length, 1)); } },
 ];
 // Récompense d'un défi : de l'XP (plus aucun trophée) et parfois une apparence (OUTFITS[x].challenge)

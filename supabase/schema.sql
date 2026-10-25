@@ -1236,32 +1236,80 @@ create or replace function quest_step(p_member int, p_step int) returns int
 language plpgsql security definer set search_path = public as $$
 declare v int;
 begin
-  if p_step < 1 or p_step > 5 then raise exception 'Étape inconnue.'; end if;
+  if p_step < 1 or p_step > 6 then raise exception 'Étape inconnue.'; end if;
   insert into member_stats (member_id) values (p_member) on conflict do nothing;
-  update member_stats set quest_mask = (quest_mask | (1 << (p_step - 1))) & 31
+  update member_stats set quest_mask = (quest_mask | (1 << (p_step - 1))) & 63
     where member_id = p_member returning quest_mask into v;
   return v;
 end $$;
 -- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
-update member_stats set quest_mask = 31 where quest_mask = 15;
+update member_stats set quest_mask = 63 where quest_mask in (15, 31);
+
+-- ---------- Jetons (monnaie du blackjack) ----------
+create table if not exists chip_ledger (
+  id         bigint generated always as identity primary key,
+  member_id  int  not null references members(id) on delete cascade,
+  amount     int  not null,
+  reason     text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists chip_ledger_member on chip_ledger (member_id);
+create or replace view chip_balances as
+  select m.id as member_id, coalesce(sum(c.amount), 0)::int as chips
+  from members m left join chip_ledger c on c.member_id = m.id group by m.id;
+grant select on chip_balances to anon, authenticated;
+create or replace function chips_of(p_member int) returns int
+language sql stable security definer set search_path = public as $$
+  select coalesce((select sum(amount) from chip_ledger where member_id = p_member), 0)::int
+$$;
+alter table chip_ledger enable row level security;
+drop policy if exists "chips lecture" on chip_ledger; create policy "chips lecture" on chip_ledger for select using (true);
+do $$ begin
+  begin alter publication supabase_realtime add table chip_ledger; exception when duplicate_object then null; end;
+end $$;
+
+-- Récompense du jour : 50 jetons + 50 XP (plus de série ni de roue)
+create or replace function claim_daily(p_member int, p_day date) returns json
+language plpgsql security definer set search_path = public as $$
+declare s member_stats; v_streak int;
+begin
+  if p_day not between current_date - 1 and current_date + 1 then raise exception 'Date invalide.'; end if;
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  select * into s from member_stats where member_id = p_member for update;
+  if s.last_login = p_day then raise exception 'Récompense déjà récupérée aujourd''hui.'; end if;
+  if s.last_login = p_day - 1 and s.streak < 7 then v_streak := s.streak + 1; else v_streak := 1; end if;
+  update member_stats set streak = v_streak, last_login = p_day, login_days = login_days + 1 where member_id = p_member;
+  perform add_xp(p_member, 50, 'daily');
+  insert into chip_ledger (member_id, amount, reason) values (p_member, 50, 'daily');
+  return json_build_object('streak', v_streak, 'xp', 50, 'chips', 50, 'wheel', false);
+end $$;
+grant execute on function claim_daily(int, date) to anon, authenticated;
+
+-- Remise à zéro unique des niveaux (XP de tout le monde)
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_v11') then
+    delete from xp_log;
+    insert into app_meta (key, value) values ('reset_v11', 'done');
+  end if;
+end $$;
 
 -- ---------- Savons dépensés (dés du plateau) ----------
 create table if not exists goose_cells (cell int primary key, kind text not null, v int not null default 0);
 delete from goose_cells;
 insert into goose_cells (cell, kind, v) values
-  (3, 'trophy', 1),
+  (3, 'chips', 20),
   (5, 'xp', 30),
-  (7, 'back', 3),
+  (7, 'back', 1),
   (9, 'goose', 0),
   (10, 'xp', 40),
-  (13, 'trophy', 1),
+  (13, 'chips', 20),
   (15, 'xp', 50),
-  (17, 'back', 4),
+  (17, 'back', 1),
   (18, 'goose', 0),
   (20, 'xp', 60),
-  (23, 'trophy', 2),
+  (23, 'chips', 40),
   (25, 'xp', 80),
-  (27, 'back', 5);;
+  (27, 'back', 1);;
 
 create table if not exists dice_rolls (
   id         bigint generated always as identity primary key,
@@ -1330,7 +1378,7 @@ declare
   v_today date := (now() at time zone 'Indian/Reunion')::date;
   v_week  date := date_trunc('week', now() at time zone 'Indian/Reunion')::date;
   v_n int; v_cost int; v_pos int; v_roll int; v_to int; v_note text := ''; v_finished boolean;
-  v_perk text; v_cell goose_cells; v_depth int := 0; v_xp int := 0; v_tr int := 0; v_size int := 30;
+  v_perk text; v_ch int := 0; v_cell goose_cells; v_depth int := 0; v_xp int := 0; v_tr int := 0; v_size int := 30;
 begin
   if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires jouent au plateau.'; end if;
   perform pg_advisory_xact_lock(hashtext('dice:' || p_member));
@@ -1348,7 +1396,7 @@ begin
     exit when not found or v_depth >= 3;
     v_depth := v_depth + 1;
     if v_cell.kind = 'xp' then v_xp := v_xp + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' XP'; exit;
-    elsif v_cell.kind = 'trophy' then v_tr := v_tr + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' trophée' || case when v_cell.v > 1 then 's' else '' end; exit;
+    elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' jetons'; exit;
     elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' piège : recule de ' || v_cell.v;
     elsif v_cell.kind = 'goose' then v_to := least(v_to + v_roll, v_size); v_note := v_note || ' oie : avance encore de ' || v_roll;
     else exit; end if;
@@ -1361,7 +1409,8 @@ begin
   insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, v_cost, v_roll, v_pos, v_to, nullif(trim(v_note), ''));
   if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
   if v_tr > 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_tr, 'plateau'); end if;
-  return json_build_object('perk', v_perk, 'roll', v_roll, 'from', v_pos, 'to', v_to, 'cost', v_cost, 'xp', v_xp, 'trophies', v_tr, 'note', trim(v_note));
+  if v_ch > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_ch, 'plateau'); end if;
+  return json_build_object('perk', v_perk, 'roll', v_roll, 'from', v_pos, 'to', v_to, 'cost', v_cost, 'xp', v_xp, 'trophies', v_tr, 'chips', v_ch, 'note', trim(v_note));
 end $$;
 grant execute on function roll_dice(int) to anon, authenticated;
 
@@ -1445,19 +1494,19 @@ begin
   return d;
 end $$;
 
--- ---------- Blackjack avec mises (1, 5, 10, 25 trophées ; mise 0 = entraînement) ----------
--- p_net = gain (+) ou perte (−) de trophées de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
+-- ---------- Blackjack : on mise des jetons (10-20-30-50, puis 100-200-300-500 au-delà de 500 jetons) ----------
+-- p_net = gain (+) ou perte (−) de jetons de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
 create or replace function report_blackjack(p_member int, p_bet int, p_net int, p_hands int, p_wins int, p_blackjack boolean) returns member_stats
 language plpgsql security definer set search_path = public as $$
 declare s member_stats; v_xp int; v_net int; v_bal int;
 begin
-  if p_bet not in (1, 5, 10, 25) then raise exception 'Mise invalide.'; end if;
+  if p_bet not in (10, 20, 30, 50, 100, 200, 300, 500) then raise exception 'Mise invalide.'; end if;
   if p_hands not between 1 and 2 or p_wins not between 0 and p_hands then raise exception 'Résultat invalide.'; end if;
   if abs(p_net) > 4 * p_bet then raise exception 'Résultat invalide.'; end if;
   insert into member_stats (member_id) values (p_member) on conflict do nothing;
-  v_bal := balance_of(p_member);
+  v_bal := chips_of(p_member);
   v_net := case when p_net < 0 then -least(-p_net, greatest(v_bal, 0)) else p_net end;   -- on ne descend jamais sous 0
-  if v_net <> 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_net, 'blackjack'); end if;
+  if v_net <> 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_net, 'blackjack'); end if;
   v_xp := p_hands * 10 + p_wins * 15 + case when p_blackjack then 30 else 0 end;
   perform add_xp(p_member, v_xp, 'game:blackjack');
   update member_stats set blackjack_played = blackjack_played + p_hands, blackjack_wins = blackjack_wins + p_wins where member_id = p_member;
@@ -1488,6 +1537,9 @@ insert into challenges (key, coins, skin, xp) values
   ('prince', 0, null, 300),
   ('roi_coloc', 0, 'roi', 600),
   ('dieu_coloc', 0, 'zeus', 2000),
+  ('jetons_500', 0, null, 300),
+  ('jetons_1000', 0, null, 800),
+  ('jetons_10000', 0, null, 3000),
   ('noob', 0, 'zippo', 100),
   ('mathematicien', 0, null, 200),
   ('inspecteur', 0, 'detective', 200);;

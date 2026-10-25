@@ -548,3 +548,36 @@ button.hchip:active{transform:scale(.95)}
 .hlist{display:grid;gap:6px;max-height:55vh;overflow:auto;margin-top:8px}
 .hrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--bg)}
 .hrow small{display:block;color:var(--muted)}.hrow .plus{color:#0b6b2d;font-weight:800}.hrow .minus{color:#b42318;font-weight:800}
+/* v11c */
+.gtile{background:#444}
+.gtile::before,.gtile::after{display:none!important}
+.gart{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.gtile .gt-name{text-shadow:-2px 0 0 rgba(20,20,40,.7),2px 0 0 rgba(20,20,40,.7),0 -2px 0 rgba(20,20,40,.7),0 2px 0 rgba(20,20,40,.7),0 3px 8px rgba(0,0,0,.4);background:rgba(10,10,30,.28);border-radius:10px;padding:2px 10px}
+.hav.pulse{animation:tabpulse 1.1s ease-in-out infinite;box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 55%,transparent)}
+main.nohdr{padding-top:calc(14px + env(safe-area-inset-top))}
+.dreward{display:flex;gap:10px;margin:10px 0;font-weight:800;font-size:17px}
+.dreward span{flex:1;text-align:center;background:var(--bg);border-radius:12px;padding:10px 6px}
+h4.cat{margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent-ink)}
+.lvlline{text-align:center;font-size:14px;margin:6px 0 0;color:var(--muted)}.lvlline b{color:var(--text)}.lvlline .bar{margin:6px auto 0;max-width:260px}
+/* v11d : table de blackjack réaliste */
+.g-blackjack{background:radial-gradient(ellipse at 50% 30%,#23995f 0,#0f5c38 55%,#07301f 100%);box-shadow:inset 0 0 0 10px #4a2c17,inset 0 0 0 13px #7a4a26,inset 0 0 60px rgba(0,0,0,.55)}
+.g-blackjack .gbody{background:repeating-radial-gradient(circle at 50% 30%,rgba(255,255,255,.015) 0 2px,transparent 2px 5px)}
+.bj{gap:8px}
+.dealer{width:min(100%,300px);margin:-4px auto -2px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.45))}
+.dealer-svg{width:100%;display:block}
+.dealer.dealing .arm{animation:dealarm .6s ease-in-out;transform-origin:150px 100px}
+@keyframes dealarm{40%{transform:rotate(-26deg) translate(-8px,6px)}}
+.bj-arc{width:min(100%,360px);height:auto;display:block;margin:0 auto;opacity:.9}
+.pc{animation:none;width:56px;height:80px}
+.pc.in{animation:cardslide .62s cubic-bezier(.2,.75,.3,1) both;--d:-70vh}
+.pc.in.dlr{--d:-32vh}
+@keyframes cardslide{from{opacity:0;transform:translateY(var(--d)) rotate(-9deg) scale(.7)}60%{opacity:1}to{transform:none}}
+.pc.flip{animation:cardflip .6s ease-out}
+.bj-hand{min-height:84px}
+.chipstack{position:relative;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin:4px auto 0}
+.chipstack i{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,#c8102e 0 45%,#fff 46% 52%,#c8102e 53%);box-shadow:0 2px 0 #7a0a1c;transform:translateY(var(--y,0))}
+.chipstack i:nth-child(1){--y:4px}.chipstack i:nth-child(2){--y:2px}
+.chipstack b{position:relative;z-index:2;font-size:11px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.bj-h{display:inline-flex;flex-direction:column;align-items:center}
+.confirmban{background:#fff3cf;color:#3b2a00;border:2px solid var(--accent);border-radius:var(--radius);padding:10px 12px;margin-bottom:12px;display:grid;gap:8px}
+.confirmban .crow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.confirmban .crow span{flex:1;min-width:150px}

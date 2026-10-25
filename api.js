@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -57,6 +57,7 @@ export async function makeCloudApi() {
     async soapSpent() { return check(await sb.from('soap_spent').select('*')); },
     async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
     async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
+    async chips() { return check(await sb.from('chip_balances').select('*')); },
     async ledger(member) { return check(await sb.from('coin_ledger').select('*').eq('member_id', member).neq('amount', 0).order('id', { ascending: false }).limit(100)); },
     async perks() { return check(await sb.from('perks').select('*').order('id', { ascending: false }).limit(100)); },
     async perkConfirms() { return check(await sb.from('perk_confirms').select('*')); },
@@ -106,7 +107,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       let ch = sb.channel('coloc');
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger']) {
         ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
       }
       ch.subscribe();
@@ -129,7 +130,7 @@ export function makeDemoApi() {
   try { db = JSON.parse(store.get(KEY)); } catch { db = null; }
   if (!db) db = { products: PRODUCTS.map((name, i) => ({ id: i + 1, name, out_of_stock: false, updated_by: null })) };
   db.profiles ??= {}; db.purchases ??= []; db.duels ??= []; db.nextDuel ??= 1; db.logs ??= []; db.nextLog ??= 1; db.pins ??= {};
-  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= [];
+  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= [];
   const save = () => store.set(KEY, JSON.stringify(db));
   const now = () => new Date().toISOString();
 
@@ -137,6 +138,8 @@ export function makeDemoApi() {
   const addXp = (id, amount, reason) => { if (amount) db.xp.push({ member_id: id, amount, reason, at: now() }); };
   const addTrophies = (id, amount, reason) => { if (amount) db.ledger.push({ member_id: id, amount, reason, at: now() }); };
   const todaySum = (id, reason) => db.ledger.filter((l) => l.member_id === id && l.reason === reason && l.at.slice(0, 10) === now().slice(0, 10)).reduce((a, l) => a + l.amount, 0);
+  const addChips = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
+  const chipsOf = (id) => db.chips.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
   const balance = (id) => db.ledger.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
   const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
     login_days: 0, streak: 0, last_login: null, wheel_ready: false, quest_mask: 0 });
@@ -251,18 +254,17 @@ export function makeDemoApi() {
       if (!db.views.some((v) => v.viewer_id === viewer && v.viewed_id === viewed)) { db.views.push({ viewer_id: viewer, viewed_id: viewed }); save(); }
     },
     async questStep(id, step) {
-      if (!(step >= 1 && step <= 5)) fail('Étape inconnue.');
-      const s = statsOf(id); s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 31; save(); return s.quest_mask;
+      if (!(step >= 1 && step <= 6)) fail('Étape inconnue.');
+      const s = statsOf(id); s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 63; save(); return s.quest_mask;
     },
     async claimDaily(id, day) {
       const s = statsOf(id);
       if (s.last_login === day) fail("Récompense déjà récupérée aujourd'hui.");
       const streak = s.last_login === dayShift(day, -1) && s.streak < 7 ? s.streak + 1 : 1;
-      const xp = streak === 7 ? 0 : DAILY_XP[streak - 1];
-      Object.assign(s, { streak, last_login: day, login_days: s.login_days + 1, wheel_ready: s.wheel_ready || streak === 7 });
-      addXp(id, xp, 'daily');
+      Object.assign(s, { streak, last_login: day, login_days: s.login_days + 1 });
+      addXp(id, DAILY.xp, 'daily'); addChips(id, DAILY.chips, 'daily');
       save();
-      return { streak, xp, wheel: streak === 7 };
+      return { streak, xp: DAILY.xp, chips: DAILY.chips, wheel: false };
     },
     async spinWheel(id) {
       const s = statsOf(id);
@@ -324,20 +326,21 @@ export function makeDemoApi() {
       const finished = mine.some((r) => r.to_pos >= GOOSE.size);
       const roll = 1 + Math.floor(Math.random() * 6);
       let to = from + roll; if (to > GOOSE.size) to = GOOSE.size - (to - GOOSE.size);
-      let xp = 0, tr = 0, note = '';
+      let xp = 0, tr = 0, ch = 0, note = '';
       for (let depth = 0; depth < 3; depth++) {
         const c = GOOSE.cells[to]; if (!c) break;
         if (c.xp) { xp += c.xp; note += ` +${c.xp} XP`; break; }
-        if (c.trophy) { tr += c.trophy; note += ` +${c.trophy} trophée${c.trophy > 1 ? 's' : ''}`; break; }
+        if (c.chips) { ch += c.chips; note += ` +${c.chips} jetons`; break; }
         if (c.back) { to = Math.max(to - c.back, 0); note += ` piège : recule de ${c.back}`; }
         else if (c.goose) { to = Math.min(to + roll, GOOSE.size); note += ` oie : avance encore de ${roll}`; }
       }
       let perk = null;
       if (to >= GOOSE.size && !finished) { xp += GOOSE.finish.xp; tr += GOOSE.finish.trophy; note += ` ARRIVÉE ! +${GOOSE.finish.xp} XP, +${GOOSE.finish.trophy} trophées`; perk = perkOfWeek(new Date(week + 'T00:00:00')).key; db.perks.push({ id: db.nextPerk++, member_id: member, week, kind: perk, created_at: now() }); }
       db.dice.push({ id: db.nextDice++, member_id: member, week, cost, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
-      addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); save();
-      return { perk, roll, from, to, cost, xp, trophies: tr, note: note.trim() };
+      addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); addChips(member, ch, 'plateau'); save();
+      return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
+    async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id) })); },
     async ledger(member) { return db.ledger.filter((l) => l.member_id === member && l.amount).map((l) => ({ ...l, created_at: l.at })).reverse(); },
     async perks() { return [...db.perks].reverse().map((p) => ({ ...p })); },
     async perkConfirms() { return db.pconf.map((c) => ({ ...c })); },
@@ -357,11 +360,11 @@ export function makeDemoApi() {
     },
     async readMessages(member) { db.msgs.forEach((m) => { if (m.to_id === member && !m.read_at) m.read_at = now(); }); save(); },
     async reportBlackjack(id, bet, net, hands, wins, blackjack) {
-      if (!BJ_BETS.includes(bet)) fail('Mise invalide.');
+      if (![...BJ_BETS.low, ...BJ_BETS.high].includes(bet)) fail('Mise invalide.');
       if (!(hands >= 1 && hands <= 2) || wins < 0 || wins > hands || Math.abs(net) > 4 * bet) fail('Résultat invalide.');
       const s = statsOf(id);
-      const v = net < 0 ? -Math.min(-net, Math.max(balance(id), 0)) : net;
-      addTrophies(id, v, 'blackjack');
+      const v = net < 0 ? -Math.min(-net, Math.max(chipsOf(id), 0)) : net;
+      addChips(id, v, 'blackjack');
       addXp(id, hands * X.bjPlay + wins * X.bjWin + (blackjack ? X.bjBlackjack : 0), 'game:blackjack');
       s.blackjack_played += hands; s.blackjack_wins += wins; save();
       return { member_id: id, ...s };
