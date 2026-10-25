@@ -34,7 +34,8 @@ Ce que fait l'appli :
    *(Tu avais déjà lancé une ancienne version du schéma ? Ne relance pas `schema.sql` :*
    - *base de la toute première version : lance d'abord `supabase/migration-v2.sql`, puis `migration-v3.sql`, puis `migration-v4.sql` ;*
    - *base en version 2 : lance `migration-v3.sql` puis `migration-v4.sql` ;*
-   - ***base en version 6 (appli déjà en ligne) : lance seulement `supabase/migration-v7.sql`** (⚠️ remise à zéro, voir plus bas) ;*
+   - ***base en version 7 (appli déjà en ligne) : lance seulement `supabase/migration-v8.sql`** (aucune remise à zéro) ;*
+   - *base en version 6 : `migration-v7.sql` (⚠️ remise à zéro) puis `migration-v8.sql` ;*
    - *base en version 5 : `migration-v6.sql` puis `migration-v7.sql` ; base en version 4 : `migration-v5.sql`, `migration-v6.sql`, `migration-v7.sql`.)*
    - *base en version 3 : `migration-v4.sql` à `migration-v7.sql`, dans l'ordre.*
 
@@ -87,7 +88,7 @@ Puis sur chaque téléphone : choisis ton prénom, appuie sur **Activer** dans l
   - `fewer: { Victor: 2 }` → Victor est moins souvent concerné (1 semaine sur 2 ; `3` = 1 semaine sur 3) ;
   - `only: ['Anthony', 'Lily']` → seulement ces personnes. Les options se combinent. La règle complète est la fonction `participants()` en bas du fichier.
 - **Personnages** : `config.js` → `OUTFITS` (`level` = débloqué à ce niveau, `challenge` = gagné avec un défi), `SKIN_COLORS` / `HAIR_COLORS` / `BG_COLORS`. Les dessins sont dans `avatar.js` : « Hugo Deck » et « Zippo » sont des copies du chevalier et du singe, à la fin du fichier (`OUTFIT_DRAW.hugodeck = …`) : remplace-les par ton dessin.
-- **Défis, XP, niveaux, savons** : `challenges.js` (défis et leur XP), `config.js` (`XP_RULES`, `MILESTONES`, `DAILY_XP`, `TASK_KINDS`). ⚠️ Après un changement, relance `node tools/build-sql.mjs` (génère `supabase/migration-v7.sql`) puis exécute-le de nouveau dans Supabase : la base verse l'XP et les trophées (la remise à zéro n'est pas refaite).
+- **Défis, XP, niveaux, savons** : `challenges.js` (défis et leur XP), `config.js` (`XP_RULES`, `MILESTONES`, `DAILY_XP`, `TASK_KINDS`). ⚠️ Après un changement, relance `node tools/build-sql.mjs` (génère `supabase/migration-v8.sql`) puis exécute-le de nouveau dans Supabase : la base verse l'XP et les trophées (la remise à zéro n'est pas refaite).
 - **Trophées** : `config.js` → `TASK_KINDS` (champ `coins` = trophées de chaque tâche) et `ALLOW_EARLY_VALIDATION` (valider une tâche avant son jour, interdit par défaut).
 - **Jour des poubelles, tâches, couleurs** : `config.js` (`day` : 0 = lundi … 6 = dimanche). Ne s'applique qu'aux semaines pas encore créées.
 - **Prénoms / produits** : `supabase/schema.sql` avant de le lancer, ou plus tard dans Supabase → *Table Editor*.
@@ -116,3 +117,14 @@ Il démarre à 0 🏆, apparaît dans « Les copains » et dans les classements,
 1. Supabase → SQL Editor → lance `supabase/migration-v7.sql`. ⚠️ Il **remet à zéro** XP, trophées, défis, stats et apparences gagnées (une seule fois : relancé plus tard, il ne ré-efface rien).
 2. Redéploie la fonction `notify` (`supabase/functions/notify/index.ts`) : elle gère les notifications de confirmation de tâche.
 3. Remplace les fichiers de l'appli sur GitHub, sauf `keys.js`.
+
+
+## Mise à jour v11 (migration-v8.sql)
+1. Supabase → SQL Editor → lance `supabase/migration-v8.sql` (**aucune remise à zéro** ; tu peux le relancer sans risque).
+2. Redéploie la fonction `notify` (`supabase/functions/notify/index.ts`) pour recevoir les notifications de messages.
+3. Remplace les fichiers du dépôt GitHub **sauf `keys.js`**, puis rouvre l'appli (ferme-la complètement une fois).
+
+Nouveautés : header avec ta tête (touche-la pour voir tous les colocs et copains), onglets Tâches / Défis / Jeux / Classement / Profil, introduction au premier lancement, récompense du jour en haut de Défis, plateau (jeu de l'oie, remis à zéro chaque lundi, dé = savons), historique des tâches et des lancers, classement hebdomadaire unique (prince / roi / dieu), messages courts (140 caractères), chifoumi +5 / −4 trophées, blackjack avec mises, doubler et séparer, sudoku à 3 vies.
+Réglages : `config.js` (`GOOSE` = cases du plateau, `LEVEL_K` = difficulté des niveaux, `BJ_BETS`, `XP_RULES`).
+
+Ajouts : historique des trophées et des savons (touche les chips en haut à droite), récompense d'arrivée du plateau qui change chaque semaine (bière, mini cadeau aux courses, semaine de vacances ; réglable dans `PERKS`), prix du dé `DICE_PRICES` (1, 3, 5, 10, 20), plus d'essai au blackjack, nouvelle icône soleil. La migration `migration-v8.sql` contient tout : si tu l'as déjà lancée, relance-la simplement.

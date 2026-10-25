@@ -1217,3 +1217,277 @@ do $$ begin
     insert into app_meta (key, value) values ('reset_v7', 'done');
   end if;
 end $$;
+
+
+-- ============================================================
+--  Version 8 : introduction (5 onglets), plateau (jeu de l'oie), messages courts,
+--              chifoumi +5/−4 trophées, blackjack avec mises, niveaux plus durs
+--  Ne remet RIEN à zéro. Sans risque si relancé.
+-- ============================================================
+
+-- ---------- Niveaux : courbe 25 × L × (L − 1) ----------
+create or replace function level_of(p_xp int) returns int
+language sql immutable as $$
+  select floor((1 + sqrt(1 + greatest(p_xp, 0)::numeric * 4 / 25)) / 2)::int
+$$;
+
+-- ---------- Introduction : 5 étapes (une par onglet) ----------
+create or replace function quest_step(p_member int, p_step int) returns int
+language plpgsql security definer set search_path = public as $$
+declare v int;
+begin
+  if p_step < 1 or p_step > 5 then raise exception 'Étape inconnue.'; end if;
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  update member_stats set quest_mask = (quest_mask | (1 << (p_step - 1))) & 31
+    where member_id = p_member returning quest_mask into v;
+  return v;
+end $$;
+-- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
+update member_stats set quest_mask = 31 where quest_mask = 15;
+
+-- ---------- Savons dépensés (dés du plateau) ----------
+create table if not exists goose_cells (cell int primary key, kind text not null, v int not null default 0);
+delete from goose_cells;
+insert into goose_cells (cell, kind, v) values
+  (3, 'trophy', 1),
+  (5, 'xp', 30),
+  (7, 'back', 3),
+  (9, 'goose', 0),
+  (10, 'xp', 40),
+  (13, 'trophy', 1),
+  (15, 'xp', 50),
+  (17, 'back', 4),
+  (18, 'goose', 0),
+  (20, 'xp', 60),
+  (23, 'trophy', 2),
+  (25, 'xp', 80),
+  (27, 'back', 5);;
+
+create table if not exists dice_rolls (
+  id         bigint generated always as identity primary key,
+  member_id  int  not null references members(id) on delete cascade,
+  week       date not null,                 -- lundi de la semaine (heure de La Réunion)
+  cost       int  not null,
+  roll       int  not null,
+  from_pos   int  not null,
+  to_pos     int  not null,
+  note       text,
+  created_at timestamptz not null default now()
+);
+create index if not exists dice_rolls_week on dice_rolls (week, member_id);
+
+create or replace view soap_spent as
+  select member_id, sum(cost)::int as spent from dice_rolls group by member_id;
+grant select on soap_spent to anon, authenticated;
+
+-- Savons disponibles = gagnés (tâches validées) − dépensés
+create or replace function soap_of(p_member int) returns int
+language sql stable security definer set search_path = public as $$
+  select (coalesce((select sum(soap) from task_logs where doer_id = p_member and status = 'validated'), 0)
+        - coalesce((select sum(cost) from dice_rolls where member_id = p_member), 0))::int
+$$;
+
+-- Récompenses immatérielles d'arrivée (une par joueur et par semaine) + confirmations des colocs
+create table if not exists perks (
+  id         bigint generated always as identity primary key,
+  member_id  int  not null references members(id) on delete cascade,
+  week       date not null,
+  kind       text not null,
+  created_at timestamptz not null default now(),
+  unique (member_id, week)
+);
+create table if not exists perk_confirms (
+  perk_id    bigint not null references perks(id) on delete cascade,
+  member_id  int    not null references members(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (perk_id, member_id)
+);
+alter table perks enable row level security;
+alter table perk_confirms enable row level security;
+drop policy if exists "perks lecture" on perks; create policy "perks lecture" on perks for select using (true);
+drop policy if exists "perkc lecture" on perk_confirms; create policy "perkc lecture" on perk_confirms for select using (true);
+do $$ begin
+  begin alter publication supabase_realtime add table perks; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table perk_confirms; exception when duplicate_object then null; end;
+end $$;
+-- « J'ai offert ma part » : seul un autre coloc peut confirmer, et seulement pour les récompenses à tenir
+create or replace function confirm_perk(p_perk bigint, p_member int) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_p perks;
+begin
+  select * into v_p from perks where id = p_perk;
+  if not found then raise exception 'Récompense introuvable.'; end if;
+  if v_p.kind not in ('biere', 'course') then raise exception 'Rien à confirmer ici.'; end if;
+  if p_member = v_p.member_id or not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les autres colocs confirment.'; end if;
+  insert into perk_confirms (perk_id, member_id) values (p_perk, p_member) on conflict do nothing;
+end $$;
+grant execute on function confirm_perk(bigint, int) to anon, authenticated;
+
+-- Lancer un dé : coûte 1 savon, puis +1 à chaque achat de la journée (repart à 1 à minuit, heure de La Réunion)
+create or replace function roll_dice(p_member int) returns json
+language plpgsql security definer set search_path = public as $$
+declare
+  v_today date := (now() at time zone 'Indian/Reunion')::date;
+  v_week  date := date_trunc('week', now() at time zone 'Indian/Reunion')::date;
+  v_n int; v_cost int; v_pos int; v_roll int; v_to int; v_note text := ''; v_finished boolean;
+  v_perk text; v_cell goose_cells; v_depth int := 0; v_xp int := 0; v_tr int := 0; v_size int := 30;
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires jouent au plateau.'; end if;
+  perform pg_advisory_xact_lock(hashtext('dice:' || p_member));
+  select count(*) into v_n from dice_rolls where member_id = p_member and (created_at at time zone 'Indian/Reunion')::date = v_today;
+  v_cost := (array[1, 3, 5, 10, 20])[least(v_n + 1, 5)];
+  if soap_of(p_member) < v_cost then raise exception 'Il te faut % savon% pour ce dé.', v_cost, case when v_cost > 1 then 's' else '' end; end if;
+  select coalesce(max(to_pos), 0) into v_pos from dice_rolls where member_id = p_member and week = v_week;
+  v_finished := exists (select 1 from dice_rolls where member_id = p_member and week = v_week and to_pos >= v_size);
+  if v_pos >= v_size then raise exception 'Tu es déjà arrivé cette semaine ! Reviens lundi.'; end if;
+  v_roll := 1 + floor(random() * 6)::int;
+  v_to := v_pos + v_roll;
+  if v_to > v_size then v_to := v_size - (v_to - v_size); end if;       -- on rebondit après l'arrivée
+  loop
+    select * into v_cell from goose_cells where cell = v_to;
+    exit when not found or v_depth >= 3;
+    v_depth := v_depth + 1;
+    if v_cell.kind = 'xp' then v_xp := v_xp + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' XP'; exit;
+    elsif v_cell.kind = 'trophy' then v_tr := v_tr + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' trophée' || case when v_cell.v > 1 then 's' else '' end; exit;
+    elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' piège : recule de ' || v_cell.v;
+    elsif v_cell.kind = 'goose' then v_to := least(v_to + v_roll, v_size); v_note := v_note || ' oie : avance encore de ' || v_roll;
+    else exit; end if;
+  end loop;
+  if v_to >= v_size and not v_finished then
+    v_xp := v_xp + 200; v_tr := v_tr + 5; v_note := v_note || ' ARRIVÉE ! +' || 200 || ' XP, +' || 5 || ' trophées';
+    v_perk := (array['biere', 'course', 'vacances'])[1 + ((v_week - date '2024-01-01') / 7) % 3];
+    insert into perks (member_id, week, kind) values (p_member, v_week, v_perk) on conflict do nothing;
+  end if;
+  insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, v_cost, v_roll, v_pos, v_to, nullif(trim(v_note), ''));
+  if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
+  if v_tr > 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_tr, 'plateau'); end if;
+  return json_build_object('perk', v_perk, 'roll', v_roll, 'from', v_pos, 'to', v_to, 'cost', v_cost, 'xp', v_xp, 'trophies', v_tr, 'note', trim(v_note));
+end $$;
+grant execute on function roll_dice(int) to anon, authenticated;
+
+alter table goose_cells enable row level security;
+alter table dice_rolls  enable row level security;
+drop policy if exists "goose lecture" on goose_cells; create policy "goose lecture" on goose_cells for select using (true);
+drop policy if exists "dice lecture"  on dice_rolls;  create policy "dice lecture"  on dice_rolls  for select using (true);
+do $$ begin
+  begin alter publication supabase_realtime add table dice_rolls; exception when duplicate_object then null; end;
+end $$;
+
+-- ---------- Messages courts ----------
+create table if not exists messages (
+  id         bigint generated always as identity primary key,
+  from_id    int  not null references members(id) on delete cascade,
+  to_id      int  not null references members(id) on delete cascade,
+  body       text not null check (char_length(body) between 1 and 140),
+  created_at timestamptz not null default now(),
+  read_at    timestamptz,
+  check (from_id <> to_id)
+);
+create index if not exists messages_to on messages (to_id, created_at desc);
+
+create or replace function send_message(p_from int, p_to int, p_body text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint; v_body text := trim(p_body);
+begin
+  if v_body is null or char_length(v_body) = 0 then raise exception 'Écris un message.'; end if;
+  if char_length(v_body) > 140 then raise exception 'Message trop long (140 caractères maximum).'; end if;
+  if p_from = p_to then raise exception 'Tu ne peux pas t''écrire à toi-même.'; end if;
+  if (select count(*) from messages where from_id = p_from and created_at > now() - interval '1 hour') >= 20 then
+    raise exception 'Trop de messages d''un coup, réessaie dans un moment.';
+  end if;
+  insert into messages (from_id, to_id, body) values (p_from, p_to, v_body) returning id into v_id;
+  return v_id;
+end $$;
+create or replace function read_messages(p_member int) returns void
+language sql security definer set search_path = public as $$
+  update messages set read_at = now() where to_id = p_member and read_at is null
+$$;
+grant execute on function send_message(int, int, text) to anon, authenticated;
+grant execute on function read_messages(int)           to anon, authenticated;
+alter table messages enable row level security;
+drop policy if exists "messages lecture" on messages; create policy "messages lecture" on messages for select using (true);
+do $$ begin
+  begin alter publication supabase_realtime add table messages; exception when duplicate_object then null; end;
+end $$;
+
+-- ---------- Chifoumi : +5 trophées au gagnant, −4 au perdant (sans passer sous 0) ----------
+create or replace function play_duel(p_duel bigint, p_player int, p_move text) returns duels
+language plpgsql security definer set search_path = public as $$
+declare d duels; cm text; w int; l int; v_today int; v_gain int; v_loss int;
+begin
+  if p_move not in ('pierre', 'feuille', 'ciseaux') then raise exception 'Coup invalide.'; end if;
+  select * into d from duels where id = p_duel for update;
+  if not found or d.status <> 'pending' then raise exception 'Ce défi n''est plus disponible.'; end if;
+  if d.opponent_id <> p_player then raise exception 'Ce défi ne t''est pas adressé.'; end if;
+  select move into cm from duel_secrets where duel_id = p_duel;
+  w := case
+    when cm = p_move then null
+    when (cm = 'pierre' and p_move = 'ciseaux') or (cm = 'feuille' and p_move = 'pierre') or (cm = 'ciseaux' and p_move = 'feuille')
+      then d.challenger_id
+    else d.opponent_id
+  end;
+  update duels set status = 'done', challenger_move = cm, opponent_move = p_move, winner_id = w, played_at = now()
+   where id = p_duel returning * into d;
+  delete from duel_secrets where duel_id = p_duel;
+  perform add_xp(d.challenger_id, 15, 'duel');
+  perform add_xp(d.opponent_id, 15, 'duel');
+  if w is not null then
+    l := case when w = d.challenger_id then d.opponent_id else d.challenger_id end;
+    perform add_xp(w, 25, 'duel-win');
+    select coalesce(sum(amount), 0) into v_today from coin_ledger
+      where member_id = w and reason = 'duel-win'
+        and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+    v_gain := greatest(0, least(5, 25 - v_today));
+    if v_gain > 0 then insert into coin_ledger (member_id, amount, reason) values (w, v_gain, 'duel-win'); end if;
+    v_loss := least(4, greatest(balance_of(l), 0));
+    if v_loss > 0 then insert into coin_ledger (member_id, amount, reason) values (l, -v_loss, 'duel-loss'); end if;
+  end if;
+  return d;
+end $$;
+
+-- ---------- Blackjack avec mises (1, 5, 10, 25 trophées ; mise 0 = entraînement) ----------
+-- p_net = gain (+) ou perte (−) de trophées de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
+create or replace function report_blackjack(p_member int, p_bet int, p_net int, p_hands int, p_wins int, p_blackjack boolean) returns member_stats
+language plpgsql security definer set search_path = public as $$
+declare s member_stats; v_xp int; v_net int; v_bal int;
+begin
+  if p_bet not in (1, 5, 10, 25) then raise exception 'Mise invalide.'; end if;
+  if p_hands not between 1 and 2 or p_wins not between 0 and p_hands then raise exception 'Résultat invalide.'; end if;
+  if abs(p_net) > 4 * p_bet then raise exception 'Résultat invalide.'; end if;
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  v_bal := balance_of(p_member);
+  v_net := case when p_net < 0 then -least(-p_net, greatest(v_bal, 0)) else p_net end;   -- on ne descend jamais sous 0
+  if v_net <> 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_net, 'blackjack'); end if;
+  v_xp := p_hands * 10 + p_wins * 15 + case when p_blackjack then 30 else 0 end;
+  perform add_xp(p_member, v_xp, 'game:blackjack');
+  update member_stats set blackjack_played = blackjack_played + p_hands, blackjack_wins = blackjack_wins + p_wins where member_id = p_member;
+  select * into s from member_stats where member_id = p_member;
+  return s;
+end $$;
+grant execute on function report_blackjack(int, int, int, int, int, boolean) to anon, authenticated;
+
+-- ---------- Défis (textes et XP) ----------
+delete from challenges;
+insert into challenges (key, coins, skin, xp) values
+  ('propre_soi', 0, null, 100),
+  ('fee_logis', 0, null, 400),
+  ('nickel', 0, 'nickel', 800),
+  ('premier_envol', 0, null, 100),
+  ('employe_friterie', 0, null, 300),
+  ('maitre_poussin', 0, 'poussin', 800),
+  ('legende_airs', 0, 'papangue', 2000),
+  ('mascareigne', 0, null, 300),
+  ('diagonale', 0, 'hugodeck', 1000),
+  ('roc', 0, null, 100),
+  ('tailladeur', 0, null, 200),
+  ('mentaliste', 0, 'sorcier', 600),
+  ('clochard', 0, 'clochard', 100),
+  ('petit_nouveau', 0, null, 100),
+  ('maitre_rh', 0, null, 1000),
+  ('pilier', 0, 'chevalier', 800),
+  ('prince', 0, null, 300),
+  ('roi_coloc', 0, 'roi', 600),
+  ('dieu_coloc', 0, 'zeus', 2000),
+  ('noob', 0, 'zippo', 100),
+  ('mathematicien', 0, null, 200),
+  ('inspecteur', 0, 'detective', 200);;

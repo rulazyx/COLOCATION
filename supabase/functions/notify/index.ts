@@ -1,6 +1,7 @@
 // Fonction Supabase "notify" : envoie les notifications push (ruptures, défis chifoumi, confirmation de tâches, rappel du soir).
 //  - {type:"stock", productId}  → prévient TOUS les colocs qu'un produit est en rupture
 //  - {type:"task", event, logId} → tâche à confirmer / confirmée
+//  - {type:"message", messageId} → prévient le destinataire d'un message court
 //  - {type:"reminder"}          → (appelée chaque soir par pg_cron) rappelle les tâches qui attendent une confirmation
 //
 // Secrets à définir (Edge Functions > Secrets) :
@@ -57,7 +58,7 @@ function today() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  let body: { type?: string; productId?: number; duelId?: number; event?: string } = {};
+  let body: { type?: string; productId?: number; duelId?: number; messageId?: number; event?: string } = {};
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
   if (body.type === "stock") {
@@ -106,6 +107,14 @@ Deno.serve(async (req) => {
     } else return json({ error: "unknown event" }, 400);
     const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", target);
     return json({ sent: await send((subs ?? []) as Sub[], payload) });
+  }
+
+  if (body.type === "message") {
+    const { data: m } = await db.from("messages").select("*").eq("id", body.messageId).single();
+    if (!m || Date.now() - new Date(m.created_at).getTime() > 2 * 60_000) return json({ sent: 0 });
+    const from = (await db.from("members").select("name").eq("id", m.from_id).single()).data?.name ?? "?";
+    const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", m.to_id);
+    return json({ sent: await send((subs ?? []) as Sub[], { title: `Message de ${from}`, body: String(m.body).slice(0, 140), tag: `msg-${m.id}` }) });
   }
 
   if (body.type === "task") {

@@ -59,13 +59,13 @@ export const conflicts = (grid) => {
 
 /* ---------- Interface ---------- */
 export function mount(root, { onEnd }) {
-  let puz, sol, grid, given, sel = -1, started = 0, elapsed = 0, finished = false, timer = 0, hiddenAt = 0;
+  let puz, sol, grid, given, sel = -1, started = 0, elapsed = 0, finished = false, timer = 0, hiddenAt = 0, lives = 3, wrong = new Set(), lost = false;
   const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   function fresh() {
     ({ puzzle: puz, solution: sol } = generate());
     grid = puz.slice(); given = puz.map((v) => v !== 0);
-    sel = -1; started = 0; elapsed = 0; finished = false;
+    sel = -1; started = 0; elapsed = 0; finished = false; lives = 3; wrong = new Set(); lost = false;
     draw();
   }
   function tick() {
@@ -77,19 +77,26 @@ export function mount(root, { onEnd }) {
     for (let i = 0; i < 81; i++) {
       const r = Math.floor(i / 9), c = i % 9;
       const cls = ['sc', given[i] ? 'g' : '', i === sel ? 'sel' : '', sel >= 0 && peers[sel].includes(i) ? 'pe' : '',
-        selV && grid[i] === selV && i !== sel ? 'same' : '', bad.has(i) ? 'bad' : '', c % 3 === 2 && c < 8 ? 'rb' : '', r % 3 === 2 && r < 8 ? 'bb' : ''].join(' ');
+        selV && grid[i] === selV && i !== sel ? 'same' : '', bad.has(i) || wrong.has(i) ? 'bad' : '', c % 3 === 2 && c < 8 ? 'rb' : '', r % 3 === 2 && r < 8 ? 'bb' : ''].join(' ');
       cells += `<button class="${cls}" data-i="${i}" aria-label="Ligne ${r + 1} colonne ${c + 1}">${grid[i] || ''}</button>`;
     }
     root.innerHTML = `
-      <div class="sbar"><span>⏱ <b class="stime">${fmt(elapsed)}</b></span><button class="mini" data-act="new">Nouvelle grille</button></div>
+      <div class="sbar"><span>⏱ <b class="stime">${fmt(elapsed)}</b></span><span class="lives" aria-label="${lives} vies">${[0, 1, 2].map((i) => `<i class="${i < lives ? 'on' : ''}">♥</i>`).join('')}</span><button class="mini" data-act="new">Nouvelle grille</button></div>
       <div class="sgrid">${cells}</div>
       <div class="spad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="0" class="era">⌫</button></div>
+      <div class="gover" ${lost ? '' : 'hidden'}><h2>Plus de vies</h2><p class="gscore">Trois erreurs : la grille est perdue.</p><button class="btn primary" data-act="new">Nouvelle grille</button></div>
       <div class="gover" ${finished ? '' : 'hidden'}><h2>Bravo ! 🎉</h2><p class="gscore">Terminé en ${fmt(elapsed)}</p><button class="btn primary" data-act="new">Nouvelle grille</button></div>`;
   }
   function put(n) {
-    if (finished || sel < 0 || given[sel]) return;
+    if (finished || lost || sel < 0 || given[sel]) return;
     if (!started && n) started = Date.now();
     grid[sel] = n;
+    wrong.delete(sel);
+    if (n && n !== sol[sel]) {            // erreur : une vie en moins
+      wrong.add(sel); lives--;
+      if (lives <= 0) { lost = true; clearTimeout(0); }
+      return draw();
+    }
     if (grid.every((v) => v) && grid.every((v, i) => v === sol[i])) {
       finished = true; elapsed = Math.max(1, Math.floor((Date.now() - started) / 1000));
       draw(); onEnd?.({ score: elapsed });

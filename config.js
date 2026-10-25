@@ -14,11 +14,10 @@ export const XP_RULES = {
   validate: 10,       // XP pour celui qui confirme la tâche d'un autre
   daily: 0,           // (la récompense quotidienne a sa propre table : DAILY_XP)
   duelPlay: 15, duelWin: 25,        // chifoumi : jouer / gagner
-  duelWinTrophies: 2, duelTrophyCapPerDay: 10, // trophées par victoire au chifoumi (plafond par jour)
+  duelWinTrophies: 5, duelLossTrophies: 4, duelTrophyCapPerDay: 25, // chifoumi : +5 🏆 si on gagne, −4 si on perd (gains plafonnés par jour)
   flappyPerObstacle: 3, raidPer50m: 2, gameCap: 300, // par partie, plafonné
   sudoku: 150, stock: 10,           // grille terminée / produit signalé (1 fois par jour et par produit)
-  bjPlay: 10, bjWin: 15, bjBlackjack: 30,           // blackjack : main jouée / gagnée / blackjack naturel
-  bjTrophyWin: 1, bjTrophyBlackjack: 2, bjTrophyCapPerDay: 6, // trophées blackjack (plafond par jour)
+  bjPlay: 10, bjWin: 15, bjBlackjack: 30,           // blackjack : main jouée / gagnée / blackjack naturel (les trophées, eux, sont les mises)
 };
 // Paliers de score : XP offerte UNE fois quand on franchit chaque palier (at = seuils, xp = récompenses)
 export const MILESTONES = {
@@ -26,8 +25,8 @@ export const MILESTONES = {
   raid:   { at: [500, 1000, 3070, 6000, 10000, 20000], xp: [50, 100, 200, 300, 500, 800] },
   sudoku: { at: [900, 600, 420, 300, 240], xp: [50, 100, 200, 400, 700], low: true }, // temps en secondes : plus petit = mieux
 };
-// Niveau L atteint à LEVEL_K × L × (L − 1) XP : niveau 10 ≈ 630, 50 ≈ 17 000, 100 ≈ 69 000… et ça continue sans limite
-export const LEVEL_K = 7;
+// Niveau L atteint à LEVEL_K × L × (L − 1) XP : niveau 5 = 500, 10 = 2 250, 20 = 9 500, 50 = 61 250… sans limite
+export const LEVEL_K = 25;
 export const xpForLevel = (l) => LEVEL_K * l * (l - 1);
 export const levelOf = (xp) => Math.floor((1 + Math.sqrt(1 + (Math.max(xp, 0) * 4) / LEVEL_K)) / 2);
 export const levelProgress = (xp) => {
@@ -68,16 +67,14 @@ export const OUTFITS = {
   clochard:     { name: 'Clochard',     nameF: 'Clocharde',  challenge: 'clochard' },
 };
 
-// Quête principale « Découverte de l'application » : une étape = un bit de member_stats.quest_mask
-export const MAIN_QUEST = {
-  title: "Découverte de l'application", emoji: '🧭',
-  steps: [
-    { n: 1, text: 'Personnalise ton personnage', emoji: '🎭', tab: 'me' },
-    { n: 2, text: 'Consulte les différents classements', emoji: '🥇', tab: 'rank' },
-    { n: 3, text: 'Lance une partie de jeu', emoji: '🎮', tab: 'games' },
-    { n: 4, text: 'Clique sur une tâche ménagère', emoji: '🧹', tab: 'tasks' },
-  ],
-};
+// Introduction au premier lancement : on invite à toucher chaque onglet (une étape = un bit de member_stats.quest_mask)
+export const INTRO_STEPS = [
+  { n: 1, tab: 'tasks', title: 'Tâches', text: "Ici tu fais les tâches ménagères : choisis celle que tu as faite, un autre coloc la confirme et tu gagnes des savons 🧼 et de l'XP. Tu y trouves aussi le plateau (jeu de l'oie) et les stocks." },
+  { n: 2, tab: 'defis', title: 'Défis', text: "Ta récompense du jour se récupère tout en haut, puis la liste des défis : chacun donne de l'XP et parfois un nouveau personnage." },
+  { n: 3, tab: 'games', title: 'Jeux', text: "Chifoumi, Jumpy Cardinal, Grand Raid, Sudoku, Blackjack : joue pour gagner de l'XP et des trophées 🏆." },
+  { n: 4, tab: 'rank', title: 'Classement', text: "Le classement de la semaine : celui qui gagne le plus de trophées du lundi au dimanche devient champion 👑." },
+  { n: 5, tab: 'me', title: 'Profil', text: "Ton personnage, ta garde-robe, tes badges et tes messages. Touche ta tête en haut à gauche pour voir celle des autres." },
+];
 // Récompense quotidienne (en XP) : jours 1 à 6, le jour 7 débloque la roue de la fortune (XP aussi)
 export const DAILY_XP = [30, 40, 50, 60, 80, 100];
 export const WHEEL_MIN = 100, WHEEL_MAX = 1000;
@@ -106,3 +103,27 @@ export const TASK_KINDS = {
   aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', soap: 3, cooldownH: 24,
                detail: 'Sols de la salle de bain et des WC' },
 };
+
+// ---------- Plateau : jeu de l'oie (remis à zéro chaque lundi) ----------
+// Un lancer de dé coûte des savons : 1 le premier de la journée, puis +1 à chaque achat (le prix repart de 1 à minuit).
+// Cases : xp / trophy = gain · back = recule de n cases · goose = avance de nouveau du même nombre. L'arrivée donne un gros bonus (une fois par semaine).
+export const GOOSE = {
+  size: 30,
+  cells: {
+    3: { trophy: 1 }, 5: { xp: 30 }, 7: { back: 3 }, 9: { goose: true }, 10: { xp: 40 }, 13: { trophy: 1 }, 15: { xp: 50 },
+    17: { back: 4 }, 18: { goose: true }, 20: { xp: 60 }, 23: { trophy: 2 }, 25: { xp: 80 }, 27: { back: 5 },
+  },
+  finish: { xp: 200, trophy: 5 },
+};
+// Prix du dé selon le nombre de lancers déjà faits aujourd'hui (le 6e et les suivants coûtent le dernier prix)
+export const DICE_PRICES = [1, 3, 5, 10, 20];
+// Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.
+export const PERKS = [
+  { key: 'biere', title: 'Tout le monde vous doit une bière !', short: 'Une bière offerte par chaque coloc', confirm: true },
+  { key: 'course', title: 'Mini cadeau pendant les prochaines courses…', short: 'Un mini cadeau offert par chaque coloc pendant les courses', confirm: true },
+  { key: 'vacances', title: 'Prenez une semaine de vacances !', short: 'Une semaine sans tâche ménagère', confirm: false, days: 7 },
+];
+export const perkOfWeek = (monday) => PERKS[((Math.round((Date.UTC(monday.getFullYear(), monday.getMonth(), monday.getDate()) - Date.UTC(2024, 0, 1)) / 86400000) / 7) % PERKS.length + PERKS.length) % PERKS.length];
+// Blackjack : mises possibles (en trophées)
+export const BJ_BETS = [1, 5, 10, 25];
+export const MESSAGE_MAX = 140; // longueur d'un message court

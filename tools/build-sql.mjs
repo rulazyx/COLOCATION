@@ -1,8 +1,8 @@
-// Génère supabase/migration-v7.sql et supabase/schema.sql à partir de config.js + challenges.js
+// Génère supabase/migration-v8.sql et supabase/schema.sql à partir de config.js + challenges.js
 // (pour que récompenses, niveaux et XP ne puissent pas se contredire).   Usage : node tools/build-sql.mjs
-// Les migrations v2 à v6 sont figées (déjà lancées) ; seule la v7 est générée.
+// Les migrations v2 à v7 sont figées (déjà lancées) ; seule la v8 est générée.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, MILESTONES, TASK_KINDS } from '../config.js';
+import { OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS } from '../config.js';
 import { CHALLENGES, rewardOf } from '../challenges.js';
 
 const root = new URL('../', import.meta.url);
@@ -21,13 +21,21 @@ const subs = {
   __MS_SUDOKU_AT__: list(MILESTONES.sudoku.at), __MS_SUDOKU_XP__: list(MILESTONES.sudoku.xp),
   __TASK_KINDS__: Object.entries(TASK_KINDS).map(([k, t]) => `  (${q(k)}, ${t.soap}, ${t.cooldownH})`).join(',\n') + ';',
   __SKINS__: Object.entries(OUTFITS).filter(([, o]) => o.level).map(([k, o]) => `  (${q(k)}, ${o.level})`).join(',\n') + ';',
+  __GOOSE_SIZE__: GOOSE.size, __GOOSE_FIN_XP__: GOOSE.finish.xp, __GOOSE_FIN_TR__: GOOSE.finish.trophy,
+  __GOOSE_CELLS__: Object.entries(GOOSE.cells).map(([cell, c]) => { const kind = c.xp ? 'xp' : c.trophy ? 'trophy' : c.back ? 'back' : 'goose'; return `  (${cell}, '${kind}', ${c.xp ?? c.trophy ?? c.back ?? 0})`; }).join(',\n') + ';',
+  __DICE_PRICES__: DICE_PRICES.join(', '), __DICE_N__: DICE_PRICES.length, __PERK_KINDS__: PERKS.map((k) => `'${k.key}'`).join(', '), __PERK_N__: PERKS.length, __PERK_CONFIRM__: PERKS.filter((k) => k.confirm).map((k) => `'${k.key}'`).join(', '),
+  __DUEL_L__: X.duelLossTrophies, __BJ_BETS__: BJ_BETS.join(', '), __MESSAGE_MAX__: MESSAGE_MAX,
   __CHALLENGES__: CHALLENGES.map((c) => { const r = rewardOf(c.key); return `  (${q(c.key)}, 0, ${q(r.skin)}, ${r.xp})`; }).join(',\n') + ';',
 };
-let v7 = read('supabase/v7.template.sql');
-for (const [k, v] of Object.entries(subs)) v7 = v7.replaceAll(k, v);
-const left = v7.match(/__[A-Z_0-9]+__/g);
-if (left) throw new Error('Placeholders non remplacés : ' + [...new Set(left)].join(', '));
-writeFileSync(new URL('supabase/migration-v7.sql', root), v7);
+const gen = (name) => {
+  let t = read(`supabase/${name}.template.sql`);
+  for (const [k, v] of Object.entries(subs)) t = t.replaceAll(k, v);
+  const left = t.match(/__[A-Z_0-9]+__/g);
+  if (left) throw new Error('Placeholders non remplacés : ' + [...new Set(left)].join(', '));
+  return t;
+};
+const v8 = gen('v8');
+writeFileSync(new URL('supabase/migration-v8.sql', root), v8);
 const sep = '\n\n\n';
-writeFileSync(new URL('supabase/schema.sql', root), [read('supabase/schema-v3.sql'), read('supabase/migration-v4.sql'), read('supabase/migration-v5.sql'), read('supabase/migration-v6.sql'), v7].map((x) => x.trimEnd()).join(sep) + '\n');
+writeFileSync(new URL('supabase/schema.sql', root), [read('supabase/schema-v3.sql'), read('supabase/migration-v4.sql'), read('supabase/migration-v5.sql'), read('supabase/migration-v6.sql'), read('supabase/migration-v7.sql'), v8].map((x) => x.trimEnd()).join(sep) + '\n');
 console.log('ok');

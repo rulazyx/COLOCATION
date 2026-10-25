@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -53,6 +53,26 @@ export async function makeCloudApi() {
     // --- v5 : XP, classement hebdomadaire, échange de tâches ---
     async xp() { return check(await sb.from('member_xp').select('*')); },
     async weekly() { return check(await sb.from('weekly_trophies').select('*')); },
+    // --- v8 : plateau, messages, blackjack ---
+    async soapSpent() { return check(await sb.from('soap_spent').select('*')); },
+    async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
+    async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
+    async ledger(member) { return check(await sb.from('coin_ledger').select('*').eq('member_id', member).neq('amount', 0).order('id', { ascending: false }).limit(100)); },
+    async perks() { return check(await sb.from('perks').select('*').order('id', { ascending: false }).limit(100)); },
+    async perkConfirms() { return check(await sb.from('perk_confirms').select('*')); },
+    async confirmPerk(perk, member) { check(await sb.rpc('confirm_perk', { p_perk: perk, p_member: member })); },
+    async messages(member) { return check(await sb.from('messages').select('*').eq('to_id', member).order('id', { ascending: false }).limit(30)); },
+    async sendMessage(from, to, body) {
+      const id = check(await sb.rpc('send_message', { p_from: from, p_to: to, p_body: body }));
+      ping({ type: 'message', messageId: id });
+      return id;
+    },
+    async readMessages(member) { check(await sb.rpc('read_messages', { p_member: member })); },
+    async reportBlackjack(id, bet, net, hands, wins, blackjack) {
+      let r = check(await sb.rpc('report_blackjack', { p_member: id, p_bet: bet, p_net: net, p_hands: hands, p_wins: wins, p_blackjack: !!blackjack }));
+      if (Array.isArray(r)) r = r[0];
+      return r;
+    },
     async duels() { return check(await sb.from('duels').select('*').order('id', { ascending: false }).limit(300)); },
     async createDuel(challenger, opponent, wager, move) {
       const id = check(await sb.rpc('create_duel', { p_challenger: challenger, p_opponent: opponent, p_wager: wager, p_move: move }));
@@ -86,7 +106,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       let ch = sb.channel('coloc');
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms']) {
         ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
       }
       ch.subscribe();
@@ -109,7 +129,7 @@ export function makeDemoApi() {
   try { db = JSON.parse(store.get(KEY)); } catch { db = null; }
   if (!db) db = { products: PRODUCTS.map((name, i) => ({ id: i + 1, name, out_of_stock: false, updated_by: null })) };
   db.profiles ??= {}; db.purchases ??= []; db.duels ??= []; db.nextDuel ??= 1; db.logs ??= []; db.nextLog ??= 1; db.pins ??= {};
-  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= [];
+  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= [];
   const save = () => store.set(KEY, JSON.stringify(db));
   const now = () => new Date().toISOString();
 
@@ -204,8 +224,10 @@ export function makeDemoApi() {
       delete d._move;
       addXp(d.challenger_id, X.duelPlay, 'duel'); addXp(d.opponent_id, X.duelPlay, 'duel');
       if (d.winner_id) {
+        const loser = d.winner_id === d.challenger_id ? d.opponent_id : d.challenger_id;
         addXp(d.winner_id, X.duelWin, 'duel-win');
         addTrophies(d.winner_id, Math.max(0, Math.min(X.duelWinTrophies, X.duelTrophyCapPerDay - todaySum(d.winner_id, 'duel-win'))), 'duel-win');
+        addTrophies(loser, -Math.min(X.duelLossTrophies, Math.max(balance(loser), 0)), 'duel-loss');
       }
       save();
       return publicDuel(d);
@@ -229,8 +251,8 @@ export function makeDemoApi() {
       if (!db.views.some((v) => v.viewer_id === viewer && v.viewed_id === viewed)) { db.views.push({ viewer_id: viewer, viewed_id: viewed }); save(); }
     },
     async questStep(id, step) {
-      if (!(step >= 1 && step <= 4)) fail('Étape inconnue.');
-      const s = statsOf(id); s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 15; save(); return s.quest_mask;
+      if (!(step >= 1 && step <= 5)) fail('Étape inconnue.');
+      const s = statsOf(id); s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 31; save(); return s.quest_mask;
     },
     async claimDaily(id, day) {
       const s = statsOf(id);
@@ -264,12 +286,6 @@ export function makeDemoApi() {
         if (score < 20) fail('Temps invalide.');
         addXp(id, X.sudoku + milestoneXp('sudoku', s.sudoku_best, score), 'game:sudoku');
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
-      } else if (game === 'blackjack') {
-        if (score > 3) fail('Résultat invalide.');          // 0 perdu · 1 égalité · 2 gagné · 3 blackjack
-        s.blackjack_played++; if (score >= 2) s.blackjack_wins++;
-        addXp(id, X.bjPlay + (score === 2 ? X.bjWin : score === 3 ? X.bjBlackjack : 0), 'game:blackjack');
-        const want = score === 2 ? X.bjTrophyWin : score === 3 ? X.bjTrophyBlackjack : 0;
-        addTrophies(id, Math.max(0, Math.min(want, X.bjTrophyCapPerDay - todaySum(id, 'blackjack'))), 'blackjack');
       } else fail('Jeu inconnu.');
       save(); return { member_id: id, ...s };
     },
@@ -288,6 +304,67 @@ export function makeDemoApi() {
       const acc = {};
       for (const l of db.ledger) { const k = `${l.member_id}|${monday(l.at)}`; acc[k] = (acc[k] ?? 0) + l.amount; }
       return Object.entries(acc).map(([k, trophies]) => { const [id, week] = k.split('|'); return { member_id: Number(id), week, trophies }; });
+    },
+    // --- v8 : plateau, messages, blackjack (mêmes règles que migration-v8.sql) ---
+    async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) })); },
+    async diceRolls() { return [...db.dice].sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
+    async rollDice(member) {
+      if (!isColoc(member)) fail('Seuls les colocataires jouent au plateau.');
+      const dayOf = (t) => iso(new Date(t));
+      const today = dayOf(Date.now());
+      const mondayOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
+      const week = mondayOf(Date.now());
+      const cost = DICE_PRICES[Math.min(db.dice.filter((r) => r.member_id === member && dayOf(r.created_at) === today).length, DICE_PRICES.length - 1)];
+      const earned = db.logs.filter((l) => l.doer_id === member && l.status === 'validated').reduce((a, l) => a + l.soap, 0);
+      const spent = db.dice.filter((r) => r.member_id === member).reduce((a, r) => a + r.cost, 0);
+      if (earned - spent < cost) fail(`Il te faut ${cost} savon${cost > 1 ? 's' : ''} pour ce dé.`);
+      const mine = db.dice.filter((r) => r.member_id === member && r.week === week);
+      const from = mine.reduce((m, r) => Math.max(m, r.to_pos), 0);
+      if (from >= GOOSE.size) fail('Tu es déjà arrivé cette semaine ! Reviens lundi.');
+      const finished = mine.some((r) => r.to_pos >= GOOSE.size);
+      const roll = 1 + Math.floor(Math.random() * 6);
+      let to = from + roll; if (to > GOOSE.size) to = GOOSE.size - (to - GOOSE.size);
+      let xp = 0, tr = 0, note = '';
+      for (let depth = 0; depth < 3; depth++) {
+        const c = GOOSE.cells[to]; if (!c) break;
+        if (c.xp) { xp += c.xp; note += ` +${c.xp} XP`; break; }
+        if (c.trophy) { tr += c.trophy; note += ` +${c.trophy} trophée${c.trophy > 1 ? 's' : ''}`; break; }
+        if (c.back) { to = Math.max(to - c.back, 0); note += ` piège : recule de ${c.back}`; }
+        else if (c.goose) { to = Math.min(to + roll, GOOSE.size); note += ` oie : avance encore de ${roll}`; }
+      }
+      let perk = null;
+      if (to >= GOOSE.size && !finished) { xp += GOOSE.finish.xp; tr += GOOSE.finish.trophy; note += ` ARRIVÉE ! +${GOOSE.finish.xp} XP, +${GOOSE.finish.trophy} trophées`; perk = perkOfWeek(new Date(week + 'T00:00:00')).key; db.perks.push({ id: db.nextPerk++, member_id: member, week, kind: perk, created_at: now() }); }
+      db.dice.push({ id: db.nextDice++, member_id: member, week, cost, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
+      addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); save();
+      return { perk, roll, from, to, cost, xp, trophies: tr, note: note.trim() };
+    },
+    async ledger(member) { return db.ledger.filter((l) => l.member_id === member && l.amount).map((l) => ({ ...l, created_at: l.at })).reverse(); },
+    async perks() { return [...db.perks].reverse().map((p) => ({ ...p })); },
+    async perkConfirms() { return db.pconf.map((c) => ({ ...c })); },
+    async confirmPerk(perk, member) {
+      const p = db.perks.find((x) => x.id === perk); if (!p) fail('Récompense introuvable.');
+      if (!PERKS.find((k) => k.key === p.kind)?.confirm) fail('Rien à confirmer ici.');
+      if (member === p.member_id || !isColoc(member)) fail('Seuls les autres colocs confirment.');
+      if (!db.pconf.some((c) => c.perk_id === perk && c.member_id === member)) db.pconf.push({ perk_id: perk, member_id: member, created_at: now() }); save();
+    },
+    async messages(member) { return db.msgs.filter((m) => m.to_id === member).sort((a, b) => b.id - a.id).slice(0, 30).map((m) => ({ ...m })); },
+    async sendMessage(from, to, body) {
+      const t = String(body ?? '').trim();
+      if (!t) fail('Écris un message.');
+      if (t.length > MESSAGE_MAX) fail(`Message trop long (${MESSAGE_MAX} caractères maximum).`);
+      if (from === to) fail("Tu ne peux pas t'écrire à toi-même.");
+      db.msgs.push({ id: db.nextMsg++, from_id: from, to_id: to, body: t, created_at: now(), read_at: null }); save(); return db.nextMsg - 1;
+    },
+    async readMessages(member) { db.msgs.forEach((m) => { if (m.to_id === member && !m.read_at) m.read_at = now(); }); save(); },
+    async reportBlackjack(id, bet, net, hands, wins, blackjack) {
+      if (!BJ_BETS.includes(bet)) fail('Mise invalide.');
+      if (!(hands >= 1 && hands <= 2) || wins < 0 || wins > hands || Math.abs(net) > 4 * bet) fail('Résultat invalide.');
+      const s = statsOf(id);
+      const v = net < 0 ? -Math.min(-net, Math.max(balance(id), 0)) : net;
+      addTrophies(id, v, 'blackjack');
+      addXp(id, hands * X.bjPlay + wins * X.bjWin + (blackjack ? X.bjBlackjack : 0), 'game:blackjack');
+      s.blackjack_played += hands; s.blackjack_wins += wins; save();
+      return { member_id: id, ...s };
     },
     onChange() {},
     async saveSub() {},

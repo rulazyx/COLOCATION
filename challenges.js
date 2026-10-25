@@ -24,9 +24,7 @@ export function tierOf(key, v) {
   if (v == null || (!b.low && !(v > 0) && key !== 'level')) return null;
   return b.th.filter((t) => (b.low ? v <= t : v >= t)).length;
 }
-// Quête secondaire : monter le Piton des Neiges (3 070 m) en une course du Grand Raid
-export const PITON_M = 3070;
-export const questDone = (mask) => (mask & 15) === 15;
+export const questDone = (mask) => (mask & 31) === 31; // introduction terminée
 
 // Séries de victoires au chifoumi (toutes parties terminées, dans l'ordre)
 export function duelRuns(duels, meId) {
@@ -102,6 +100,18 @@ export function leaderOf(c, board) {
 export const firstPlaces = (c, id) => BOARDS.filter((b) => leaderOf(c, b) === id).length;
 
 /* ---------- Défis ---------- */
+// Semaines (lundis, du plus ancien au plus récent) terminées à la 1re place du classement des trophées
+const weekWins = (c) => weekWinners(c.members, c.weekly ?? [], c.currentWeek)
+  .filter((w) => w.winners.includes(c.meId)).map((w) => w.week).sort();
+// Plus longue série de semaines consécutives
+function longestRun(weeks) {
+  let best = 0, cur = 0, prev = null;
+  for (const w of weeks) {
+    const gap = prev ? Math.round((Date.parse(w) - Date.parse(prev)) / (7 * 86400000)) : 0;
+    cur = prev && gap === 1 ? cur + 1 : 1; best = Math.max(best, cur); prev = w;
+  }
+  return best;
+}
 const prog = (value, goal) => ({ value: Math.min(value, goal), goal, done: value >= goal });
 const allOthers = (c) => c.members.filter((m) => m.id !== c.meId);
 const skinsToCollect = Object.keys(OUTFITS).filter((k) => k !== 'none');
@@ -130,11 +140,11 @@ export const CHALLENGES = [
     check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, skinsToCollect.length) },
   // — Coloc —
   { key: 'pilier', xp: 800, title: 'Pilier de la coloc', emoji: '🏛️', desc: 'Te connecter 30 jours (cumulés).', check: (c) => prog(num(st(c).login_days), 30) },
-  { key: 'prince', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Être 1er dans un classement.', check: (c) => prog(firstPlaces(c, c.meId), 1) },
-  { key: 'roi_coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Être 1er dans trois classements.', check: (c) => prog(firstPlaces(c, c.meId), 3) },
-  { key: 'dieu_coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Être 1er dans tous les classements.', check: (c) => prog(firstPlaces(c, c.meId), BOARDS.length) },
+  { key: 'prince', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Terminer une semaine à la 1re place du classement des trophées.', check: (c) => prog(weekWins(c).length, 1) },
+  { key: 'roi_coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Terminer 2 semaines d\'affilée à la 1re place.', check: (c) => prog(longestRun(weekWins(c)), 2) },
+  { key: 'dieu_coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Terminer 6 semaines à la 1re place (cumulées).', check: (c) => prog(weekWins(c).length, 6) },
   // — Divers —
-  { key: 'noob', xp: 100, title: 'Le noob', emoji: '🐣', desc: 'Terminer ta première quête.', check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
+  { key: 'noob', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
   { key: 'mathematicien', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
   { key: 'inspecteur', xp: 200, title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
     check: (c) => { const o = allOthers(c); return prog(o.filter((m) => c.viewed.has(m.id)).length, Math.max(o.length, 1)); } },

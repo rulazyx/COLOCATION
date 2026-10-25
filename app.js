@@ -1,10 +1,10 @@
 import {
   CONFIG, TASK_KINDS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, MAIN_QUEST,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek,
 } from './config.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
-import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, PITON_M } from './challenges.js';
+import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
    Utilitaires
@@ -73,15 +73,18 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
    ========================================================= */
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
-  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], tasksSeg: 'tasks', questSeg: 'quests', anim: false, levelUps: [], auth: null,
-  tab: 'tasks', meSeg: 'profil', board: 'all', opp: null, sheet: null, error: null, initials: {},
-  game: null, won: [], dailyDismissed: false, viewedNow: new Set(),
+  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], msgs: [], freshMsgs: new Set(), heads: false,
+  tasksSeg: 'tasks', anim: false, levelUps: [], auth: null,
+  tab: 'tasks', meSeg: 'profil', opp: null, sheet: null, error: null, initials: {},
+  game: null, won: [], viewedNow: new Set(),
 };
 const memberById = (id) => state.members.find((m) => m.id === id);
 const nameOf = (id) => memberById(id)?.name ?? '?';
 const balanceOf = (id) => state.balances.find((b) => b.member_id === id)?.coins ?? 0;
 const pendingWagerOf = (id) => state.duels.filter((d) => d.status === 'pending' && d.challenger_id === id).reduce((a, d) => a + d.wager, 0);
 const availableOf = (id) => balanceOf(id) - pendingWagerOf(id);
+const earnedSoap = (id) => state.scores.find((x) => x.member_id === id)?.coins ?? 0;
+const soapOf = (id) => earnedSoap(id) - (state.spent.find((x) => x.member_id === id)?.spent ?? 0);
 const xpOf = (id) => state.xp.find((x) => x.member_id === id)?.xp ?? 0;
 const lvlOf = (id) => levelOf(xpOf(id));
 const colocs = () => state.members.filter((m) => m.kind !== 'copain');
@@ -98,7 +101,7 @@ function makeCtx() {
   return {
     meId: me, members: state.members, stats: keyed(state.stats), scores: keyed(state.scores),
     balances: keyed(state.balances, (b) => b.coins), wins: keyed(state.duelStats, (d) => d.wins), xp: keyed(state.xp, (x) => x.xp),
-    duels: state.duels, owned: ownedBy(me),
+    duels: state.duels, owned: ownedBy(me), weekly: state.weekly, currentWeek: currentWeek(),
     viewed: new Set(state.views.filter((v) => v.viewer_id === me).map((v) => v.viewed_id)),
   };
 }
@@ -126,17 +129,19 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   [state.members, state.scores, state.balances, state.products, state.purchases, state.duels,
-    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs] = await Promise.all([
+    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs, state.spent, state.dice, state.perks, state.pconf] = await Promise.all([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(),
   ]);
+  state.msgs = state.me ? await state.api.messages(state.me.id) : [];
   if (state.me) state.me = memberById(state.me.id) ?? null;
   state.initials = computeInitials(state.members);
   checkNewResults();
   checkLevelUp();
   render();
   autoClaim();
+  markRead();
 }
 
 // Passage de niveau : on le fête une fois, avec les apparences débloquées
@@ -189,7 +194,7 @@ async function init() {
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
-    state.error = `${e.message || String(e)} [étape : ${step} · v9]`;
+    state.error = `${e.message || String(e)} [étape : ${step} · v11]`;
     render(); window.splashDone?.();
   }
 }
@@ -248,8 +253,8 @@ async function authKey(v) {
 async function finishLogin(id) {
   store.set('coloc-me', String(id)); store.set('coloc-auth', String(id));
   state.auth = null;
-  await refresh(true);
   state.me = memberById(id);
+  await refresh(true);
   state.tab = 'tasks';
   render(); syncSub(); checkNewResults(); render();
 }
@@ -274,7 +279,6 @@ async function questStep(n) {
 }
 
 async function saveProfile(patch) {
-  questStep(1);
   Object.assign(state.me, patch);
   render();
   try { await state.api.updateProfile(state.me.id, patch); }
@@ -287,7 +291,6 @@ async function sendDuel() {
   if (!s.move) return toast('Choisis ton coup.');
   try {
     await state.api.createDuel(state.me.id, s.opp, 0, s.move); // chifoumi amical : toujours 0 trophée
-    questStep(3);
     state.sheet = null;
     toast(`Défi envoyé à ${nameOf(s.opp)} !`);
     await refresh();
@@ -308,6 +311,103 @@ async function cancelDuelNow(id) {
   try { await state.api.cancelDuel(id, state.me.id); toast('Défi retiré.'); await refresh(); }
   catch (e) { toast(e.message || 'Impossible.'); }
 }
+
+/* ---------- Récompenses d'arrivée (bière, cadeau, vacances) ---------- */
+const perkDef = (kind) => PERKS.find((k) => k.key === kind);
+const perkOfWeekDef = () => perkOfWeek(mondayOf());
+const debtors = (perk) => colocs().filter((m) => m.id !== perk.member_id);
+const confirmedBy = (perk) => new Set(state.pconf.filter((c) => c.perk_id === perk.id).map((c) => c.member_id));
+function perkActive(perk) {
+  const d = perkDef(perk.kind);
+  if (!d) return false;
+  if (d.confirm) return debtors(perk).some((m) => !confirmedBy(perk).has(m.id));
+  return Date.now() < Date.parse(perk.created_at) + (d.days ?? 7) * 86400000;
+}
+const activePerksOf = (id) => state.perks.filter((p) => p.member_id === id && perkActive(p));
+// Ce que je dois encore offrir
+const perksOwed = () => (state.me?.kind === 'coloc'
+  ? state.perks.filter((p) => perkDef(p.kind)?.confirm && p.member_id !== state.me.id && perkActive(p) && !confirmedBy(p).has(state.me.id)) : []);
+function perkCardHTML(perk, viewerIsOwner) {
+  const d = perkDef(perk.kind), owner = memberById(perk.member_id);
+  let body;
+  if (d.confirm) {
+    const done = confirmedBy(perk), list = debtors(perk);
+    const mine = state.me.kind === 'coloc' && state.me.id !== perk.member_id && !done.has(state.me.id);
+    body = `<small>${done.size} sur ${list.length} ont tenu parole${list.filter((m) => !done.has(m.id)).length ? ` · reste : ${list.filter((m) => !done.has(m.id)).map((m) => esc(m.name)).join(', ')}` : ''}</small>
+      ${mine ? `<button class="mini ok" data-action="perk-ok" data-id="${perk.id}">J'ai offert ma part</button>` : ''}`;
+  } else {
+    const left = Math.max(0, Math.ceil((Date.parse(perk.created_at) + (d.days ?? 7) * 86400000 - Date.now()) / 86400000));
+    body = `<small>${esc(d.short)} · encore ${left} jour${left > 1 ? 's' : ''}</small>`;
+  }
+  return `<div class="perk ${perk.kind}"><b>${esc(d.title)}</b>${viewerIsOwner ? '' : `<small>Gagné par ${esc(owner?.name)}</small>`}${body}</div>`;
+}
+async function confirmPerkNow(id) {
+  try { await state.api.confirmPerk(id, state.me.id); toast('Merci, c\'est noté !'); await refresh(); }
+  catch (e) { toast(e.message || 'Impossible de confirmer.'); }
+}
+
+/* ---------- Historiques (trophées, savons) ---------- */
+const REASONS = { start: 'Départ', daily: 'Récompense du jour', wheel: 'Roue de la fortune', blackjack: 'Blackjack', plateau: 'Plateau', 'duel-win': 'Chifoumi gagné', 'duel-loss': 'Chifoumi perdu' };
+const reasonLabel = (r) => (r?.startsWith('challenge:') ? `Défi : ${titleOf(r.slice(10)) ?? ''}` : REASONS[r] ?? r);
+async function openTrHist() {
+  state.sheet = { type: 'trhist', rows: null }; render();
+  try { const rows = await state.api.ledger(state.me.id); if (state.sheet?.type === 'trhist') { state.sheet.rows = rows; render(); } }
+  catch (e) { state.sheet = null; toast(e.message || 'Historique indisponible.'); render(); }
+}
+function histRow(label, when, amount, unit) {
+  return `<div class="hrow"><div><b>${esc(label)}</b><small>${esc(when)}</small></div><span class="${amount > 0 ? 'plus' : 'minus'}">${amount > 0 ? '+' : ''}${amount} ${unit}</span></div>`;
+}
+function trHistHTML(s) {
+  return sheetWrap(`
+    <div class="sh"><div><h2>🏆 Historique des trophées</h2><div class="when">Solde : ${balanceOf(state.me.id)} 🏆</div></div>${closeBtn}</div>
+    ${s.rows == null ? '<div class="det">Chargement…</div>' : s.rows.length ? `<div class="hlist">${s.rows.map((r) => histRow(reasonLabel(r.reason), ago(r.created_at), r.amount, '🏆')).join('')}</div>` : '<div class="det">Aucun gain ni perte pour l\'instant.</div>'}
+    <div class="sact"><button class="btn" data-action="close">Fermer</button></div>`, 'var(--gold)');
+}
+function soapHistHTML() {
+  const me = state.me.id;
+  const rows = [
+    ...state.logs.filter((l) => l.doer_id === me && l.status === 'validated').map((l) => ({ t: l.answered_at, label: `${TASK_KINDS[l.kind]?.short ?? l.kind} (confirmée)`, amount: l.soap })),
+    ...state.dice.filter((r) => r.member_id === me).map((r) => ({ t: r.created_at, label: `Dé du plateau (${r.roll})`, amount: -r.cost })),
+  ].sort((a, b) => Date.parse(b.t) - Date.parse(a.t));
+  return sheetWrap(`
+    <div class="sh"><div><h2>🧼 Historique des savons</h2><div class="when">Disponibles : ${soapOf(me)} 🧼 · gagnés en tout : ${earnedSoap(me)}</div></div>${closeBtn}</div>
+    ${rows.length ? `<div class="hlist">${rows.map((r) => histRow(r.label, ago(r.t), r.amount, '🧼')).join('')}</div>` : '<div class="det">Aucun mouvement pour l\'instant.</div>'}
+    <div class="sact"><button class="btn" data-action="close">Fermer</button></div>`, 'var(--gold)');
+}
+
+/* ---------- Plateau, messages ---------- */
+async function rollDiceNow() {
+  if (state.rolling) return;
+  state.rolling = true; render();
+  try {
+    const r = await state.api.rollDice(state.me.id);
+    state.rolling = false;
+    state.sheet = { type: 'dice', r };
+    await refresh(true);
+  } catch (e) { state.rolling = false; toast(e.message || 'Lancer impossible.'); refresh(true).catch(() => {}); }
+}
+async function sendMessageNow() {
+  const s = state.sheet, text = (s.text || '').trim();
+  if (!text) return toast('Écris ton message.');
+  try {
+    await state.api.sendMessage(state.me.id, s.to, text);
+    state.sheet = null;
+    toast(`Message envoyé à ${nameOf(s.to)}.`);
+    render();
+  } catch (e) { toast(e.message || "Message non envoyé."); }
+}
+// Messages reçus : on les marque lus quand on ouvre le Profil (les nouveaux restent signalés jusqu'à la fermeture)
+let marking = false;
+async function markRead() {
+  if (marking || !state.me || state.tab !== 'me') return;
+  const unread = state.msgs.filter((m) => !m.read_at);
+  if (!unread.length) return;
+  marking = true;
+  unread.forEach((m) => state.freshMsgs.add(m.id));
+  try { await state.api.readMessages(state.me.id); state.msgs = await state.api.messages(state.me.id); render(); } catch (e) { console.warn(e); }
+  marking = false;
+}
+const unreadCount = () => state.msgs.filter((m) => !m.read_at).length;
 
 /* ---------- Défis, récompense quotidienne, roue, jeux, profils ---------- */
 let claiming = false;
@@ -337,9 +437,10 @@ function nextStreak() {
 async function claimDailyNow() {
   try {
     const r = await state.api.claimDaily(state.me.id, iso(new Date()));
-    state.sheet = { type: 'daily-done', ...r };
+    toast(r.wheel ? 'Jour 7 ! Ta roue de la fortune est prête.' : `+${r.xp} XP · jour ${r.streak} sur 7`);
     await refresh();
-  } catch (e) { state.sheet = null; toast(e.message || 'Impossible de récupérer la récompense.'); refresh().catch(() => {}); }
+    if (r.wheel) { state.sheet = { type: 'wheel' }; render(); }
+  } catch (e) { toast(e.message || 'Impossible de récupérer la récompense.'); refresh().catch(() => {}); }
 }
 async function spinNow() {
   const s = state.sheet;
@@ -367,16 +468,16 @@ async function openProfile(id) {
 
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
-  flappy: { name: 'Jumpy Cardinal', emoji: '🐦', mod: './games/flappy.js', board: 'flappy', blurb: 'Bats des ailes entre les colonnes' },
-  raid:   { name: 'Le Grand Raid', emoji: '🏃', mod: './games/raid.js', board: 'raid', blurb: 'Course sans fin sur la plage' },
-  sudoku: { name: 'Sudoku', emoji: '🔢', mod: './games/sudoku.js', board: 'sudoku', blurb: 'Contre la montre' },
-  blackjack: { name: 'Blackjack', emoji: '🃏', mod: './games/blackjack.js', board: 'blackjack', blurb: 'Bats la banque, gagne des trophées' },
+  chifoumi: { name: 'Chifoumi', cls: 'chif', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Victoire : +5 trophées. Défaite : −4 trophées.", duel: true },
+  flappy: { name: 'Jumpy Cardinal', cls: 'flap', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
+  raid: { name: 'Le Grand Raid', cls: 'raid', mod: './games/raid.js', blurb: 'Une course sans fin sur la plage : saute les obstacles et grimpe le plus haut possible. Atteins 3 070 m pour le sommet du Piton.' },
+  sudoku: { name: 'Sudoku', cls: 'sudo', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
+  blackjack: { name: 'Blackjack', cls: 'blk', mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21. Mise 1, 5, 10 ou 25 trophées (il te faut au moins 1 trophée), double ou sépare tes cartes. Le blackjack paie 3 pour 2.' },
 };
 let gameHandle = null;
 async function openGame(id) {
   const G = GAMES[id];
   if (!G || state.game) return;
-  questStep(3);
   state.game = id; state.sheet = null; render();
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
@@ -391,9 +492,11 @@ async function openGame(id) {
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      async onEnd({ score }) {
+      balance: () => availableOf(state.me.id),
+      async onEnd(r) {
         try {
-          await state.api.reportGame(state.me.id, id, score);
+          if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
+          else await state.api.reportGame(state.me.id, id, r.score);
           await refresh(true);
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }
       },
@@ -470,31 +573,52 @@ function render() {
   const duelsForMe = pendingForMe().length;
   const tab = state.tab;
   const anim = state.anim; state.anim = false;
-  const hp = levelProgress(xpOf(state.me.id));
+  const me = state.me;
   const badge = (n, color) => (n ? `<span class="badge" ${color ? `style="background:${color}"` : ''}>${n}</span>` : '');
+  const step = introStep();
+  const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     <header class="top hdr">
-      <span class="lvlcircle sm" title="Niveau">${hp.level}</span>
-      <div class="hbar"><div class="bar sm lvlbar"><i style="width:${hp.pct}%"></i></div><small>${xpOf(state.me.id)} XP · niv. ${hp.level + 1} dans ${hp.need - hp.into}</small></div>
-      <span class="hchip" title="Savons">🧼 ${state.scores.find((x) => x.member_id === state.me.id)?.coins ?? 0}</span>
-      <span class="hchip" title="Trophées">🏆 ${balanceOf(state.me.id)}</span>
+      <button class="hav" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau">${lvlOf(me.id)}</span></button>
+      <span class="grow"></span>
+      <button class="hchip" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>
+      <button class="hchip" data-action="hist-tr" title="Historique des trophées">🏆 ${balanceOf(me.id)}</button>
     </header>
+    ${state.heads ? headsHTML() : ''}
     <main class="${anim ? 'pg' : ''}">
-      ${pushOn() || store.get('coloc-push-dismiss') === '1' ? '' : `
+      ${pushOn() || store.get('coloc-push-dismiss') === '1' || step ? '' : `
         <div class="banner">
-          <span>Active les notifications pour recevoir les rappels, les alertes de rupture et les défis.</span>
+          <span>Active les notifications pour recevoir les rappels, les alertes de rupture, les défis et les messages.</span>
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'quests' ? questsHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : meHTML()}
     </main>
+    ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
+      <div class="cgo">👇 Touche l'onglet « ${esc(step.title)} » pour continuer</div></div>` : ''}
     <nav class="tabs">
-      <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''}"><span class="ico">🧹</span>Tâches${badge(reqForMe)}</button>
-      <button data-action="tab" data-tab="quests" class="${tab === 'quests' ? 'active' : ''}"><span class="ico">🧭</span>Quêtes</button>
-      <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''}"><span class="ico">🎮</span>Jeux${badge(duelsForMe)}</button>
-      <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''}"><span class="ico">🥇</span>Classement</button>
-      <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''}"><span class="ico">👤</span>Toi${badge(statsOf(state.me.id).wheel_ready ? 1 : 0, 'var(--danger)')}</button>
+      <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">🧹</span>Tâches${badge(reqForMe)}</button>
+      <button data-action="tab" data-tab="defis" class="${tab === 'defis' ? 'active' : ''} ${pulse('defis')}"><span class="ico">🎯</span>Défis${badge(dailyDue() || statsOf(me.id).wheel_ready ? 1 : 0, 'var(--danger)')}</button>
+      <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">🎮</span>Jeux${badge(duelsForMe)}</button>
+      <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">🥇</span>Classement</button>
+      <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''} ${pulse('me')}"><span class="ico">👤</span>Profil${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
     </nav>
     ${sheetHTML()}`;
+}
+
+// Introduction : tant que les 5 onglets n'ont pas été visités, on guide le nouvel arrivant
+const introStep = () => {
+  if (!state.me || state.game) return null;
+  const mask = statsOf(state.me.id).quest_mask ?? 0;
+  if (questDone(mask)) return null;
+  return INTRO_STEPS.find((x) => !(mask & (1 << (x.n - 1)))) ?? null;
+};
+
+// Tête du header : déroule les têtes de tous les colocs et copains (la tienne en premier)
+function headsHTML() {
+  const me = state.me;
+  const list = [me, ...colocs().filter((m) => m.id !== me.id), ...copains().filter((m) => m.id !== me.id)];
+  return `<div class="heads" role="menu">${list.map((m) => `
+    <button class="headb" data-action="head" data-id="${m.id}" role="menuitem">${av(m, 48)}<small>${m.id === me.id ? 'Moi' : esc(m.name)}</small>${m.kind === 'copain' ? '<i>copain</i>' : ''}</button>`).join('')}</div>`;
 }
 
 /* ---------- Onglet 1 : tâches (liste des tâches réalisables, stocks) ---------- */
@@ -525,24 +649,68 @@ function kindStatus(kind) {
 function tasksHTML() {
   const out = state.products.filter((p) => p.out_of_stock).length;
   const seg = state.tasksSeg;
-  return `<div class="seg" style="margin-bottom:12px">${[['tasks', '🧼 Tâches'], ['stock', `🛒 Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
+  return `<div class="seg" style="margin-bottom:12px">${[['tasks', 'Tâches'], ['plateau', 'Plateau'], ['stock', `Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
     `<button class="${seg === k ? 'on' : ''}" data-action="tseg" data-v="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'stock' ? stockHTML() : taskListHTML()}`;
+    ${seg === 'stock' ? stockHTML() : seg === 'plateau' ? plateauHTML() : taskListHTML()}`;
+}
+
+/* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
+const posThisWeek = (id) => state.dice.filter((r) => r.member_id === id && r.week === currentWeek()).reduce((m, r) => Math.max(m, r.to_pos), 0);
+const diceCost = (id) => DICE_PRICES[Math.min(rollsToday(id), DICE_PRICES.length - 1)];
+const rollsToday = (id) => state.dice.filter((r) => r.member_id === id && iso(new Date(r.created_at)) === iso(new Date())).length;
+function cellLabel(n) {
+  const c = GOOSE.cells[n];
+  if (n === GOOSE.size) return '<em class="cl fin">Arrivée</em>';
+  if (!c) return '';
+  if (c.xp) return `<em class="cl xp">+${c.xp} XP</em>`;
+  if (c.trophy) return `<em class="cl tr">+${c.trophy} 🏆</em>`;
+  if (c.back) return `<em class="cl bk">−${c.back}</em>`;
+  if (c.goose) return '<em class="cl go">Oie</em>';
+  return '';
+}
+function plateauHTML() {
+  const me = state.me, isColoc = me.kind === 'coloc';
+  const cols = 6, rows = GOOSE.size / cols;
+  const pawns = {};
+  colocs().forEach((m) => { const p = posThisWeek(m.id); (pawns[p] ??= []).push(m); });
+  const cells = [];
+  for (let r = rows - 1; r >= 0; r--) {         // ligne du haut = les cases les plus hautes
+    const row = Array.from({ length: cols }, (_, i) => r * cols + i + 1);
+    if (r % 2 === 1) row.reverse();
+    row.forEach((n) => cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''}"><b>${n}</b>${cellLabel(n)}<div class="pw">${(pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''}" title="${esc(m.name)}">${av(m, 22)}</span>`).join('')}</div></div>`));
+  }
+  const pos = posThisWeek(me.id), cost = diceCost(me.id), have = soapOf(me.id), done = pos >= GOOSE.size;
+  const can = isColoc && !done && have >= cost && !state.rolling;
+  const hist = state.dice.slice(0, 15);
+  return `
+    <p class="summary" style="margin-top:0">Chaque semaine le plateau repart de zéro. Un dé coûte <b>${DICE_PRICES.join(' puis ')} 🧼</b> au fil des lancers de la journée (retour à ${DICE_PRICES[0]} à minuit). Les savons dépensés ne rapportent rien : on joue pour l'XP et les trophées des cases.</p>
+    <div class="perkbox"><b>Récompense d'arrivée de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)} · en plus de ${GOOSE.finish.xp} XP et ${GOOSE.finish.trophy} 🏆</small></div>
+    <div class="goose"><div class="gstart"><b>Départ</b><div class="pw">${(pawns[0] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''}" title="${esc(m.name)}">${av(m, 22)}</span>`).join('')}</div></div>
+      <div class="ggrid">${cells.join('')}</div></div>
+    <div class="legend"><span><i class="cl xp">XP</i> bonus d'XP</span><span><i class="cl tr">🏆</i> trophées</span><span><i class="cl bk">−n</i> piège : recule</span><span><i class="cl go">Oie</i> avance encore</span></div>
+    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : done ? 'Arrivé ! Reviens lundi' : state.rolling ? 'Le dé roule…' : `Lancer le dé · ${cost} 🧼`}</button>
+    <div class="det" style="text-align:center">Tu as ${have} 🧼 · case ${pos || 'départ'} sur ${GOOSE.size}</div>
+    <h3 class="sec">Derniers lancers</h3>
+    ${hist.length ? hist.map((r) => `<div class="up hist"><div class="mini-av">${av(memberById(r.member_id), 38)}</div>
+      <div class="txt"><b>${esc(nameOf(r.member_id))} : dé ${r.roll}</b><small>case ${r.from_pos || 'départ'} → ${r.to_pos}${r.note ? ` · ${esc(r.note)}` : ''} · ${ago(r.created_at)} · −${r.cost} 🧼</small></div></div>`).join('')
+      : '<div class="empty-msg" style="padding:16px 0">Personne n\'a encore lancé le dé.</div>'}`;
 }
 
 function taskListHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
+  const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
   const confirm = toConfirm();
   const mine = pendingLogs().filter((l) => l.doer_id === me.id);
   const kinds = Object.entries(TASK_KINDS).map(([k, K]) => ({ k, K, ...kindStatus(k) }))
     .sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1));
-  const done = state.logs.filter((l) => l.status === 'validated').slice(0, 6);
+  const done = state.logs.filter((l) => l.status === 'validated').slice(0, 20);
   const row = (l, actions) => {
     const K = TASK_KINDS[l.kind], doer = memberById(l.doer_id);
     return `<div class="up"><div class="mini-av">${av(doer, 44)}</div>
       <div class="txt"><b>${esc(doer?.name)} : ${K.emoji} ${esc(K.short)}</b><small>${ago(l.created_at)} · +${l.soap} 🧼</small></div>${actions}</div>`;
   };
   return `
+    ${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce au plateau.</small></div>` : ''}
     ${confirm.length ? `<h3 class="sec" style="margin-top:0">À confirmer</h3>
       <p class="summary" style="margin-top:0">Ces tâches ont été faites par un autre coloc. Confirme seulement si c'est vrai !</p>
       ${confirm.map((l) => row(l, `<button class="mini ok" data-action="task-ok" data-id="${l.id}">✓ Oui</button><button class="mini" data-action="task-no" data-id="${l.id}">✗ Non</button>`)).join('')}` : ''}
@@ -593,37 +761,24 @@ function pinHTML() {
   </div>`;
 }
 
-/* ---------- Onglet Quêtes (bientôt) ---------- */
-function questsHTML() {
-  const seg = state.questSeg;
-  const n = unlockedKeys(state.me.id).size;
-  return `<div class="seg" style="margin-bottom:12px">${[['quests', '🧭 Quêtes'], ['defis', `🏅 Défis ${n}/${CHALLENGES.length}`]].map(([k, l]) =>
-    `<button class="${seg === k ? 'on' : ''}" data-action="qseg" data-v="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'defis' ? defisHTML() : mainQuestHTML() + pitonHTML()}`;
-}
-
-function mainQuestHTML() {
-  const mask = statsOf(state.me.id).quest_mask ?? 0;
-  const q = MAIN_QUEST, got = q.steps.filter((x) => mask & (1 << (x.n - 1))).length, done = got === q.steps.length;
-  return `<div class="quest ${done ? 'done' : ''}">
-    <div class="q-head"><span class="q-ico">${q.emoji}</span><div><small>Quête principale</small><h2>${esc(q.title)}</h2></div><b class="q-count">${got}/${q.steps.length}</b></div>
-    <div class="lvlbar"><i style="width:${got / q.steps.length * 100}%"></i></div>
-    <ol class="q-steps">${q.steps.map((x) => { const ok = mask & (1 << (x.n - 1));
-      return `<li class="${ok ? 'ok' : ''}"><button data-action="tab" data-tab="${x.tab}" ${ok ? 'disabled' : ''}><span class="q-n">${ok ? '✓' : x.n}</span><span>Étape ${x.n} : ${esc(x.text)}</span><em>${x.emoji}</em></button></li>`; }).join('')}</ol>
-    ${done ? '<p class="q-end">🎉 Quête terminée ! Le défi « Le noob » est à toi.</p>' : ''}
+/* ---------- Onglet Défis : récompense du jour tout en haut, puis les défis ---------- */
+function dailyCardHTML() {
+  const st = statsOf(state.me.id), due = dailyDue();
+  const next = due ? nextStreak() : st.streak || 1;
+  const tiles = Array.from({ length: 7 }, (_, i) => {
+    const day = i + 1, got = due ? day < next : day <= next, cur = due && day === next;
+    const content = day === 7 ? '🎡<small>Roue</small>' : `⭐<small>+${DAILY_XP[i]}</small>`;
+    return `<div class="dday ${got ? 'got' : ''} ${cur ? 'cur' : ''}"><i>J${day}</i><span>${got ? '✓' : content}</span></div>`;
+  }).join('');
+  return `<div class="dailycard ${due ? 'due' : ''}">
+    <div class="dh"><b>🎁 Récompense du jour</b><small>${due ? `Jour ${next} sur 7` : 'Récupérée · reviens demain'}</small></div>
+    <div class="ddays">${tiles}</div>
+    ${due ? `<button class="btn primary" data-action="daily-claim">${next === 7 ? '🎡 Débloquer la roue' : `Récupérer +${DAILY_XP[next - 1]} XP`}</button>` : ''}
+    ${st.wheel_ready ? `<button class="wheelban" data-action="wheel">🎡 Ta roue de la fortune est prête ! <b>Tourner</b></button>` : ''}
+    ${due ? `<small class="det">Le jour 7 débloque la roue de la fortune : de ${WHEEL_MIN} à ${WHEEL_MAX} XP.</small>` : ''}
   </div>`;
 }
-
-// Quête secondaire : monter le Piton des Neiges (3 070 m) en une course du Grand Raid
-function pitonHTML() {
-  const best = statsOf(state.me.id).raid_best || 0, done = best >= PITON_M;
-  return `<div class="quest ${done ? 'done' : ''}">
-    <div class="q-head"><span class="q-ico">⛰️</span><div><small>Quête secondaire</small><h2>Monter le Piton des Neiges</h2></div><b class="q-count">${Math.min(best, PITON_M)} / ${PITON_M} m</b></div>
-    <div class="lvlbar"><i style="width:${Math.min(100, best / PITON_M * 100)}%"></i></div>
-    <p class="q-desc">Atteins ${PITON_M} m en une seule course du Grand Raid : l'altitude du Piton des Neiges, le toit de La Réunion.</p>
-    ${done ? '<p class="q-end">🏔️ Sommet atteint !</p>' : `<button class="btn" data-action="tab" data-tab="games" style="margin-top:8px">🏃 Aller courir</button>`}
-  </div>`;
-}
+const defisTabHTML = () => dailyCardHTML() + `<h3 class="sec">Défis ${unlockedKeys(state.me.id).size}/${CHALLENGES.length}</h3>` + defisHTML();
 
 /* ---------- Feuilles (fenêtres du bas) ---------- */
 function sheetWrap(inner, color = 'var(--accent)') {
@@ -637,14 +792,12 @@ function currentSheet() {
   if (state.game || !state.me) return null;
   if (state.won.length) return { type: 'won' };
   if (state.levelUps.length) return { type: 'levelup' };
-  if (dailyDue() && !state.dailyDismissed) return { type: 'daily' };
   return null;
 }
 function closeSheet() {
   if (state.sheet) state.sheet = null;
   else if (state.won.length) state.won = [];
   else if (state.levelUps.length) state.levelUps = [];
-  else state.dailyDismissed = true;
   render();
 }
 
@@ -654,8 +807,11 @@ function sheetHTML() {
   switch (s.type) {
     case 'profile': return profileSheetHTML(s);
     case 'won': return wonSheetHTML();
-    case 'daily': return dailySheetHTML();
-    case 'daily-done': return dailyDoneHTML(s);
+    case 'dice': return diceSheetHTML(s);
+    case 'msg': return msgSheetHTML(s);
+    case 'ginfo': return gameInfoHTML(s);
+    case 'trhist': return trHistHTML(s);
+    case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'task-do': return taskConfirmHTML(s);
     case 'levelup': return levelUpSheetHTML();
@@ -743,38 +899,21 @@ function gamesHTML() {
   const received = pendingForMe();
   const sent = state.duels.filter((d) => d.status === 'pending' && d.challenger_id === me.id);
   const hist = state.duels.filter((d) => d.status === 'done').slice(0, 8);
-  const others = state.members.filter((m) => m.id !== me.id);
-  if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
-  const st = statsOf(me.id);
-  const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
-  const best = { flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`, sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé',
-    blackjack: `${st.blackjack_wins || 0} victoire${(st.blackjack_wins || 0) > 1 ? 's' : ''}` };
-
   return `
     ${received.length ? `<h3 class="sec" style="margin-top:0">Défis reçus</h3>${received.map((d) => {
       const ch = memberById(d.challenger_id);
       return `<div class="up"><div class="mini-av">${av(ch, 44)}</div>
-        <div class="txt"><b>${esc(ch?.name)} te défie</b><small>Chifoumi${d.wager ? ` · mise : ${d.wager} 🏆` : ' · amical'}</small></div>
+        <div class="txt"><b>${esc(ch?.name)} te défie</b><small>Chifoumi · ${XP_RULES.duelWinTrophies} 🏆 à gagner, −${XP_RULES.duelLossTrophies} 🏆 si tu perds</small></div>
         <button class="mini ok" data-action="duel-open" data-id="${d.id}">Relever</button>
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <div class="tiles">
-      <div class="tile chif">
-        <div class="tico">✊✋✌️</div><b>Chifoumi</b>
-        <small>${XP_RULES.duelWinTrophies} 🏆 par victoire · ${wins} victoire${wins > 1 ? 's' : ''}</small>
-        <select class="dd" data-input="opp" aria-label="Adversaire">${others.map((m) => `<option value="${m.id}" ${m.id === state.opp ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
-        <button class="mini ok" data-action="duel-new" ${others.length ? '' : 'disabled'}>⚔️ Défier</button>
-      </div>
-      ${Object.entries(GAMES).map(([id, g]) => `
-        <button class="tile" data-action="game" data-id="${id}">
-          <div class="tico">${g.emoji}</div><b>${esc(g.name)}</b><small>${esc(g.blurb)}</small><span class="rec">${best[id]}</span>
-        </button>`).join('')}
-    </div>
+    <div class="gtiles">${Object.entries(GAMES).map(([id, g]) => `
+      <button class="gtile g-${g.cls}" data-action="ginfo" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
     ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
       <div class="up"><div class="mini-av">${av(memberById(d.opponent_id), 44)}</div>
-        <div class="txt"><b>En attente de ${esc(nameOf(d.opponent_id))}</b><small>${d.wager ? `Mise : ${d.wager} 🏆 · ` : ''}ton coup est secret</small></div>
+        <div class="txt"><b>En attente de ${esc(nameOf(d.opponent_id))}</b><small>ton coup est secret</small></div>
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Annuler</button></div>`).join('')}` : ''}
 
     <h3 class="sec">Derniers duels</h3>
@@ -784,16 +923,32 @@ function gamesHTML() {
       const mineD = d.challenger_id === me.id || d.opponent_id === me.id;
       return `<div class="up hist ${mineD ? 'mine' : ''}"><div class="vs-av">${av(ch, 38)}${av(op, 38)}</div>
         <div class="txt"><b>${esc(ch?.name)} ${moveEmoji(d.challenger_move)} vs ${moveEmoji(d.opponent_move)} ${esc(op?.name)}</b>
-        <small>${w ? `${esc(w)} gagne${d.wager ? ` ${d.wager} 🏆` : ''}` : 'Égalité'}</small></div></div>`;
+        <small>${w ? `${esc(w)} gagne` : 'Égalité'}</small></div></div>`;
     }).join('') : '<div class="empty-msg" style="padding:16px 0">Aucun duel pour l\'instant. Lance le premier !</div>'}`;
 }
 
-/* ---------- Onglet Toi ---------- */
+// Fiche d'un jeu : texte uniquement + bouton Jouer
+function gameInfoHTML(s) {
+  const g = GAMES[s.id], me = state.me, st = statsOf(me.id);
+  if (!g) return '';
+  const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
+  const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`,
+    sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé', blackjack: `${st.blackjack_wins || 0} main${(st.blackjack_wins || 0) > 1 ? 's' : ''} gagnée${(st.blackjack_wins || 0) > 1 ? 's' : ''} · ${balanceOf(me.id)} trophées` }[s.id];
+  const others = state.members.filter((m) => m.id !== me.id);
+  if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
+  return sheetWrap(`
+    <div class="sh"><div><h2>${esc(g.name)}</h2><div class="when">${esc(rec)}</div></div>${closeBtn}</div>
+    <div class="det">${esc(g.blurb)}</div>
+    ${g.duel ? `<select class="dd" data-input="opp" aria-label="Adversaire">${others.map((m) => `<option value="${m.id}" ${m.id === state.opp ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
+      <div class="sact"><button class="btn primary" data-action="duel-new" ${others.length ? '' : 'disabled'}>Défier</button></div>`
+      : `<div class="sact"><button class="btn primary" data-action="game" data-id="${s.id}">Jouer</button></div>`}`);
+}
+
+/* ---------- Onglet Profil ---------- */
 function meHTML() {
   const me = state.me;
   const seg = state.meSeg;
   const p = levelProgress(xpOf(me.id));
-  const mine = state.scores.find((s) => s.member_id === me.id) ?? { coins: 0, done_count: 0 };
   return `
     <section class="hero2">
       <div class="avwrap">${av(me, 88)}</div>
@@ -801,17 +956,17 @@ function meHTML() {
         <div class="lvlrow"><span class="lvlcircle" title="Niveau">${p.level}</span>
           <div class="lvlinfo"><div class="bar sm lvlbar"><i style="width:${p.pct}%"></i></div>
           <div class="sub">${xpOf(me.id)} XP · encore ${p.need - p.into} pour le niveau ${p.level + 1}</div></div></div>
-        <div class="sub"><b>${balanceOf(me.id)} 🏆</b> trophées · <b>${mine.coins ?? 0} 🧼</b> savons</div></div>
+        <div class="sub"><b>${balanceOf(me.id)} 🏆</b> trophées · <b>${soapOf(me.id)} 🧼</b> savons</div></div>
     </section>
-    <div class="seg">${[['profil', 'Profil'], ['perso', 'Personnalisation']].map(([k, l]) =>
+    <div class="seg">${[['profil', 'Profil'], ['robe', 'Garde-robe']].map(([k, l]) =>
       `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'perso' ? persoHTML() : profilTabHTML()}`;
+    ${seg === 'robe' ? robeHTML() : persoHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
 function statGrid(m) {
   const st = statsOf(m.id);
-  const soap = state.scores.find((x) => x.member_id === m.id)?.coins ?? 0;
+  const soap = earnedSoap(m.id);
   const wins = state.duelStats.find((x) => x.member_id === m.id)?.wins ?? 0;
   const cells = [
     ['level', '⭐', 'Niveau', lvlOf(m.id)],
@@ -839,24 +994,11 @@ function profileEdit(m) {
     ${unlocked.length ? '' : '<div class="det">Réussis un défi pour débloquer ton premier titre.</div>'}`;
 }
 
-function profilTabHTML() {
-  const me = state.me;
-  const viewed = new Set(state.views.filter((v) => v.viewer_id === me.id).map((v) => v.viewed_id));
-  const faces = (list) => `<div class="faces">${list.map((m) => `<button class="face" data-action="profile" data-id="${m.id}">${av(m, 56)}<small>${esc(m.name)}${viewed.has(m.id) ? '' : ' •'}</small></button>`).join('')}</div>`;
-  const cl = colocs().filter((m) => m.id !== me.id), co = copains().filter((m) => m.id !== me.id);
-  return `
-    ${statsOf(me.id).wheel_ready ? `<button class="wheelban" data-action="wheel">🎡 Ta roue de la fortune est prête ! <b>Tourner</b></button>` : ''}
-    <div class="center-av">${av(me, 120)}</div>
-    <div class="pname"><b>${esc(me.name)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div>
-    ${statGrid(me)}
-    ${profileEdit(me)}
-    <button class="btn" style="margin-top:14px" data-action="seg" data-seg="perso">🎭 Personnalisation</button>
-    <button class="btn" style="margin-top:8px" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
-
-    <h3 class="sec">Les colocs</h3>${faces(cl)}
-    ${co.length ? `<h3 class="sec">Les copains</h3>${faces(co)}` : ''}
-
-    <button class="link" data-action="switch">Changer de prénom (actuellement ${esc(me.name)})</button>`;
+function inboxHTML() {
+  if (!state.msgs.length) return '<div class="det">Aucun message pour l\'instant. Les autres peuvent t\'en envoyer depuis ton profil.</div>';
+  return state.msgs.slice(0, 10).map((m) => `<div class="up ${state.freshMsgs.has(m.id) ? 'fresh' : ''}"><div class="mini-av">${av(memberById(m.from_id), 40)}</div>
+    <div class="txt"><b>${esc(nameOf(m.from_id))}${state.freshMsgs.has(m.id) ? ' <span class="newtag">nouveau</span>' : ''}</b><small class="msgbody">${esc(m.body)}</small><small>${ago(m.created_at)}</small></div>
+    <button class="mini" data-action="msg" data-id="${m.from_id}">Répondre</button></div>`).join('');
 }
 
 function defisHTML() {
@@ -882,11 +1024,11 @@ function defisHTML() {
 
 function persoHTML() {
   const me = state.me;
-  const owned = ownedBy(me.id);
   const cur = OUTFITS[me.outfit] ?? OUTFITS.none;
   const swatches = (list, field, current) => list.map((o) =>
     `<button class="sw ${current?.toLowerCase() === o.c ? 'sel' : ''}" style="background:${o.c}" data-action="${field}" data-v="${o.c}" aria-label="${esc(o.name)}" aria-pressed="${current?.toLowerCase() === o.c}"></button>`).join('');
   return `
+    <div class="pname"><b>${esc(me.name)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div>
     <div class="center-av">${av(me, 150)}</div>
     <h3 class="sec">Genre</h3>
     <div class="seg small">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
@@ -897,6 +1039,22 @@ function persoHTML() {
     <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
     <h3 class="sec">Couleur de fond du profil</h3>
     <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>
+    ${profileEdit(me)}
+    ${activePerksOf(me.id).length || perksOwed().length ? `<h3 class="sec">Récompenses du plateau</h3>
+      ${activePerksOf(me.id).map((pk) => perkCardHTML(pk, true)).join('')}
+      ${perksOwed().length ? `<div class="det">À offrir :</div>${perksOwed().map((pk) => perkCardHTML(pk, false)).join('')}` : ''}` : ''}
+    <h3 class="sec">Mes badges</h3>
+    ${statGrid(me)}
+    <h3 class="sec">Mes messages</h3>
+    ${inboxHTML()}
+    <button class="btn" style="margin-top:14px" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
+    <button class="link" data-action="switch">Changer de prénom (actuellement ${esc(me.name)})</button>`;
+}
+
+function robeHTML() {
+  const me = state.me, owned = ownedBy(me.id);
+  return `
+    <div class="center-av">${av(me, 150)}</div>
     <h3 class="sec">Ma garde-robe</h3>
     <div class="shop">${Object.entries(OUTFITS).filter(([id]) => owned.has(id)).map(([id]) => `
       <button class="item ${me.outfit === id || (!me.outfit && id === 'none') ? 'eq' : ''}" data-action="equip" data-id="${id}">
@@ -910,52 +1068,7 @@ function persoHTML() {
 /* ---------- Onglet Classement ---------- */
 const MEDALS = ['🥇', '🥈', '🥉'];
 const ordinal = (n) => (n === 1 ? '1er' : `${n}e`);
-function rankHTML() {
-  const ctx = makeCtx();
-  const me = state.me;
-  const sel = state.board;
-  const chips = [['all', '📊', 'Résumé'], ['week', '📅', 'Semaine'], ...BOARDS.map((b) => [b.key, b.emoji, b.label.replace(' (meilleur temps)', '')])];
-  const bar = `<div class="chipbar">${chips.map(([k, e, l]) => `<button class="pill ${sel === k ? 'sel' : ''}" data-action="board" data-v="${k}">${e} ${esc(l)}</button>`).join('')}</div>`;
-
-  if (sel === 'week') return `${bar}${weekHTML()}`;
-  if (sel === 'all') {
-    const wk = weekRanking(state.members, state.weekly, currentWeek());
-    const wtop = wk[0]?.rank === 1 ? wk[0] : null;
-    return `${bar}
-      <button class="bcard" data-action="board" data-v="week">
-        <div class="bh"><span>📅</span><b>Classement de la semaine</b></div>
-        ${wtop ? `<div class="bl"><span class="rav">${av(memberById(wtop.id), 38)}</span><span class="nm">👑 ${esc(wtop.name)}${wk[1]?.rank === 1 ? ' <small>(ex æquo)</small>' : ''}</span><span class="pts">${wtop.value} 🏆</span></div>`
-          : '<div class="bl muted">Personne n\'a encore de trophée cette semaine</div>'}
-        <small class="muted">Trophées gagnés du lundi au dimanche</small>
-      </button>
-      <p class="summary">Touche une carte pour voir le classement complet.</p>
-      ${BOARDS.map((b) => {
-        const r = ranking(ctx, b);
-        const top = r[0]?.rank === 1 ? r[0] : null;
-        const mine = r.find((x) => x.id === me.id);
-        const m = top && memberById(top.id);
-        return `<button class="bcard" data-action="board" data-v="${b.key}">
-          <div class="bh"><span>${b.emoji}</span><b>${esc(b.label)}</b></div>
-          ${top ? `<div class="bl"><span class="rav">${av(m, 38)}</span><span class="nm">${MEDALS[0]} ${esc(m.name)}${r[1]?.rank === 1 ? ' <small>(ex æquo)</small>' : ''}</span><span class="pts">${fmtValue(b, top.value)}</span></div>`
-            : '<div class="bl muted">Personne n\'a encore de score</div>'}
-          <small class="muted">${mine?.rank ? `Ta place : ${ordinal(mine.rank)} (${fmtValue(b, mine.value)})` : 'Tu n\'as pas encore de score'}</small>
-        </button>`;
-      }).join('')}`;
-  }
-  const b = BOARDS.find((x) => x.key === sel) ?? BOARDS[0];
-  const r = ranking(ctx, b);
-  return `${bar}
-    <h3 class="sec">${b.emoji} ${esc(b.label)}</h3>
-    <ol class="rank">${r.map((row) => {
-      const m = memberById(row.id);
-      const t = titleLabel(m);
-      return `<li class="${row.id === me.id ? 'me' : ''}"><button class="rrow" data-action="profile" data-id="${row.id}">
-        <span class="pos">${row.rank ? MEDALS[row.rank - 1] ?? row.rank : '–'}</span><span class="rav">${av(m, 38)}</span>
-        <span class="nm">${esc(row.name)}${row.id === me.id ? ' (toi)' : ''}${t ? `<small class="ptitle">${esc(t)}</small>` : ''}</span>
-        <span class="pts">${fmtValue(b, row.value)}</span></button></li>`;
-    }).join('')}</ol>
-    ${b.key === 'sudoku' ? '<p class="summary" style="margin-top:10px">Classé par meilleur temps (le plus court gagne).</p>' : ''}`;
-}
+function rankHTML() { return weekHTML(); }
 
 // Classement hebdomadaire : trophées gagnés cette semaine + palmarès des semaines passées
 function weekHTML() {
@@ -967,7 +1080,7 @@ function weekHTML() {
   const tally = state.members.map((m) => ({ m, n: winners.filter((w) => w.winners.includes(m.id)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n);
   return `
     <h3 class="sec">📅 Cette semaine · du ${mondayOf().getDate()} au ${sunday.getDate()} ${MONTHS[sunday.getMonth()]}</h3>
-    <p class="summary">Chaque trophée gagné cette semaine compte (victoires au chifoumi et au blackjack). Le·la champion·ne reçoit 👑 à la fin de la semaine.</p>
+    <p class="summary">Seuls les trophées gagnés cette semaine comptent (chifoumi, blackjack, plateau). Le·la champion·ne reçoit 👑 à la fin de la semaine. <b>Prince</b> : finir 1 semaine premier. <b>Roi</b> : 2 semaines de suite. <b>Dieu</b> : 6 semaines au total.</p>
     <ol class="rank">${rows.map((row) => {
       const m = memberById(row.id);
       return `<li class="${row.id === me.id ? 'me' : ''}"><button class="rrow" data-action="profile" data-id="${row.id}">
@@ -992,13 +1105,39 @@ function profileSheetHTML(s) {
   const mine = m.id === state.me.id;
   const t = titleLabel(m);
   const unlocked = CHALLENGES.filter((c) => unlockedKeys(m.id).has(c.key));
+  const last = state.logs.filter((l) => l.status === 'validated' && l.doer_id === m.id).slice(0, 3);
   return sheetWrap(`
-    <div class="sh"><div><h2>${mine ? 'Mon profil' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}</div></div>${closeBtn}</div>
-    <div class="center-av">${av(m, 130)}</div>
+    <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
+    <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${esc(m.name)}</b></div>
     ${statGrid(m)}
+    ${activePerksOf(m.id).map((pk) => perkCardHTML(pk, mine)).join('')}
+    ${mine ? '' : `<div class="sact two"><button class="btn primary" data-action="duel-with" data-id="${m.id}">Défier au chifoumi</button><button class="btn" data-action="msg" data-id="${m.id}">Envoyer un message</button></div>`}
+    ${m.kind === 'copain' ? '' : `<h3 class="sec">3 dernières tâches</h3>
+      ${last.length ? last.map((l) => { const K = TASK_KINDS[l.kind]; return `<div class="up hist"><div class="txt"><b>${K.emoji} ${esc(K.short)}</b><small>${ago(l.answered_at)} · +${l.soap} 🧼</small></div></div>`; }).join('')
+        : '<div class="det">Aucune tâche validée pour l\'instant.</div>'}`}
     ${unlocked.length ? `<h3 class="sec">Titres débloqués</h3><div class="tags">${unlocked.map((c) => `<span class="tag">${c.emoji} ${esc(c.title)}</span>`).join('')}</div>` : ''}
     ${mine ? `<div class="sact"><button class="btn primary" data-action="goprofile">Modifier mon profil</button></div>` : ''}`);
+}
+
+function msgSheetHTML(s) {
+  const to = memberById(s.to);
+  if (!to) return '';
+  return sheetWrap(`
+    <div class="sh"><div><h2>Message à ${esc(to.name)}</h2><div class="when">${MESSAGE_MAX} caractères maximum · notification envoyée</div></div>${closeBtn}</div>
+    <textarea class="msgin" id="msgtext" rows="3" maxlength="${MESSAGE_MAX}" placeholder="Ton message…" data-input="msg">${esc(s.text || '')}</textarea>
+    <div class="det" id="msgcount" style="text-align:right">${(s.text || '').length}/${MESSAGE_MAX}</div>
+    <div class="sact"><button class="btn primary" data-action="msg-send">Envoyer</button></div>`);
+}
+
+function diceSheetHTML(s) {
+  const r = s.r;
+  return sheetWrap(`
+    <div class="sh"><div><h2>Tu as fait ${r.roll}</h2><div class="when">Case ${r.from || 'départ'} → case ${r.to}</div></div>${closeBtn}</div>
+    <div class="dicebig"><span class="die d${r.roll}">${Array.from({ length: r.roll }, () => '<i></i>').join('')}</span></div>
+    ${r.note ? `<div class="reward">${esc(r.note)}</div>` : '<div class="det">Case sans effet.</div>'}
+    ${r.perk ? `<div class="perk ${r.perk}"><b>Récompense : ${esc(perkDef(r.perk)?.title)}</b><small>${esc(perkDef(r.perk)?.short)}. Elle reste visible sur ton profil.</small></div>` : ''}
+    <div class="sact"><button class="btn primary" data-action="close">OK</button></div>`, 'var(--gold)');
 }
 
 function wonSheetHTML() {
@@ -1013,28 +1152,6 @@ function wonSheetHTML() {
         ${r.skin ? `<div class="center-av" style="margin:8px 0 0">${av({ ...state.me, outfit: r.skin }, 84)}</div>` : ''}</div>`;
     }).join('')}
     <div class="sact"><button class="btn primary" data-action="close">Super !</button></div>`, 'var(--gold)');
-}
-
-function dailySheetHTML() {
-  const next = nextStreak();
-  const tiles = Array.from({ length: 7 }, (_, i) => {
-    const day = i + 1, got = day < next, cur = day === next;
-    const content = day === 7 ? '🎡<small>Roue</small>' : `⭐<small>+${DAILY_XP[i]}</small>`;
-    return `<div class="dday ${got ? 'got' : ''} ${cur ? 'cur' : ''}"><i>J${day}</i><span>${got ? '✓' : content}</span></div>`;
-  }).join('');
-  return sheetWrap(`
-    <div class="sh"><div><h2>🎁 Récompense du jour</h2><div class="when">Jour ${next} sur 7 · reviens chaque jour sans en rater un</div></div>${closeBtn}</div>
-    <div class="ddays">${tiles}</div>
-    <div class="det">Le jour 7 débloque la <b>roue de la fortune</b> : de ${WHEEL_MIN} à ${WHEEL_MAX} XP.</div>
-    <div class="sact"><button class="btn primary" data-action="daily-claim">${next === 7 ? '🎡 Débloquer la roue' : `Récupérer +${DAILY_XP[next - 1]} XP`}</button></div>`, 'var(--gold)');
-}
-
-function dailyDoneHTML(s) {
-  return sheetWrap(`
-    <div class="sh"><div><h2>${s.wheel ? '🎡 Roue débloquée !' : `+${s.xp} XP`}</h2><div class="when">Jour ${s.streak} sur 7 validé</div></div>${closeBtn}</div>
-    <div class="det">${s.wheel ? 'Tu as tenu 7 jours de suite : tourne la roue pour gagner entre ' + WHEEL_MIN + ' et ' + WHEEL_MAX + ' XP.'
-      : s.streak === 6 ? 'Demain, si tu reviens : la roue de la fortune !' : 'À demain pour la suite !'}</div>
-    <div class="sact">${s.wheel ? '<button class="btn primary" data-action="wheel">🎡 Tourner la roue</button>' : ''}<button class="btn ${s.wheel ? '' : 'primary'}" data-action="close">${s.wheel ? 'Plus tard' : 'OK'}</button></div>`, 'var(--gold)');
 }
 
 function wheelSheetHTML(s) {
@@ -1074,10 +1191,25 @@ document.addEventListener('click', (e) => {
     case 'pin-key': authKey(v); break;
     case 'pin-back': state.auth = null; render(); break;
     case 'switch': store.set('coloc-auth', ''); state.me = null; state.auth = null; state.tab = 'tasks'; state.sheet = null; render(); break;
-    case 'tab': state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; render(); window.scrollTo(0, 0); if (tab === 'rank') questStep(2); break;
+    case 'tab': {
+      state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; state.heads = false; render(); window.scrollTo(0, 0);
+      const is = INTRO_STEPS.find((x) => x.tab === tab); if (is) questStep(is.n);
+      if (tab === 'me') markRead();
+      break;
+    }
+    case 'heads': state.heads = !state.heads; render(); break;
+    case 'head': state.heads = false; openProfile(Number(id)); break;
+    case 'roll': rollDiceNow(); break;
+    case 'hist-tr': openTrHist(); break;
+    case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
+    case 'perk-ok': confirmPerkNow(Number(id)); break;
+    case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;
+    case 'duel-with': state.opp = Number(id); state.sheet = { type: 'duel-new', opp: Number(id), move: null }; render(); break;
+    case 'msg': state.sheet = { type: 'msg', to: Number(id), text: '' }; render(); break;
+    case 'msg-send': sendMessageNow(); break;
     case 'close': if (e.target === el) closeSheet(); break;
     case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
-    case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); questStep(4); break;
+    case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); break;
     case 'task-submit': submitTaskNow(id); break;
     case 'task-ok': answerTaskNow(Number(id), true); break;
     case 'task-no': case 'task-cancel': answerTaskNow(Number(id), false); break;
@@ -1087,12 +1219,10 @@ document.addEventListener('click', (e) => {
     case 'reload': location.reload(); break;
     // --- Toi : personnage et boutique ---
     case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
-    case 'qseg': state.anim = state.questSeg !== v; state.questSeg = v; render(); window.scrollTo(0, 0); break;
     case 'bg': saveProfile({ bg: v }); break;
     case 'title': saveTitle(state.me.title === id ? null : id); break;
     case 'profile': openProfile(Number(id)); break;
-    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'profil'; state.anim = true; render(); window.scrollTo(0, 0); break;
-    case 'board': state.board = v; render(); window.scrollTo(0, 0); break;
+    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'profil'; state.anim = true; markRead(); render(); window.scrollTo(0, 0); break;
     case 'daily-claim': claimDailyNow(); break;
     case 'wheel': state.sheet = { type: 'wheel' }; render(); break;
     case 'spin': spinNow(); break;
@@ -1115,6 +1245,12 @@ document.addEventListener('change', (e) => {
   const k = e.target.dataset?.input;
   if (k === 'opp') state.opp = Number(e.target.value);       // pas de redessin : on garde la liste ouverte
   else if (k === 'title') saveTitle(e.target.value);
+});
+document.addEventListener('input', (e) => {
+  if (e.target.dataset?.input === 'msg' && state.sheet?.type === 'msg') {
+    state.sheet.text = e.target.value;
+    const c = document.getElementById('msgcount'); if (c) c.textContent = `${e.target.value.length}/${MESSAGE_MAX}`;
+  }
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !state.game && currentSheet()) closeSheet(); });
 
