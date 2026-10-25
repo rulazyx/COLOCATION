@@ -44,7 +44,7 @@ export const OUTFITS = {
   pirate:       { name: 'Pirate',       level: 4 },
   ninja:        { name: 'Ninja',        level: 6,  hidesHair: true },
   astronaute:   { name: 'Astronaute',   level: 8 },
-  zippo:        { name: 'Zippo',        level: 10, hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
+  zippo:        { name: 'Zippo',        challenge:'zippo', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
   chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', challenge: 'pilier',            hidesHair: true },
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'roi_coloc' },
