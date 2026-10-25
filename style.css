@@ -384,10 +384,63 @@ button.tile:active { border-color: var(--accent); }
 .gamelayer{animation:gin .16s ease-out}
 @keyframes gin{from{opacity:0;transform:scale(.98)}}
 /* Coucou : plein écran, le jeu recouvre tout (le titre flotte par-dessus) */
-.g-flappy .ghead{position:absolute;left:0;right:0;top:0;z-index:4;background:transparent;border:0;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)}
-.g-flappy .ghead .gbest{color:#fff}
-.g-flappy .gbody{padding:0;gap:0}
+.g-flappy .gbody{gap:0}
 .g-flappy .gcanvas{width:100%;height:100%;max-width:none;max-height:none;aspect-ratio:auto;object-fit:cover;border-radius:0}
 .g-raid .gcanvas.wide{width:100%}
 .g-raid .gpad{width:100%}
 @media (prefers-reduced-motion:reduce){.pg,.gamelayer,.medal.t4{animation:none}}
+
+/* v9 : niveau en cercle */
+.lvlrow{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.lvlinfo{flex:1;min-width:0}
+.lvlcircle{flex:none;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;font-size:26px;font-weight:800;color:var(--on-accent);
+  background:linear-gradient(145deg,#ffe27a,#ffb300);border:3px solid #fff;box-shadow:0 0 0 2px #ffb300,0 3px 8px rgba(0,0,0,.18)}
+
+/* v9 : liste des tâches */
+.klist{display:grid;gap:8px}
+.kcard{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border-radius:var(--radius);background:var(--card);border:1px solid var(--line);border-left:6px solid var(--c);text-align:left}
+.kcard:not(:disabled):active{transform:scale(.985)}
+.kcard:disabled{opacity:.62}
+.kemo{font-size:26px}
+.ktxt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}.ktxt small{color:var(--muted);font-size:12.5px}
+.ksoap{flex:none;font-weight:800;font-size:14px;background:var(--accent-soft);border-radius:999px;padding:5px 10px}
+
+/* v9 : code secret */
+.pinpage{padding-top:calc(24px + env(safe-area-inset-top))}
+.pin-av{display:flex;justify-content:center;margin-bottom:4px}
+.pdots{display:flex;justify-content:center;gap:14px;margin:16px 0 6px}
+.pdots i{width:16px;height:16px;border-radius:50%;border:2px solid var(--muted);transition:background .12s,transform .12s}
+.pdots i.on{background:var(--accent);border-color:var(--accent);transform:scale(1.1)}
+.pdots.bad{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.perr{min-height:20px;color:var(--danger);font-size:14px;margin-bottom:6px;text-align:center}
+.pad{display:grid;grid-template-columns:repeat(3,76px);gap:12px;justify-content:center;margin:6px auto 14px}
+.pad button{height:64px;border-radius:50%;background:var(--card);border:1px solid var(--line);font-size:24px;font-weight:700;text-align:center;display:grid;place-items:center}
+.pad button:active{background:var(--accent);color:var(--on-accent)}
+
+/* v9 : jeux plein écran, écran d'ouverture jaune */
+.gamelayer .ghead{position:absolute;left:0;right:0;top:0;z-index:5;border:0;background:transparent;padding:calc(10px + env(safe-area-inset-top)) 14px 10px;pointer-events:none}
+.gamelayer .ghead .chip{pointer-events:auto}
+.gamelayer .ghead b,.gamelayer .ghead .gbest{display:none}
+.gamelayer .gbody{padding-top:calc(60px + env(safe-area-inset-top))}
+.g-flappy .gbody{padding:0}
+.gsplash{position:absolute;inset:0;z-index:20;background:#ffc928;display:grid;place-items:center;animation:splashout .3s ease 0.85s forwards}
+.gsplash span{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-size:clamp(40px,13vw,72px);color:#fff;text-align:center;padding:0 16px;line-height:1.05;animation:splashpop .5s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes splashpop{from{opacity:0;transform:scale(.5) rotate(-4deg)}}
+@keyframes splashout{to{opacity:0;visibility:hidden}}
+
+/* v9 : blackjack */
+.g-blackjack{background:#0f5132}
+.bj{width:min(100%,460px);display:flex;flex-direction:column;gap:14px;color:#fff;align-items:center}
+.bj-side{width:100%;text-align:center}
+.bj-lab{font-weight:700;margin-bottom:6px;opacity:.9}.bj-lab b{margin-left:6px;background:rgba(255,255,255,.18);border-radius:999px;padding:2px 10px}
+.bj-hand{display:flex;justify-content:center;gap:8px;min-height:92px;flex-wrap:wrap}
+.pc{width:58px;height:84px;border-radius:9px;background:#fff;color:#111;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 6px rgba(0,0,0,.35);animation:cardin .25s ease-out}
+.pc.red{color:#d92d2d}.pc b{font-size:24px;line-height:1}.pc i{font-style:normal;font-size:24px;line-height:1.1}
+.pc.back{background:repeating-linear-gradient(45deg,#ffc928 0 6px,#ffb300 6px 12px);border:3px solid #fff}
+@keyframes cardin{from{opacity:0;transform:translateY(-14px) scale(.9)}}
+.bj-msg{min-height:30px;font-size:20px;font-weight:800;text-align:center}.bj-msg.win{color:#ffe27a}.bj-msg.lose{color:#fecaca}
+.bj-btns{display:flex;gap:10px;width:100%}
+.bj-b{flex:1;padding:16px;border-radius:14px;background:#ffc928;color:#3b2a00;font-weight:800;font-size:18px;text-align:center}
+.bj-b.alt{background:#fff}
+@media (prefers-reduced-motion:reduce){.pdots.bad,.pc,.gsplash span{animation:none}}

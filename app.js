@@ -1,6 +1,6 @@
 import {
-  CONFIG, TASK_KINDS, TASK_TEMPLATES, ALLOW_EARLY_VALIDATION, participants, pickAssignee, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_COINS, WHEEL_MIN, WHEEL_MAX, MAIN_QUEST,
+  CONFIG, TASK_KINDS, levelOf, levelProgress, XP_RULES,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, MAIN_QUEST,
 } from './config.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
@@ -14,8 +14,6 @@ const DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dima
 const DAYS_SHORT = ['lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.', 'dim.'];
 const DAY_LETTERS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 const MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-const WEEKS_AHEAD = 4; // semaine en cours + 4 suivantes
-const WEEKS_BACK = 2;  // on peut revoir les 2 semaines passées
 
 const pad = (n) => String(n).padStart(2, '0');
 // Date locale AAAA-MM-JJ (surtout pas toISOString : il décale d'un jour selon le fuseau)
@@ -70,35 +68,13 @@ function fmtRange(monday) {
 const outfitName = (id, gender) => { const o = OUTFITS[id] ?? OUTFITS.none; return gender === 'femme' && o.nameF ? o.nameF : o.name; };
 const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 
-/* Génère les tâches d'une semaine.
-   - tâche normale : UNE personne, par rotation parmi les personnes concernées (cf. config.js)
-   - tâche "everyone" : une ligne par personne concernée */
-function buildWeek(monday, members) {
-  const wi = weekIndex(monday);
-  const week = iso(monday);
-  const rows = [];
-  TASK_TEMPLATES.forEach((tpl, slot) => {
-    const kind = TASK_KINDS[tpl.kind];
-    const pool = participants(tpl, members, wi);
-    if (!kind || !pool.length) return;
-    const targets = tpl.everyone ? pool : [pickAssignee(tpl, members, slot, wi)];
-    for (const m of targets) {
-      rows.push({
-        week, slot, kind: tpl.kind, label: kind.label, detail: kind.detail,
-        day_index: tpl.day, reward: kind.coins, assignee_id: m.id,
-      });
-    }
-  });
-  return rows;
-}
-
 /* =========================================================
    État + chargement
    ========================================================= */
 const state = {
-  api: null, members: [], me: null, tasks: [], products: [], scores: [], balances: [], purchases: [], duels: [],
-  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], requests: [], tasksSeg: 'plan', questSeg: 'quests', anim: false, levelUps: [],
-  tab: 'tasks', weekOffset: 0, meSeg: 'profil', board: 'all', opp: null, sheet: null, error: null, initials: {},
+  api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
+  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], tasksSeg: 'tasks', questSeg: 'quests', anim: false, levelUps: [], auth: null,
+  tab: 'tasks', meSeg: 'profil', board: 'all', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], dailyDismissed: false, viewedNow: new Set(),
 };
 const memberById = (id) => state.members.find((m) => m.id === id);
@@ -122,9 +98,8 @@ function makeCtx() {
   return {
     meId: me, members: state.members, stats: keyed(state.stats), scores: keyed(state.scores),
     balances: keyed(state.balances, (b) => b.coins), wins: keyed(state.duelStats, (d) => d.wins), xp: keyed(state.xp, (x) => x.xp),
-    duels: state.duels, tasks: state.tasks, owned: ownedBy(me),
+    duels: state.duels, owned: ownedBy(me),
     viewed: new Set(state.views.filter((v) => v.viewer_id === me).map((v) => v.viewed_id)),
-    today: iso(new Date()),
   };
 }
 const currentWeek = () => iso(mondayOf());
@@ -150,13 +125,11 @@ async function refresh(force = false) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
-  const m0 = mondayOf();
-  [state.members, state.tasks, state.scores, state.balances, state.products, state.purchases, state.duels,
-    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.requests] = await Promise.all([
+  [state.members, state.scores, state.balances, state.products, state.purchases, state.duels,
+    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs] = await Promise.all([
     state.api.members(),
-    state.api.tasks(iso(addDays(m0, -7 * WEEKS_BACK)), iso(addDays(m0, 7 * WEEKS_AHEAD))),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.requests(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(),
   ]);
   if (state.me) state.me = memberById(state.me.id) ?? null;
   state.initials = computeInitials(state.members);
@@ -204,13 +177,11 @@ async function init() {
     state.api = cloud ? await makeCloudApi() : makeDemoApi();
     state.members = await state.api.members(); sp(0.4);
     state.initials = computeInitials(state.members);
+    // Session : reconnu seulement si le code secret a déjà été saisi sur cet appareil (et existe encore)
     const meId = Number(store.get('coloc-me'));
-    state.me = state.members.find((m) => m.id === meId) || null;
-    step = 'création des semaines (tasks)';
-    const m0 = mondayOf();
-    const rows = [];
-    for (let i = 0; i <= WEEKS_AHEAD; i++) rows.push(...buildWeek(addDays(m0, 7 * i), state.members.filter((m) => m.kind !== 'copain')));
-    await state.api.ensureWeeks(rows); sp(0.65);
+    const known = state.members.find((m) => m.id === meId);
+    state.me = known && known.has_pin && store.get('coloc-auth') === String(meId) ? known : null;
+    sp(0.65);
     step = 'lecture des données (stats, défis…)';
     await refresh(); sp(1); window.splashDone?.();
     state.api.onChange(debounce(() => refresh().catch(() => {}), 250));
@@ -218,7 +189,7 @@ async function init() {
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
-    state.error = `${e.message || String(e)} [étape : ${step} · v6]`;
+    state.error = `${e.message || String(e)} [étape : ${step} · v9]`;
     render(); window.splashDone?.();
   }
 }
@@ -226,44 +197,61 @@ async function init() {
 /* =========================================================
    Actions
    ========================================================= */
-// Change le statut d'une tâche : 'done' (+trophées, +XP) ou 'todo' (annulation). On ne saute plus : on propose à quelqu'un.
-async function act(task, newStatus) {
-  const patch = newStatus === 'done'
-    ? { status: 'done', actor_id: state.me.id, coins: task.reward, acted_at: new Date().toISOString() }
-    : { status: 'todo', actor_id: null, coins: 0, acted_at: null };
-  const prev = { ...task };
-  Object.assign(task, patch);
-  state.sheet = null;
-  render();
+// Tâches : on choisit la tâche faite, un AUTRE coloc doit la confirmer
+async function submitTaskNow(kind) {
   try {
-    const ok = await state.api.setStatus(task.id, prev.status, patch);
-    if (!ok) { Object.assign(task, prev); toast("Cette tâche vient d'être modifiée par quelqu'un d'autre."); }
-    else if (newStatus === 'done') toast(`Bravo ! +${task.reward} 🏆 · +${task.reward * XP_RULES.taskPerTrophy} XP`);
-    else toast('Validation annulée.');
-  } catch (e) {
-    console.error(e);
-    Object.assign(task, prev);
-    toast('Erreur réseau, réessaie.');
-  }
-  refresh().catch(() => {});
-}
-
-// Proposer sa tâche à un colocataire (il peut accepter ou refuser)
-async function proposeTo(taskId, to) {
-  try {
-    await state.api.createRequest(taskId, state.me.id, to);
+    await state.api.submitTask(state.me.id, kind);
     state.sheet = null;
-    toast(`Demande envoyée à ${nameOf(to)}.`);
+    toast('Envoyé ! Un autre coloc doit confirmer que c\'est fait.');
     await refresh();
-  } catch (e) { toast(e.message || 'Impossible de proposer la tâche.'); }
+  } catch (e) { state.sheet = null; toast(e.message || 'Impossible d\'enregistrer la tâche.'); refresh().catch(() => {}); }
 }
-async function answerRequest(id, accept, mineSent = false) {
+async function answerTaskNow(id, ok) {
+  const l = state.logs.find((x) => x.id === id);
   try {
-    await state.api.answerRequest(id, state.me.id, accept);
-    toast(mineSent ? 'Demande annulée.' : accept ? 'Tâche acceptée, elle est à toi !' : 'Demande refusée.');
-    state.sheet = null;
+    await state.api.answerTask(id, state.me.id, ok);
+    toast(l && l.doer_id === state.me.id ? 'Demande annulée.' : ok ? 'Merci, tâche confirmée ! 🧼' : 'Tâche refusée.');
     await refresh();
   } catch (e) { toast(e.message || 'Action impossible.'); refresh().catch(() => {}); }
+}
+
+// Code secret : création au premier lancement, saisie ensuite
+function startAuth(id) {
+  const m = memberById(id);
+  state.auth = { id, mode: m?.has_pin ? 'check' : 'create', pin: '', first: null, err: '', busy: false };
+  render();
+}
+async function authKey(v) {
+  const a = state.auth;
+  if (!a || a.busy) return;
+  if (v === 'del') a.pin = a.pin.slice(0, -1);
+  else if (a.pin.length < 4) a.pin += v;
+  a.err = '';
+  if (a.pin.length < 4) return render();
+  render();
+  if (a.mode === 'create') {
+    if (a.first == null) { a.first = a.pin; a.pin = ''; return render(); }
+    if (a.first !== a.pin) { a.err = 'Les deux codes sont différents. Recommence.'; a.first = null; a.pin = ''; return render(); }
+    a.busy = true;
+    try { await state.api.setPin(a.id, a.pin); await finishLogin(a.id); }
+    catch (e) { a.busy = false; a.err = e.message || 'Impossible de créer le code.'; a.first = null; a.pin = ''; render(); }
+    return;
+  }
+  a.busy = true;
+  try {
+    const r = await state.api.checkPin(a.id, a.pin);
+    if (r?.ok) return await finishLogin(a.id);
+    a.err = r?.locked_s ? `Trop d'essais. Réessaie dans ${Math.ceil(r.locked_s / 60)} min.` : 'Code incorrect.';
+  } catch (e) { a.err = e.message || 'Vérification impossible.'; }
+  a.busy = false; a.pin = ''; render();
+}
+async function finishLogin(id) {
+  store.set('coloc-me', String(id)); store.set('coloc-auth', String(id));
+  state.auth = null;
+  await refresh(true);
+  state.me = memberById(id);
+  state.tab = 'tasks';
+  render(); syncSub(); checkNewResults(); render();
 }
 
 async function toggleProduct(id) {
@@ -379,9 +367,10 @@ async function openProfile(id) {
 
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
-  flappy: { name: 'Coucou', emoji: '🐤', mod: './games/flappy.js', board: 'flappy', blurb: 'Bats des ailes entre les colonnes' },
+  flappy: { name: 'Jumpy Cardinal', emoji: '🐦', mod: './games/flappy.js', board: 'flappy', blurb: 'Bats des ailes entre les colonnes' },
   raid:   { name: 'Le Grand Raid', emoji: '🏃', mod: './games/raid.js', board: 'raid', blurb: 'Course sans fin sur la plage' },
   sudoku: { name: 'Sudoku', emoji: '🔢', mod: './games/sudoku.js', board: 'sudoku', blurb: 'Contre la montre' },
+  blackjack: { name: 'Blackjack', emoji: '🃏', mod: './games/blackjack.js', board: 'blackjack', blurb: 'Bats la banque, gagne des trophées' },
 };
 let gameHandle = null;
 async function openGame(id) {
@@ -391,23 +380,21 @@ async function openGame(id) {
   state.game = id; state.sheet = null; render();
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
-  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button><b>${G.emoji} ${esc(G.name)}</b><span class="gbest"></span></div><div class="gbody"></div>`;
+  // Une fois le jeu lancé, il ne reste que la flèche retour (le nom ne s'affiche que sur l'écran jaune d'ouverture)
+  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button></div><div class="gbody"></div>
+    <div class="gsplash"><span>${esc(G.name)}</span></div>`;
   document.body.appendChild(layer);
   layer.addEventListener('click', (e) => { if (e.target.closest('[data-gact="close"]')) closeGame(); });
-  const bestEl = layer.querySelector('.gbest');
-  const showBest = () => {
-    const st = statsOf(state.me.id);
-    bestEl.textContent = id === 'sudoku' ? (st.sudoku_best ? `Record ${fmtTime(st.sudoku_best)}` : '')
-      : id === 'raid' ? `Record ${st.raid_best || 0} m` : `Record ${st.flappy_best || 0}`;
-  };
-  showBest();
+  setTimeout(() => layer.querySelector('.gsplash')?.remove(), 1150);
   try {
     const mod = await import(G.mod);
+    await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
+    if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
       async onEnd({ score }) {
         try {
           await state.api.reportGame(state.me.id, id, score);
-          await refresh(true); showBest();
+          await refresh(true);
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }
       },
     });
@@ -473,12 +460,13 @@ function render() {
   }
   if (!state.api) { app.innerHTML = '<div class="pick"><p>Chargement…</p></div>'; return; }
   if (!state.me) {
+    if (state.auth) { app.innerHTML = pinHTML(); return; }
     const btn = (m) => `<button data-action="pick" data-id="${m.id}">${esc(m.name)}</button>`;
     app.innerHTML = `<div class="pick"><h1>🏠 Coloc</h1><p>Qui es-tu ?</p>${colocs().map(btn).join('')}
       ${copains().length ? `<h3 class="sec" style="text-align:center">Copains</h3>${copains().map(btn).join('')}` : ''}</div>`;
     return;
   }
-  const reqForMe = state.requests.filter((r) => r.status === 'pending' && r.to_id === state.me.id).length;
+  const reqForMe = toConfirm().length;
   const duelsForMe = pendingForMe().length;
   const tab = state.tab;
   const anim = state.anim; state.anim = false;
@@ -502,56 +490,100 @@ function render() {
     ${sheetHTML()}`;
 }
 
-/* ---------- Onglet 1 : tâches (planning, mes prochaines tâches, stocks) ---------- */
+/* ---------- Onglet 1 : tâches (liste des tâches réalisables, stocks) ---------- */
+const HOUR = 3600000;
+const pendingLogs = () => state.logs.filter((l) => l.status === 'pending');
+// Tâches faites par un autre coloc qui attendent MA confirmation
+const toConfirm = () => (state.me?.kind === 'coloc' ? pendingLogs().filter((l) => l.doer_id !== state.me.id) : []);
+function ago(iso8) {
+  const m = Math.max(0, Math.round((Date.now() - Date.parse(iso8)) / 60000));
+  if (m < 1) return "à l'instant";
+  if (m < 60) return `il y a ${m} min`;
+  if (m < 48 * 60) return `il y a ${Math.round(m / 60)} h`;
+  return `il y a ${Math.round(m / 1440)} j`;
+}
+const fmtWait = (ms) => (ms < HOUR ? `${Math.max(1, Math.round(ms / 60000))} min` : ms < 48 * HOUR ? `${Math.round(ms / HOUR)} h` : `${Math.round(ms / (24 * HOUR))} j`);
+// État d'une tâche : disponible, en attente de confirmation, ou récemment faite
+function kindStatus(kind) {
+  const pend = pendingLogs().find((l) => l.kind === kind);
+  if (pend) return { st: 'pending', log: pend };
+  const last = state.logs.filter((l) => l.kind === kind && l.status === 'validated').sort((a, b) => b.id - a.id)[0];
+  if (last) {
+    const left = Date.parse(last.answered_at) + TASK_KINDS[kind].cooldownH * HOUR - Date.now();
+    if (left > 0) return { st: 'cooldown', log: last, left };
+  }
+  return { st: 'free' };
+}
+
 function tasksHTML() {
   const out = state.products.filter((p) => p.out_of_stock).length;
   const seg = state.tasksSeg;
-  return `<div class="seg" style="margin-bottom:12px">${[['plan', '📅 Planning'], ['stock', `🛒 Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
+  return `<div class="seg" style="margin-bottom:12px">${[['tasks', '🧼 Tâches'], ['stock', `🛒 Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
     `<button class="${seg === k ? 'on' : ''}" data-action="tseg" data-v="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'stock' ? stockHTML() : `${requestsHTML()}${planningHTML()}${upcomingHTML()}`}`;
+    ${seg === 'stock' ? stockHTML() : taskListHTML()}`;
 }
 
-// Demandes d'échange reçues : « X te propose cette tâche »
-function requestsHTML() {
-  const mine = state.requests.filter((r) => r.status === 'pending' && r.to_id === state.me.id);
-  if (!mine.length) return '';
-  return `<h3 class="sec" style="margin-top:0">🙋 Demandes reçues</h3>${mine.map((r) => {
-    const t = state.tasks.find((x) => x.id === r.task_id);
-    if (!t) return '';
-    const K = TASK_KINDS[t.kind] ?? { emoji: '🧹', color: '#888' };
-    return `<div class="up" style="--c:${K.color}"><div class="dot">${K.emoji}</div>
-      <div class="txt"><b>${esc(nameOf(r.from_id))} te propose : ${esc(t.label)}</b><small>${relDay(taskDate(t))} · +${t.reward} 🏆</small></div>
-      <button class="mini ok" data-action="req-accept" data-id="${r.id}">Accepter</button>
-      <button class="mini" data-action="req-decline" data-id="${r.id}">Refuser</button></div>`;
-  }).join('')}`;
+function taskListHTML() {
+  const me = state.me, isColoc = me.kind === 'coloc';
+  const confirm = toConfirm();
+  const mine = pendingLogs().filter((l) => l.doer_id === me.id);
+  const kinds = Object.entries(TASK_KINDS).map(([k, K]) => ({ k, K, ...kindStatus(k) }))
+    .sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1));
+  const done = state.logs.filter((l) => l.status === 'validated').slice(0, 6);
+  const row = (l, actions) => {
+    const K = TASK_KINDS[l.kind], doer = memberById(l.doer_id);
+    return `<div class="up"><div class="mini-av">${av(doer, 44)}</div>
+      <div class="txt"><b>${esc(doer?.name)} : ${K.emoji} ${esc(K.short)}</b><small>${ago(l.created_at)} · +${l.soap} 🧼</small></div>${actions}</div>`;
+  };
+  return `
+    ${confirm.length ? `<h3 class="sec" style="margin-top:0">À confirmer</h3>
+      <p class="summary" style="margin-top:0">Ces tâches ont été faites par un autre coloc. Confirme seulement si c'est vrai !</p>
+      ${confirm.map((l) => row(l, `<button class="mini ok" data-action="task-ok" data-id="${l.id}">✓ Oui</button><button class="mini" data-action="task-no" data-id="${l.id}">✗ Non</button>`)).join('')}` : ''}
+    ${mine.length ? `<h3 class="sec" ${confirm.length ? '' : 'style="margin-top:0"'}>En attente de confirmation</h3>
+      ${mine.map((l) => row(l, `<button class="mini" data-action="task-cancel" data-id="${l.id}">Annuler</button>`)).join('')}` : ''}
+    <h3 class="sec" ${confirm.length || mine.length ? '' : 'style="margin-top:0"'}>Tâches à faire</h3>
+    ${isColoc ? '<p class="summary" style="margin-top:0">Fais une tâche quand tu veux : touche-la, confirme, puis un autre coloc validera.</p>'
+      : '<p class="summary" style="margin-top:0">Les tâches ménagères sont réservées aux colocataires.</p>'}
+    <div class="klist">${kinds.map(({ k, K, st, log, left }) => {
+      const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, en attente de confirmation`
+        : st === 'cooldown' ? `✅ Faite par ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · de nouveau dispo dans ${fmtWait(left)}`
+        : esc(K.detail);
+      return `<button class="kcard ${st}" style="--c:${K.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
+        <span class="kemo">${K.emoji}</span>
+        <span class="ktxt"><b>${esc(K.label)}</b><small>${sub}</small></span>
+        <span class="ksoap">+${K.soap} 🧼</span></button>`;
+    }).join('')}</div>
+    ${done.length ? `<h3 class="sec">Dernières tâches</h3>${done.map((l) => {
+      const K = TASK_KINDS[l.kind];
+      return `<div class="up hist"><div class="mini-av">${av(memberById(l.doer_id), 38)}</div>
+        <div class="txt"><b>${esc(nameOf(l.doer_id))} : ${K.emoji} ${esc(K.short)}</b><small>${ago(l.answered_at)} · +${l.soap} 🧼 · confirmé par ${esc(nameOf(l.validator_id))}</small></div></div>`;
+    }).join('')}` : ''}`;
 }
 
-// Mes prochaines tâches (avant dans « Toi »)
-function myUpcoming() {
-  const limit = addDays(startOfToday(), -7);
-  return state.tasks
-    .filter((t) => t.assignee_id === state.me.id && t.status === 'todo' && taskDate(t) >= limit)
-    .sort((a, b) => taskDate(a) - taskDate(b) || a.slot - b.slot);
+// Fenêtre de confirmation d'une tâche (avant l'envoi)
+function taskConfirmHTML(s) {
+  const K = TASK_KINDS[s.kind];
+  return sheetWrap(`
+    <div class="sh"><div><h2>${K.emoji} ${esc(K.label)}</h2><div class="when">${esc(K.detail)}</div></div>${closeBtn}</div>
+    <div class="reward">+${K.soap} 🧼 · +${K.soap * XP_RULES.taskPerSoap} XP une fois confirmée</div>
+    <div class="det">Tu as vraiment fait cette tâche ? Un autre coloc devra confirmer pour que tu gagnes tes savons.</div>
+    <div class="sact"><button class="btn primary" data-action="task-submit" data-id="${s.kind}">Oui, je l'ai faite</button><button class="btn" data-action="close">Annuler</button></div>`, K.color);
 }
-function upcomingHTML() {
-  const up = myUpcoming();
-  const today = startOfToday();
-  const sentFor = (t) => state.requests.find((r) => r.task_id === t.id && r.status === 'pending' && r.from_id === state.me.id);
-  return `<h3 class="sec">Mes prochaines tâches</h3>
-    ${up.length ? up.map((t) => {
-      const K = TASK_KINDS[t.kind] ?? { emoji: '🧹', color: '#888' };
-      const d = taskDate(t);
-      const late = d < today;
-      const req = sentFor(t);
-      return `<div class="up" style="--c:${K.color}">
-        <div class="dot">${K.emoji}</div>
-        <div class="txt"><b>${esc(t.label)}</b><small class="${late ? 'late' : ''}">${late ? 'En retard · ' : ''}${relDay(d)}${relDay(d).includes(' ') ? '' : ' · ' + fmtDay(d)} · +${t.reward} 🏆</small>
-          ${req ? `<small>⏳ Proposée à ${esc(nameOf(req.to_id))}</small>` : ''}</div>
-        <button class="mini ok" data-action="open" data-id="${t.id}" data-mode="done">Fait</button>
-        ${req ? `<button class="mini" data-action="req-cancel" data-id="${req.id}">Annuler</button>`
-          : `<button class="mini" data-action="propose" data-id="${t.id}">Proposer</button>`}
-      </div>`;
-    }).join('') : '<div class="empty-msg" style="padding:20px 0">Rien à faire pour le moment 🎉</div>'}`;
+
+// Écran du code secret (4 chiffres)
+function pinHTML() {
+  const a = state.auth, m = memberById(a.id);
+  const title = a.mode === 'check' ? 'Entre ton code secret' : a.first == null ? 'Crée ton code secret' : 'Confirme ton code';
+  const hint = a.mode === 'check' ? 'Code à 4 chiffres' : a.first == null ? 'Choisis 4 chiffres que toi seul connais. Tu devras les saisir à chaque connexion.' : 'Retape le même code';
+  return `<div class="pick pinpage">
+    <div class="pin-av">${av(m, 84)}</div>
+    <h1>${esc(m?.name)}</h1><p><b>${title}</b><br><small>${hint}</small></p>
+    <div class="pdots ${a.err ? 'bad' : ''}">${[0, 1, 2, 3].map((i) => `<i class="${i < a.pin.length ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="perr">${esc(a.err)}</div>
+    <div class="pad">${['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'].map((k) => k === '' ? '<span></span>'
+      : `<button data-action="pin-key" data-v="${k}" ${a.busy ? 'disabled' : ''} aria-label="${k === 'del' ? 'Effacer' : k}">${k === 'del' ? '⌫' : k}</button>`).join('')}</div>
+    <button class="link" data-action="pin-back">‹ Choisir un autre prénom</button>
+  </div>`;
 }
 
 /* ---------- Onglet Quêtes (bientôt) ---------- */
@@ -586,57 +618,6 @@ function pitonHTML() {
   </div>`;
 }
 
-/* ---------- Planning : tableau de la semaine ---------- */
-function groupTasks(list, kind, day) { return list.filter((t) => t.kind === kind && t.day_index === day); }
-
-function planningHTML() {
-  const off = state.weekOffset;
-  const monday = addDays(mondayOf(), off * 7);
-  const list = state.tasks.filter((t) => t.week === iso(monday));
-  const today = iso(new Date());
-  const doneN = list.filter((t) => t.status === 'done').length;
-  const subtitle = off === 0 ? 'Cette semaine' : off === 1 ? 'Semaine prochaine' : off === -1 ? 'Semaine dernière' : off < 0 ? 'Semaine passée' : '';
-
-  const kinds = Object.keys(TASK_KINDS).filter((k) => list.some((t) => t.kind === k));
-  let cells = '<div></div>';
-  for (let d = 0; d < 7; d++) {
-    const date = addDays(monday, d);
-    cells += `<div class="dh ${iso(date) === today ? 'today' : ''}"><b>${DAY_LETTERS[d]}</b><span>${date.getDate()}</span></div>`;
-  }
-  for (const k of kinds) {
-    const K = TASK_KINDS[k];
-    cells += `<div class="rl"><span>${K.emoji}</span><small>${esc(K.short)}</small></div>`;
-    for (let d = 0; d < 7; d++) {
-      const todayCol = iso(addDays(monday, d)) === today ? 'today-col' : '';
-      const g = groupTasks(list, k, d);
-      if (!g.length) { cells += `<div class="c empty ${todayCol}"></div>`; continue; }
-      const mine = g.some((t) => t.assignee_id === state.me.id);
-      let inner, st;
-      if (g.length === 1) {
-        const t = g[0];
-        st = t.status;
-        inner = t.status === 'done' ? '✓' : t.status === 'skipped' ? '↷' : esc(state.initials[t.assignee_id] ?? '?');
-      } else {
-        const n = g.filter((t) => t.status === 'done').length;
-        st = n === g.length ? 'done' : 'todo';
-        inner = st === 'done' ? '✓' : `${n}/${g.length}`;
-      }
-      cells += `<button class="c has st-${st} ${mine ? 'mine' : ''}" style="--c:${K.color}" data-action="cell" data-week="${iso(monday)}" data-kind="${k}" data-day="${d}"
-        aria-label="${esc(K.label)}, ${DAYS[d]}"><span class="av ${g.length > 1 ? 'multi' : ''}">${inner}</span></button>`;
-    }
-  }
-  return `
-    <div class="weekbar">
-      <button class="arrow" data-action="week" data-d="-1" ${off <= -WEEKS_BACK ? 'disabled' : ''} aria-label="Semaine précédente">‹</button>
-      <div class="mid"><h2>Semaine ${fmtRange(monday)}</h2><small>${subtitle}</small></div>
-      <button class="arrow" data-action="week" data-d="1" ${off >= WEEKS_AHEAD ? 'disabled' : ''} aria-label="Semaine suivante">›</button>
-    </div>
-    ${kinds.length ? `
-      <div class="table">${cells}</div>
-      <div class="progress">${doneN} / ${list.length} faites<div class="bar"><i style="width:${list.length ? (doneN / list.length) * 100 : 0}%"></i></div></div>`
-      : '<div class="empty-msg">Aucune tâche cette semaine.</div>'}`;
-}
-
 /* ---------- Feuilles (fenêtres du bas) ---------- */
 function sheetWrap(inner, color = 'var(--accent)') {
   return `<div class="overlay" data-action="close"><div class="sheet" role="dialog" aria-modal="true" style="--c:${color}">${inner}</div></div>`;
@@ -669,70 +650,13 @@ function sheetHTML() {
     case 'daily': return dailySheetHTML();
     case 'daily-done': return dailyDoneHTML(s);
     case 'wheel': return wheelSheetHTML(s);
-    case 'task': return taskSheetHTML(s);
-    case 'propose': return proposeSheetHTML(s);
+    case 'task-do': return taskConfirmHTML(s);
     case 'levelup': return levelUpSheetHTML();
     case 'duel-new': return duelNewHTML(s);
     case 'duel-play': return duelPlayHTML(s);
     case 'duel-result': return duelResultHTML(s);
     default: return '';
   }
-}
-
-// Validation d'une tâche (= la confirmation)
-function taskSheetHTML(s) {
-  const g = state.tasks.filter((t) => t.week === s.week && t.kind === s.kind && t.day_index === s.day);
-  if (!g.length) return '';
-  const t0 = g[0];
-  const K = TASK_KINDS[s.kind] ?? { emoji: '🧹', color: '#888' };
-  const date = taskDate(t0);
-  const early = !ALLOW_EARLY_VALIDATION && date > startOfToday();
-  const multi = g.length > 1;
-  const title = s.mode === 'done' ? 'Valider cette tâche ?' : esc(t0.label);
-
-  const rows = g.map((t) => {
-    const mine = t.assignee_id === state.me.id;
-    let status = 'À faire';
-    if (t.status === 'done') status = `✅ Faite par ${esc(t.actor_id === state.me.id ? 'toi' : nameOf(t.actor_id))} · +${t.coins} 🏆`;
-    if (t.status === 'skipped') status = `↷ Sautée par ${esc(t.actor_id === state.me.id ? 'toi' : nameOf(t.actor_id))}`;
-    const pend = state.requests.find((r) => r.task_id === t.id && r.status === 'pending');
-    if (pend && t.status === 'todo') status = `⏳ Proposée à ${esc(nameOf(pend.to_id))}`;
-
-    let actions = '';
-    if (t.status === 'todo' && (mine || !multi)) {
-      const doneBtn = `<button class="btn primary" data-action="do" data-id="${t.id}" ${early ? 'disabled' : ''}>${
-        early ? `Validable ${esc(relDay(date).toLowerCase())}` : mine ? `✅ C'est fait · +${t.reward} 🏆` : `✅ Je l'ai faite à sa place · +${t.reward} 🏆`}</button>`;
-      const swapBtn = !mine ? '' : pend
-        ? `<button class="btn" data-action="req-cancel" data-id="${pend.id}">Annuler la demande</button>`
-        : `<button class="btn" data-action="propose" data-id="${t.id}">🙋 Proposer à quelqu'un d'autre</button>`;
-      actions = doneBtn + swapBtn;
-    } else if (t.status !== 'todo' && t.actor_id === state.me.id) {
-      actions = `<button class="btn" data-action="undo" data-id="${t.id}">Annuler (retire les trophées et l'XP)</button>`;
-    }
-    return `<div class="srow"><div class="swho"><b>${mine ? 'Toi' : esc(nameOf(t.assignee_id))}</b><small>${status}</small></div>${actions ? `<div class="sact">${actions}</div>` : ''}</div>`;
-  }).join('');
-
-  return sheetWrap(`
-      <div class="sh"><div class="badge-k">${K.emoji}</div>
-        <div><h2>${title}</h2><div class="when">${s.mode === 'auto' ? `${DAYS[t0.day_index]} ${date.getDate()} ${MONTHS[date.getMonth()]}` : `${esc(t0.label)} · ${relDay(date)}`}</div></div>
-        ${closeBtn}</div>
-      <div class="det">${esc(t0.detail)}</div>
-      <div class="reward">Récompense : +${t0.reward} 🏆 · +${t0.reward * XP_RULES.taskPerTrophy} XP${multi ? ' par personne (tâche pour tous)' : ''}</div>
-      ${rows}`, K.color);
-}
-
-function proposeSheetHTML(s) {
-  const t = state.tasks.find((x) => x.id === s.taskId);
-  if (!t) return '';
-  const K = TASK_KINDS[t.kind] ?? { emoji: '🧹', color: '#888' };
-  const others = colocs().filter((m) => m.id !== state.me.id);
-  const holds = (m) => state.tasks.some((x) => x.week === t.week && x.slot === t.slot && x.assignee_id === m.id);
-  return sheetWrap(`
-    <div class="sh"><div class="badge-k">${K.emoji}</div><div><h2>Proposer cette tâche</h2>
-      <div class="when">${esc(t.label)} · ${relDay(taskDate(t))}</div></div>${closeBtn}</div>
-    <div class="det">À qui veux-tu la proposer ? Elle ne change de main que s'il ou elle accepte.</div>
-    ${others.map((m) => `<button class="up pickrow" data-action="propose-to" data-id="${t.id}" data-to="${m.id}" ${holds(m) ? 'disabled' : ''}>
-      <span class="mini-av">${av(m, 44)}</span><span class="txt"><b>${esc(m.name)}</b><small>${holds(m) ? 'a déjà cette tâche' : `Niveau ${lvlOf(m.id)}`}</small></span></button>`).join('')}`, K.color);
 }
 
 function levelUpSheetHTML() {
@@ -757,7 +681,7 @@ function duelNewHTML(s) {
   const me = state.me;
   return sheetWrap(`
     <div class="sh"><div class="vs-av">${av(me, 54)}<b>⚔️</b>${av(opp, 54)}</div>
-      <div><h2>Défier ${esc(opp.name)}</h2><div class="when">Chifoumi · défi amical à 0 🏆</div></div>${closeBtn}</div>
+      <div><h2>Défier ${esc(opp.name)}</h2><div class="when">Chifoumi · ${XP_RULES.duelWinTrophies} 🏆 pour le gagnant</div></div>${closeBtn}</div>
     <div class="det">Choisis ton coup (ton adversaire ne le verra pas)</div>
     ${movePicker(s.move)}
     <div class="sact" style="margin-top:14px"><button class="btn primary" data-action="duel-send" ${s.move ? '' : 'disabled'}>⚔️ Lancer le défi</button></div>`);
@@ -769,7 +693,7 @@ function duelPlayHTML(s) {
   const ch = memberById(d.challenger_id);
   return sheetWrap(`
     <div class="sh"><div class="vs-av">${av(ch, 54)}<b>⚔️</b>${av(state.me, 54)}</div>
-      <div><h2>${esc(ch?.name)} te défie !</h2><div class="when">${d.wager ? `Mise : ${d.wager} 🏆 · si tu perds, −${d.wager} 🏆` : 'Défi amical · 0 🏆'}</div></div>${closeBtn}</div>
+      <div><h2>${esc(ch?.name)} te défie !</h2><div class="when">${d.wager ? `Mise : ${d.wager} 🏆 · si tu perds, −${d.wager} 🏆` : `${XP_RULES.duelWinTrophies} 🏆 pour le gagnant`}</div></div>${closeBtn}</div>
     <div class="det">Choisis ton coup</div>
     ${movePicker(s.move)}
     <div class="sact" style="margin-top:14px"><button class="btn primary" data-action="duel-play" ${s.move ? '' : 'disabled'}>✅ Jouer ce coup</button></div>`);
@@ -816,7 +740,8 @@ function gamesHTML() {
   if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
   const st = statsOf(me.id);
   const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
-  const best = { flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`, sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé' };
+  const best = { flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`, sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé',
+    blackjack: `${st.blackjack_wins || 0} victoire${(st.blackjack_wins || 0) > 1 ? 's' : ''}` };
 
   return `
     ${received.length ? `<h3 class="sec" style="margin-top:0">Défis reçus</h3>${received.map((d) => {
@@ -830,7 +755,7 @@ function gamesHTML() {
     <div class="tiles">
       <div class="tile chif">
         <div class="tico">✊✋✌️</div><b>Chifoumi</b>
-        <small>Défi amical à 0 🏆 · ${wins} victoire${wins > 1 ? 's' : ''}</small>
+        <small>${XP_RULES.duelWinTrophies} 🏆 par victoire · ${wins} victoire${wins > 1 ? 's' : ''}</small>
         <select class="dd" data-input="opp" aria-label="Adversaire">${others.map((m) => `<option value="${m.id}" ${m.id === state.opp ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>
         <button class="mini ok" data-action="duel-new" ${others.length ? '' : 'disabled'}>⚔️ Défier</button>
       </div>
@@ -861,14 +786,15 @@ function meHTML() {
   const me = state.me;
   const seg = state.meSeg;
   const p = levelProgress(xpOf(me.id));
-  const mine = state.scores.find((s) => s.member_id === me.id) ?? { done_count: 0 };
+  const mine = state.scores.find((s) => s.member_id === me.id) ?? { coins: 0, done_count: 0 };
   return `
     <section class="hero2">
       <div class="avwrap">${av(me, 88)}</div>
-      <div class="hmain"><div class="lvl">⭐ Niveau ${p.level}</div>
-        <div class="bar sm lvlbar"><i style="width:${p.pct}%"></i></div>
-        <div class="sub">${xpOf(me.id)} XP · encore ${p.need - p.into} pour le niveau ${p.level + 1}</div>
-        <div class="sub"><b>${balanceOf(me.id)} 🏆</b> trophées · ${mine.done_count} tâche${mine.done_count > 1 ? 's' : ''} faite${mine.done_count > 1 ? 's' : ''}</div></div>
+      <div class="hmain">
+        <div class="lvlrow"><span class="lvlcircle" title="Niveau">${p.level}</span>
+          <div class="lvlinfo"><div class="bar sm lvlbar"><i style="width:${p.pct}%"></i></div>
+          <div class="sub">${xpOf(me.id)} XP · encore ${p.need - p.into} pour le niveau ${p.level + 1}</div></div></div>
+        <div class="sub"><b>${balanceOf(me.id)} 🏆</b> trophées · <b>${mine.coins ?? 0} 🧼</b> savons</div></div>
     </section>
     <div class="seg">${[['profil', 'Profil'], ['perso', 'Personnalisation']].map(([k, l]) =>
       `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
@@ -878,21 +804,19 @@ function meHTML() {
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
 function statGrid(m) {
   const st = statsOf(m.id);
-  const chores = state.scores.find((x) => x.member_id === m.id)?.done_count ?? 0;
+  const soap = state.scores.find((x) => x.member_id === m.id)?.coins ?? 0;
   const wins = state.duelStats.find((x) => x.member_id === m.id)?.wins ?? 0;
   const cells = [
-    ['level', '⭐', 'Niveau', lvlOf(m.id), lvlOf(m.id)],
-    ['coins', '🏆', 'Trophées', balanceOf(m.id), balanceOf(m.id)],
-    ['chores', '🧹', 'Tâches faites', chores, chores],
-    ['chifoumi', '✊', 'Victoires chifoumi', wins, wins],
-    ['flappy', '🐤', 'Coucou', st.flappy_best || 0, st.flappy_best || 0],
-    ['raid', '🏃', 'Grand Raid', `${st.raid_best || 0} m`, st.raid_best || 0],
-    ['sudoku', '🔢', 'Sudoku', st.sudoku_best ? fmtTime(st.sudoku_best) : '—', st.sudoku_best ?? null],
-    ['weeks', '👑', 'Semaines gagnées', weeksWon(m.id), weeksWon(m.id)],
+    ['level', '⭐', 'Niveau', lvlOf(m.id)],
+    ['coins', '🏆', 'Trophées', balanceOf(m.id)],
+    ['chores', '🧼', 'Savons', soap],
+    ['chifoumi', '✊', 'Victoires chifoumi', wins],
+    ['flappy', '🐦', 'Jumpy Cardinal', st.flappy_best || 0],
+    ['raid', '🏃', 'Grand Raid', st.raid_best || 0, `${st.raid_best || 0} m`],
   ];
-  return `<div class="stgrid">${cells.map(([k, e, l, shown, raw]) => {
+  return `<div class="stgrid">${cells.map(([k, e, l, raw, shown]) => {
     const t = tierOf(k, raw);
-    return `<div class="stc"><span class="medal ${t == null ? 'none' : 't' + t}" title="${t == null ? 'Pas encore de résultat' : TIER_NAMES[t]}">${e}</span><b>${esc(shown)}</b><small>${l}</small><i class="tier ${t == null ? 'none' : 't' + t}">${t == null ? '—' : TIER_NAMES[t]}</i></div>`;
+    return `<div class="stc"><span class="medal ${t == null ? 'none' : 't' + t}" title="${t == null ? 'Pas encore de résultat' : TIER_NAMES[t]}">${e}</span><b>${esc(shown ?? raw)}</b><small>${l}</small><i class="tier ${t == null ? 'none' : 't' + t}">${t == null ? '—' : TIER_NAMES[t]}</i></div>`;
   }).join('')}</div>`;
 }
 
@@ -935,10 +859,10 @@ function defisHTML() {
   rows.sort((a, b) => Number(b.done) - Number(a.done));
   const rewardTxt = (c) => {
     const r = rewardOf(c.key);
-    return [r.coins ? `+${r.coins} 🏆` : '', r.skin ? `🎭 ${outfitName(r.skin, state.me.gender)}` : ''].filter(Boolean).join(' · ');
+    return [r.xp ? `+${r.xp} XP` : '', r.skin ? `🎭 ${outfitName(r.skin, state.me.gender)}` : ''].filter(Boolean).join(' · ');
   };
   return `
-    <p class="summary">Chaque défi réussi débloque un <b>titre</b> à afficher sur ton profil, parfois des trophées ou un personnage.</p>
+    <p class="summary">Chaque défi réussi débloque un <b>titre</b> à afficher sur ton profil et de l'<b>XP</b>, parfois un personnage.</p>
     ${rows.map(({ c, p, done }) => `
       <div class="chal ${done ? 'done' : ''}">
         <div class="cemo">${done ? c.emoji : '🔒'}</div>
@@ -1036,7 +960,7 @@ function weekHTML() {
   const tally = state.members.map((m) => ({ m, n: winners.filter((w) => w.winners.includes(m.id)).length })).filter((x) => x.n).sort((a, b) => b.n - a.n);
   return `
     <h3 class="sec">📅 Cette semaine · du ${mondayOf().getDate()} au ${sunday.getDate()} ${MONTHS[sunday.getMonth()]}</h3>
-    <p class="summary">Chaque trophée gagné cette semaine compte (tâches, récompense du jour, roue, défis). Le·la champion·ne reçoit 👑 à la fin de la semaine.</p>
+    <p class="summary">Chaque trophée gagné cette semaine compte (victoires au chifoumi et au blackjack). Le·la champion·ne reçoit 👑 à la fin de la semaine.</p>
     <ol class="rank">${rows.map((row) => {
       const m = memberById(row.id);
       return `<li class="${row.id === me.id ? 'me' : ''}"><button class="rrow" data-action="profile" data-id="${row.id}">
@@ -1076,7 +1000,7 @@ function wonSheetHTML() {
     <div class="sh"><div><h2>🏆 Défi${list.length > 1 ? 's' : ''} réussi${list.length > 1 ? 's' : ''} !</h2><div class="when">Bravo ${esc(state.me.name)}</div></div>${closeBtn}</div>
     ${list.map((c) => {
       const r = rewardOf(c.key);
-      const parts = [r.coins ? `+${r.coins} 🏆` : '', r.skin ? `🎭 Nouveau personnage : ${esc(outfitName(r.skin, state.me.gender))}` : ''].filter(Boolean).join(' · ');
+      const parts = [r.xp ? `+${r.xp} XP` : '', r.skin ? `🎭 Nouveau personnage : ${esc(outfitName(r.skin, state.me.gender))}` : ''].filter(Boolean).join(' · ');
       return `<div class="srow"><div class="swho"><b>${c.emoji} ${esc(c.title)}</b></div><small>${esc(c.desc)}</small>
         <div class="reward" style="margin:6px 0 0">Titre débloqué${parts ? ` · ${parts}` : ''}</div>
         ${r.skin ? `<div class="center-av" style="margin:8px 0 0">${av({ ...state.me, outfit: r.skin }, 84)}</div>` : ''}</div>`;
@@ -1088,20 +1012,20 @@ function dailySheetHTML() {
   const next = nextStreak();
   const tiles = Array.from({ length: 7 }, (_, i) => {
     const day = i + 1, got = day < next, cur = day === next;
-    const content = day === 7 ? '🎡<small>Roue</small>' : `🏆<small>+${DAILY_COINS[i]}</small>`;
+    const content = day === 7 ? '🎡<small>Roue</small>' : `⭐<small>+${DAILY_XP[i]}</small>`;
     return `<div class="dday ${got ? 'got' : ''} ${cur ? 'cur' : ''}"><i>J${day}</i><span>${got ? '✓' : content}</span></div>`;
   }).join('');
   return sheetWrap(`
     <div class="sh"><div><h2>🎁 Récompense du jour</h2><div class="when">Jour ${next} sur 7 · reviens chaque jour sans en rater un</div></div>${closeBtn}</div>
     <div class="ddays">${tiles}</div>
-    <div class="det">Le jour 7 débloque la <b>roue de la fortune</b> : de ${WHEEL_MIN} à ${WHEEL_MAX} 🏆.</div>
-    <div class="sact"><button class="btn primary" data-action="daily-claim">${next === 7 ? '🎡 Débloquer la roue' : `Récupérer +${DAILY_COINS[next - 1]} 🏆`}</button></div>`, 'var(--gold)');
+    <div class="det">Le jour 7 débloque la <b>roue de la fortune</b> : de ${WHEEL_MIN} à ${WHEEL_MAX} XP.</div>
+    <div class="sact"><button class="btn primary" data-action="daily-claim">${next === 7 ? '🎡 Débloquer la roue' : `Récupérer +${DAILY_XP[next - 1]} XP`}</button></div>`, 'var(--gold)');
 }
 
 function dailyDoneHTML(s) {
   return sheetWrap(`
-    <div class="sh"><div><h2>${s.wheel ? '🎡 Roue débloquée !' : `+${s.coins} 🏆`}</h2><div class="when">Jour ${s.streak} sur 7 validé</div></div>${closeBtn}</div>
-    <div class="det">${s.wheel ? 'Tu as tenu 7 jours de suite : tourne la roue pour gagner entre ' + WHEEL_MIN + ' et ' + WHEEL_MAX + ' 🏆.'
+    <div class="sh"><div><h2>${s.wheel ? '🎡 Roue débloquée !' : `+${s.xp} XP`}</h2><div class="when">Jour ${s.streak} sur 7 validé</div></div>${closeBtn}</div>
+    <div class="det">${s.wheel ? 'Tu as tenu 7 jours de suite : tourne la roue pour gagner entre ' + WHEEL_MIN + ' et ' + WHEEL_MAX + ' XP.'
       : s.streak === 6 ? 'Demain, si tu reviens : la roue de la fortune !' : 'À demain pour la suite !'}</div>
     <div class="sact">${s.wheel ? '<button class="btn primary" data-action="wheel">🎡 Tourner la roue</button>' : ''}<button class="btn ${s.wheel ? '' : 'primary'}" data-action="close">${s.wheel ? 'Plus tard' : 'OK'}</button></div>`, 'var(--gold)');
 }
@@ -1113,16 +1037,16 @@ function wheelSheetHTML(s) {
     const a0 = (i / n) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2, am = (a0 + a1) / 2;
     const p = (a, r) => `${(110 + Math.cos(a) * r).toFixed(1)},${(110 + Math.sin(a) * r).toFixed(1)}`;
     return `<path d="M110,110 L${p(a0, R)} A${R},${R} 0 0 1 ${p(a1, R)}Z" fill="${c}" stroke="#fff" stroke-width="2"/>
-      <text x="${110 + Math.cos(am) * 66}" y="${110 + Math.sin(am) * 66 + 6}" text-anchor="middle" font-size="18">🏆</text>`;
+      <text x="${110 + Math.cos(am) * 66}" y="${110 + Math.sin(am) * 66 + 6}" text-anchor="middle" font-size="18">⭐</text>`;
   }).join('');
   const deg = Math.round((s.turns ?? 0) * 360);
   const style = s.spinning ? `--end:${deg}deg;transform:rotate(${deg}deg)` : '';
   const stillWheel = statsOf(state.me.id).wheel_ready;
   return sheetWrap(`
-    <div class="sh"><div><h2>🎡 Roue de la fortune</h2><div class="when">De ${WHEEL_MIN} à ${WHEEL_MAX} 🏆</div></div>${s.spinning && !s.revealed ? '' : closeBtn}</div>
+    <div class="sh"><div><h2>🎡 Roue de la fortune</h2><div class="when">De ${WHEEL_MIN} à ${WHEEL_MAX} XP</div></div>${s.spinning && !s.revealed ? '' : closeBtn}</div>
     <div class="wheelbox"><div class="wptr">▼</div>
       <svg class="wheel ${s.spinning && !s.revealed ? 'spin' : ''}" viewBox="0 0 220 220" style="${style}" aria-hidden="true">${seg}<circle cx="110" cy="110" r="14" fill="#fff"/></svg></div>
-    ${s.revealed ? `<div class="wprize">+${s.amount} 🏆</div>` : ''}
+    ${s.revealed ? `<div class="wprize">+${s.amount} XP</div>` : ''}
     <div class="sact">
       ${!s.spinning && stillWheel ? '<button class="btn primary" data-action="spin">Tourner !</button>' : ''}
       ${s.revealed ? '<button class="btn primary" data-action="close">Génial !</button>' : ''}
@@ -1137,27 +1061,19 @@ document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
   if (!el) return;
   const { action, id, tab, d, v, seg } = el.dataset;
-  const task = id ? state.tasks.find((t) => t.id === Number(id)) : null;
   const s = state.sheet;
   switch (action) {
-    case 'pick':
-      state.me = state.members.find((m) => m.id === Number(id));
-      store.set('coloc-me', String(state.me.id));
-      render(); syncSub(); checkNewResults(); render(); break;
-    case 'switch': state.me = null; state.tab = 'tasks'; state.sheet = null; render(); break;
+    case 'pick': startAuth(Number(id)); break;
+    case 'pin-key': authKey(v); break;
+    case 'pin-back': state.auth = null; render(); break;
+    case 'switch': store.set('coloc-auth', ''); state.me = null; state.auth = null; state.tab = 'tasks'; state.sheet = null; render(); break;
     case 'tab': state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; render(); window.scrollTo(0, 0); if (tab === 'rank') questStep(2); break;
-    case 'week': state.weekOffset = Math.max(-WEEKS_BACK, Math.min(WEEKS_AHEAD, state.weekOffset + Number(d))); render(); break;
-    case 'cell': state.sheet = { type: 'task', week: el.dataset.week, kind: el.dataset.kind, day: Number(el.dataset.day), mode: 'auto' }; render(); questStep(4); break;
-    case 'open': if (task) { state.sheet = { type: 'task', week: task.week, kind: task.kind, day: task.day_index, mode: el.dataset.mode }; render(); questStep(4); } break;
     case 'close': if (e.target === el) closeSheet(); break;
-    case 'do': if (task) act(task, 'done'); break;
     case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
-    case 'propose': state.sheet = { type: 'propose', taskId: Number(id) }; render(); break;
-    case 'propose-to': proposeTo(Number(id), Number(el.dataset.to)); break;
-    case 'req-accept': answerRequest(Number(id), true); break;
-    case 'req-decline': answerRequest(Number(id), false); break;
-    case 'req-cancel': answerRequest(Number(id), false, true); break;
-    case 'undo': if (task) act(task, 'todo'); break;
+    case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); questStep(4); break;
+    case 'task-submit': submitTaskNow(id); break;
+    case 'task-ok': answerTaskNow(Number(id), true); break;
+    case 'task-no': case 'task-cancel': answerTaskNow(Number(id), false); break;
     case 'product': toggleProduct(Number(id)); break;
     case 'push': enablePush(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;

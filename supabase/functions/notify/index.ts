@@ -1,6 +1,7 @@
-// Fonction Supabase "notify" : envoie les notifications push (ruptures, défis chifoumi, échanges de tâches, rappel du soir).
+// Fonction Supabase "notify" : envoie les notifications push (ruptures, défis chifoumi, confirmation de tâches, rappel du soir).
 //  - {type:"stock", productId}  → prévient TOUS les colocs qu'un produit est en rupture
-//  - {type:"reminder"}          → (appelée chaque soir par pg_cron) relance ceux dont la tâche du jour n'est pas cochée
+//  - {type:"task", event, logId} → tâche à confirmer / confirmée
+//  - {type:"reminder"}          → (appelée chaque soir par pg_cron) rappelle les tâches qui attendent une confirmation
 //
 // Secrets à définir (Edge Functions > Secrets) :
 //   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT (ex: mailto:toi@exemple.fr), CRON_SECRET
@@ -89,7 +90,7 @@ Deno.serve(async (req) => {
     if (body.event === "challenge") {
       if (d.status !== "pending" || age(d.created_at) > 2 * 60_000) return json({ sent: 0 });
       target = d.opponent_id;
-      payload = { title: "⚔️ Défi chifoumi !", body: d.wager ? `${await name(d.challenger_id)} te défie. Mise : ${d.wager} 🪙` : `${await name(d.challenger_id)} te défie au chifoumi !`, tag: `duel-${d.id}` };
+      payload = { title: "⚔️ Défi chifoumi !", body: d.wager ? `${await name(d.challenger_id)} te défie. Mise : ${d.wager}` : `${await name(d.challenger_id)} te défie au chifoumi !`, tag: `duel-${d.id}` };
     } else if (body.event === "result") {
       if (d.status !== "done" || age(d.played_at) > 2 * 60_000) return json({ sent: 0 });
       target = d.challenger_id;
@@ -98,8 +99,8 @@ Deno.serve(async (req) => {
       payload = {
         title: "🎮 Résultat du duel",
         body: !d.winner_id ? `Égalité contre ${other} (${moves})`
-          : d.winner_id === d.challenger_id ? (d.wager ? `Tu as gagné ${d.wager} 🪙 contre ${other} (${moves})` : `Tu as battu ${other} (${moves})`)
-          : (d.wager ? `Tu as perdu ${d.wager} 🪙 contre ${other} (${moves})` : `${other} gagne cette fois (${moves})`),
+          : d.winner_id === d.challenger_id ? (d.wager ? `Tu as gagné ${d.wager} contre ${other} (${moves})` : `Tu as battu ${other} (${moves})`)
+          : (d.wager ? `Tu as perdu ${d.wager} contre ${other} (${moves})` : `${other} gagne cette fois (${moves})`),
         tag: `duel-${d.id}`,
       };
     } else return json({ error: "unknown event" }, 400);
@@ -107,45 +108,56 @@ Deno.serve(async (req) => {
     return json({ sent: await send((subs ?? []) as Sub[], payload) });
   }
 
-  if (body.type === "swap") {
-    // {type:"swap", event:"request"|"answer", requestId} → prévient le destinataire d'une proposition, ou l'auteur de la réponse
-    const { data: r } = await db.from("task_requests").select("*").eq("id", body.requestId).single();
-    if (!r) return json({ sent: 0 });
+  if (body.type === "task") {
+    // {type:"task", event:"submit"|"answer", logId}
+    //  submit → prévient les AUTRES colocs qu'une tâche attend leur confirmation
+    //  answer → prévient celui qui a fait la tâche de la réponse
+    const { data: l } = await db.from("task_logs").select("*").eq("id", body.logId).single();
+    if (!l) return json({ sent: 0 });
     const age = (iso: string | null) => (iso ? Date.now() - new Date(iso).getTime() : Infinity);
-    const { data: t } = await db.from("tasks").select("label,day_index,week").eq("id", r.task_id).single();
     const name = async (id: number) => (await db.from("members").select("name").eq("id", id).single()).data?.name ?? "?";
-    let target: number, payload: { title: string; body: string; tag: string };
-    if (body.event === "request") {
-      if (r.status !== "pending" || age(r.created_at) > 2 * 60_000) return json({ sent: 0 });
-      target = r.to_id;
-      payload = { title: "🙋 Échange de tâche", body: `${await name(r.from_id)} te propose : ${t?.label ?? "une tâche"}`, tag: `swap-${r.id}` };
-    } else if (body.event === "answer") {
-      if (!["accepted", "declined"].includes(r.status) || age(r.answered_at) > 2 * 60_000) return json({ sent: 0 });
-      target = r.from_id;
-      payload = { title: r.status === "accepted" ? "✅ Tâche acceptée" : "↩️ Tâche refusée",
-        body: `${await name(r.to_id)} ${r.status === "accepted" ? "a accepté" : "a refusé"} : ${t?.label ?? "ta tâche"}`, tag: `swap-${r.id}` };
-    } else return json({ error: "unknown event" }, 400);
-    const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", target);
-    return json({ sent: await send((subs ?? []) as Sub[], payload) });
+    const labels: Record<string, string> = {
+      cuisine: "Nettoyage cuisine", poubelles: "Poubelles", wc: "Nettoyage WC",
+      aspijour: "Aspi & serpillière (zone jour)", sdb: "Salle de bain", aspieau: "Aspi & serpillière (zone eau)",
+    };
+    const label = labels[l.kind] ?? l.kind;
+    if (body.event === "submit") {
+      if (l.status !== "pending" || age(l.created_at) > 2 * 60_000) return json({ sent: 0 });
+      const { data: colocs } = await db.from("members").select("id").eq("kind", "coloc").neq("id", l.doer_id);
+      const ids = (colocs ?? []).map((m: { id: number }) => m.id);
+      const { data: subs } = await db.from("push_subs").select("endpoint,sub").in("member_id", ids);
+      return json({ sent: await send((subs ?? []) as Sub[], {
+        title: "🧼 Tâche à confirmer", body: `${await name(l.doer_id)} dit avoir fait : ${label}. Confirme si c'est vrai !`, tag: `task-${l.id}`,
+      }) });
+    }
+    if (body.event === "answer") {
+      if (!["validated", "rejected"].includes(l.status) || age(l.answered_at) > 2 * 60_000) return json({ sent: 0 });
+      const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", l.doer_id);
+      return json({ sent: await send((subs ?? []) as Sub[], {
+        title: l.status === "validated" ? "✅ Tâche confirmée" : "↩️ Tâche refusée",
+        body: `${await name(l.validator_id)} ${l.status === "validated" ? "a confirmé" : "a refusé"} : ${label}${l.status === "validated" ? ` (+${l.soap} 🧼)` : ""}`,
+        tag: `task-${l.id}`,
+      }) });
+    }
+    return json({ error: "unknown event" }, 400);
   }
 
   if (body.type === "reminder") {
+    // Rappel du soir : prévient les colocs (sauf l'auteur) des tâches qui attendent encore une confirmation
     if (req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
-    const { dayIndex, monday } = today();
-    const { data: tasks } = await db.from("tasks").select("label,assignee_id")
-      .eq("week", monday).eq("day_index", dayIndex).eq("status", "todo");
-    const byMember = new Map<number, string[]>();
-    for (const t of tasks ?? []) byMember.set(t.assignee_id, [...(byMember.get(t.assignee_id) ?? []), t.label]);
+    const { data: pending } = await db.from("task_logs").select("id,doer_id").eq("status", "pending");
+    if (!pending?.length) return json({ sent: 0 });
+    const { data: colocs } = await db.from("members").select("id").eq("kind", "coloc");
     let sent = 0;
-    for (const [memberId, labels] of byMember) {
-      const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", memberId);
+    for (const m of colocs ?? []) {
+      const n = pending.filter((p: { doer_id: number }) => p.doer_id !== m.id).length;
+      if (!n) continue;
+      const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", m.id);
       sent += await send((subs ?? []) as Sub[], {
-        title: "🧹 Rappel ménage",
-        body: `À faire aujourd'hui : ${labels.join(", ")}`,
-        tag: "rappel-du-soir",
+        title: "🧼 Tâches à confirmer", body: `${n} tâche${n > 1 ? "s attendent" : " attend"} ta confirmation`, tag: "rappel-du-soir",
       });
     }
-    return json({ sent, members: byMember.size });
+    return json({ sent });
   }
 
   return json({ error: "unknown type" }, 400);

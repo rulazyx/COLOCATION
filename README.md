@@ -3,17 +3,17 @@
 Appli web installable (PWA) pour iPhone **et** Android. **100 % gratuit** : GitHub Pages (hébergement) + Supabase (données partagées et notifications). Aucune carte bancaire.
 
 Ce que fait l'appli :
-- 🧹 **Tâches** : le tableau de la semaine (une ligne par type de tâche, une couleur par tâche, la lettre = le responsable), la liste de **tes prochaines tâches** et les **stocks** (bouton « Stocks » en haut). On touche une case pour valider une tâche : confirmation, puis des **trophées** 🏆 et de l'**XP** ⭐. On ne peut plus sauter une tâche : on la **propose à un colocataire**, qui accepte ou refuse (il est prévenu par notification).
-- 🛒 **Stocks** : 13 produits en cartes. 1 clic = rouge « en rupture », 2e clic = réapprovisionné. Chaque rupture prévient **tous** les colocs.
-- 🧭 **Quêtes** (avec les 21 **défis** dans le second onglet) : la quête principale « Découverte de l'application » (4 étapes : personnaliser son personnage, consulter les classements, lancer un jeu, cliquer sur une tâche). La terminer débloque le défi « Le noob ». Quête secondaire : « Monter le Piton des Neiges » (3 070 m en une course du Grand Raid).
-- 🎮 **Jeux** : **chifoumi** (liste déroulante pour choisir l'adversaire), **Coucou** (oiseau rouge, colonnes jaunes), **Le Grand Raid** (course sur la plage), **Sudoku** chronométré.
-- 🥇 **Classement** : résumé, **classement de la semaine** (trophées gagnés du lundi au dimanche, 👑 pour le champion et palmarès) et 7 classements (niveau, trophées, tâches, chifoumi, Coucou, Grand Raid, sudoku).
-- 👤 **Toi** (Profil avec badges bois → platine, Personnalisation) : niveau et barre d'XP, profil (couleur de fond, titre), personnage, 21 **défis**. On peut ouvrir le profil des autres.
-- ⭐ **Niveaux** : toutes les actions rapportent de l'XP (tâche, récompense du jour, roue, défi, chifoumi, jeux, signalement de rupture…). Les apparences se débloquent avec les **niveaux** (Singe 3, Pirate 5, Ninja 8, Astronaute 10) ou avec des **défis** (Roi, Sorcier, Chevalier, Zeus, Poussin, Détective, Hugo Deck, Monsieur Nickel, Clochard, Zippo avec « Le noob »). Il n'y a plus de boutique.
-- 🏆 **Trophées** : les anciennes pièces. On ne les dépense plus, elles servent aux classements. Tout le monde démarre à 0.
-- 🎁 **Récompense quotidienne** (7 jours, le jour 7 débloque la roue de la fortune).
-- 🤝 **Copains** : des joueurs qui ne sont pas en coloc (Etienne). Ils n'ont aucune tâche, mais jouent, gagnent des niveaux et apparaissent aux classements.
-- 🔔 **Rappel chaque soir à 20h** (heure de La Réunion) à ceux dont la tâche du jour n'est pas faite.
+- 🔐 **Code secret** : au premier lancement, chacun crée un code à 4 chiffres, demandé à chaque connexion. Code oublié ? Dans Supabase (SQL Editor) : `delete from member_pins where member_id = (select id from members where name = 'Prénom'); update members set has_pin = false where name = 'Prénom';` — la personne en recrée un.
+- 🧼 **Tâches** : une liste de tâches réalisables (cuisine, poubelles, WC…). On touche celle qu'on a faite, on confirme, puis **un autre coloc doit confirmer** (il est prévenu par notification). La tâche rapporte des **savons** 🧼 selon sa pénibilité (`TASK_KINDS` dans `config.js`) et de l'XP. Une fois faite, la tâche redevient disponible après un délai (`cooldownH`).
+- 🛒 **Stocks** : 13 produits en cartes. 1 clic = rouge « en rupture », 2e clic = réapprovisionné.
+- 🧭 **Quêtes** : la quête principale « Découverte de l'application », la quête secondaire « Monter le Piton des Neiges » (3 070 m au Grand Raid) et, dans le second onglet, les **22 défis** (chacun donne de l'XP, certains une apparence).
+- 🎮 **Jeux** : **chifoumi**, **Jumpy Cardinal**, **Le Grand Raid**, **Sudoku**, **Blackjack**. Les jeux donnent de l'XP (et des paliers de score) ; chifoumi et blackjack donnent aussi des **trophées** 🏆 (plafonnés par jour).
+- 🥇 **Classement** : résumé, classement de la semaine (trophées, 👑 pour le champion) et un classement par catégorie.
+- 👤 **Toi** : niveau (infini) et barre d'XP, badges bois → platine, personnalisation, notifications.
+- ⭐ **Niveaux** : toute action rapporte de l'XP. Niveau L à 7 × L × (L−1) XP (≈ niveau 50 à 17 000 XP).
+- 🎭 **Apparences** : par niveau (Singe 3, Pirate 5, Ninja 8, Astronaute 10) ou par défi (Roi, Sorcier, Chevalier, Zeus, Poussin, Détective, Hugo Deck, Monsieur Nickel, Clochard, Zippo « Le noob », Papangue « Légende des Airs »).
+- 🤝 **Copains** : joueurs hors coloc (Etienne) : ils jouent et gagnent des niveaux mais ne font pas les tâches.
+- 🔔 Rappel chaque soir à 20h aux colocs qui ont des tâches à confirmer.
 
 > Tu peux déjà l'essayer sans rien configurer : sans les clés Supabase, l'appli tourne en **mode démo** (données stockées sur ton téléphone uniquement). Les étapes 1 à 5 activent le partage et les notifications.
 
@@ -34,8 +34,9 @@ Ce que fait l'appli :
    *(Tu avais déjà lancé une ancienne version du schéma ? Ne relance pas `schema.sql` :*
    - *base de la toute première version : lance d'abord `supabase/migration-v2.sql`, puis `migration-v3.sql`, puis `migration-v4.sql` ;*
    - *base en version 2 : lance `migration-v3.sql` puis `migration-v4.sql` ;*
-   - ***base en version 5 (appli déjà en ligne) : lance seulement `supabase/migration-v6.sql`** (remet les trophées de départ à 0, ajoute la quête et le défi « Le noob »). *Base en version 4 : `migration-v5.sql` puis `migration-v6.sql`.* ** Rien n'est effacé : trophées, niveau de départ (calculé d'après les tâches déjà faites) et apparences sont conservés ; Etienne est ajouté.*
-   - *base en version 3 : `migration-v4.sql` puis `migration-v5.sql`.)*
+   - ***base en version 6 (appli déjà en ligne) : lance seulement `supabase/migration-v7.sql`** (⚠️ remise à zéro, voir plus bas) ;*
+   - *base en version 5 : `migration-v6.sql` puis `migration-v7.sql` ; base en version 4 : `migration-v5.sql`, `migration-v6.sql`, `migration-v7.sql`.)*
+   - *base en version 3 : `migration-v4.sql` à `migration-v7.sql`, dans l'ordre.*
 
    *Puis redéploie la fonction `notify` à l'étape 4.)*
 4. Menu **Project Settings → API** : copie l'**URL du projet** et la clé **anon / publishable**. Dans **`keys.js`** (sur GitHub : ouvre le fichier → ✏️), colle-les dans `SUPABASE_URL` et `SUPABASE_ANON_KEY`. Ce fichier ne contient que tes clés : les mises à jour ne le remplaceront plus.
@@ -86,7 +87,7 @@ Puis sur chaque téléphone : choisis ton prénom, appuie sur **Activer** dans l
   - `fewer: { Victor: 2 }` → Victor est moins souvent concerné (1 semaine sur 2 ; `3` = 1 semaine sur 3) ;
   - `only: ['Anthony', 'Lily']` → seulement ces personnes. Les options se combinent. La règle complète est la fonction `participants()` en bas du fichier.
 - **Personnages** : `config.js` → `OUTFITS` (`level` = débloqué à ce niveau, `challenge` = gagné avec un défi), `SKIN_COLORS` / `HAIR_COLORS` / `BG_COLORS`. Les dessins sont dans `avatar.js` : « Hugo Deck » et « Zippo » sont des copies du chevalier et du singe, à la fin du fichier (`OUTFIT_DRAW.hugodeck = …`) : remplace-les par ton dessin.
-- **Défis, récompenses, roue** : `challenges.js` (conditions), `config.js` (`DAILY_COINS`, `WHEEL_MIN/MAX`, `START_COINS`) · XP et niveaux : `config.js` → `XP_RULES`. ⚠️ Si tu changes un prix, une récompense ou un défi, relance `node tools/build-sql.mjs` (génère `supabase/migration-v5.sql`) puis exécute-le de nouveau dans Supabase : c'est la base qui verse les trophées et l'XP.
+- **Défis, XP, niveaux, savons** : `challenges.js` (défis et leur XP), `config.js` (`XP_RULES`, `MILESTONES`, `DAILY_XP`, `TASK_KINDS`). ⚠️ Après un changement, relance `node tools/build-sql.mjs` (génère `supabase/migration-v7.sql`) puis exécute-le de nouveau dans Supabase : la base verse l'XP et les trophées (la remise à zéro n'est pas refaite).
 - **Trophées** : `config.js` → `TASK_KINDS` (champ `coins` = trophées de chaque tâche) et `ALLOW_EARLY_VALIDATION` (valider une tâche avant son jour, interdit par défaut).
 - **Jour des poubelles, tâches, couleurs** : `config.js` (`day` : 0 = lundi … 6 = dimanche). Ne s'applique qu'aux semaines pas encore créées.
 - **Prénoms / produits** : `supabase/schema.sql` avant de le lancer, ou plus tard dans Supabase → *Table Editor*.
@@ -109,3 +110,9 @@ Il démarre à 0 🏆, apparaît dans « Les copains » et dans les classements,
 - Les notifications iPhone sont parfois un peu en retard : c'est iOS, pas l'appli.
 - Supabase gratuit met un projet en pause après ~1 semaine sans aucune activité ; une coloc qui l'utilise tous les jours n'est pas concernée. Si ça arrive : bouton *Restore* dans Supabase.
 - Les semaines à venir sont créées quand quelqu'un ouvre l'appli (au moins une fois par semaine).
+
+
+## Mise à jour v7 (savons, code secret, remise à zéro)
+1. Supabase → SQL Editor → lance `supabase/migration-v7.sql`. ⚠️ Il **remet à zéro** XP, trophées, défis, stats et apparences gagnées (une seule fois : relancé plus tard, il ne ré-efface rien).
+2. Redéploie la fonction `notify` (`supabase/functions/notify/index.ts`) : elle gère les notifications de confirmation de tâche.
+3. Remplace les fichiers de l'appli sur GitHub, sauf `keys.js`.

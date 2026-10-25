@@ -104,7 +104,7 @@ function draw(ctx, r) {
     ctx.fillStyle = '#ef4444'; ctx.fillRect(cx - 4, gy - 45, 13, 4);
   }
   ctx.textAlign = 'right'; ctx.font = '800 22px system-ui, sans-serif'; ctx.lineWidth = 5; ctx.strokeStyle = '#0005';
-  const label = `${Math.floor(r.m)} m`; ctx.strokeText(label, W - 12, 28); ctx.fillStyle = '#fff'; ctx.fillText(label, W - 12, 28);
+  const label = `${Math.floor(r.m)} m`; ctx.fillStyle = '#fff'; ctx.fillText(label, W - 12, 28);
   if (!r.started) { ctx.textAlign = 'center'; ctx.font = '700 15px system-ui, sans-serif'; ctx.fillText('⬆ saute · ⬇ glisse', W / 2, 90); }
 }
 

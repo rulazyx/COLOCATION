@@ -83,15 +83,14 @@ function draw(ctx, g, frame) {
   ctx.restore();
   // score
   ctx.textAlign = 'center'; ctx.font = '800 44px system-ui, sans-serif';
-  ctx.lineWidth = 6; ctx.strokeStyle = '#0006'; ctx.strokeText(g.score, W / 2, 70);
   ctx.fillStyle = '#fff'; ctx.fillText(g.score, W / 2, 70);
   if (!g.started) {
-    ctx.font = '700 18px system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.strokeText('Touche pour voler', W / 2, 250); ctx.fillText('Touche pour voler', W / 2, 250);
+    ctx.font = '700 18px system-ui, sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('Touche pour voler', W / 2, 250);
   }
 }
 
 export function mount(root, { onEnd }) {
-  root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jeu Flappy"></canvas>
+  root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
     <div class="gover" hidden><h2>Perdu !</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer</button></div>`;
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
   let g = createGame(), raf = 0, last = 0, acc = 0, frame = 0, reported = false, destroyed = false;
