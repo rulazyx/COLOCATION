@@ -41,6 +41,51 @@ const OUTFIT_DRAW = {
     '<rect x="32" y="41" width="36" height="7" rx="3.5" fill="#2b2f36"/><circle cx="42" cy="44.5" r="1.8" fill="#fff"/><circle cx="58" cy="44.5" r="1.8" fill="#fff"/>' +
     '<path d="M50 17 C44 4 60 0 67 9 C59 8 54 11 52 17Z" fill="#e5484d"/>',
 
+zippo: () =>
+  body('#F4F4F5', '') +
+
+  // Oreilles noires
+  '<path d="M27 30 C10 26 8 47 18 59 C24 62 29 49 31 39Z" fill="#1C1917"/>' +
+  '<path d="M73 30 C90 26 92 47 82 59 C76 62 71 49 69 39Z" fill="#1C1917"/>' +
+
+  // Tête blanche
+  '<path d="M29 33 C27 53 36 66 50 67 C64 66 73 53 71 33 C69 17 31 17 29 33Z" fill="#FFFFFF"/>' +
+
+  // Côtés noirs et large bande blanche centrale
+  '<path d="M50 20 C39 20 30 25 29 34 C27 46 31 55 39 60 C45 53 46 42 46 33 C46 27 48 23 50 20Z" fill="#1C1917"/>' +
+  '<path d="M50 20 C61 20 70 25 71 34 C73 46 69 55 61 60 C55 53 54 42 54 33 C54 27 52 23 50 20Z" fill="#1C1917"/>' +
+
+  // Sourcils gris clair identiques
+  '<ellipse cx="40" cy="34" rx="3.5" ry="1.6" fill="#E4E4E7" transform="rotate(-15 40 34)"/>' +
+  '<ellipse cx="60" cy="34" rx="3.5" ry="1.6" fill="#E4E4E7" transform="rotate(15 60 34)"/>' +
+
+  // Yeux noirs avec éclats blancs
+  '<circle cx="40" cy="41" r="4" fill="#000000"/>' +
+  '<circle cx="39" cy="40" r="1.4" fill="#FFFFFF"/>' +
+  '<circle cx="60" cy="41" r="4" fill="#000000"/>' +
+  '<circle cx="59" cy="40" r="1.4" fill="#FFFFFF"/>' +
+
+  // Museau
+  '<ellipse cx="50" cy="53" rx="12" ry="9" fill="#F4F4F5"/>' +
+
+  // Truffe et reflet
+  '<path d="M44 49 C44 46 56 46 56 49 C56 53 52 55 50 55 C48 55 44 53 44 49Z" fill="#18181B"/>' +
+  '<ellipse cx="47.5" cy="48.5" rx="1.5" ry=".8" fill="#52525B"/>' +
+
+  // Bouche
+  '<path d="M47 56 Q50 59 50 56 Q50 59 53 56" fill="none" stroke="#27272A" stroke-width="1.4" stroke-linecap="round"/>' +
+
+  // Joues roses
+  '<ellipse cx="33.5" cy="51" rx="2.5" ry="1.6" fill="#FECDD3" opacity=".7"/>' +
+  '<ellipse cx="66.5" cy="51" rx="2.5" ry="1.6" fill="#FECDD3" opacity=".7"/>' +
+
+  // Collier orange
+  '<path d="M35 65 Q50 72 65 65 L64 70 Q50 77 36 70Z" fill="#E65100"/>' +
+  '<rect x="46" y="68" width="8" height="5" rx="1.5" fill="#9E9E9E"/>' +
+  '<rect x="47.5" y="69" width="5" height="3" rx=".7" fill="#BDBDBD"/>' +
+  '<circle cx="50" cy="75" r="1.8" fill="none" stroke="#BDBDBD" stroke-width="1.2"/>',
+
+
   singe: () => {
     const fur = '#8a5a3b', tan = '#ecd0a8';
     return body(fur, `<ellipse cx="50" cy="96" rx="15" ry="13" fill="${tan}"/>`) +
@@ -164,7 +209,6 @@ OUTFIT_DRAW.papangue = () => {
     '<circle cx="48" cy="55" r=".9" fill="#8a6200"/><circle cx="52" cy="55" r=".9" fill="#8a6200"/>';
 };
 OUTFIT_DRAW.hugodeck = (p) => OUTFIT_DRAW.chevalier(p);
-OUTFIT_DRAW.zippo = (p) => OUTFIT_DRAW.singe(p);
 
 export function avatarSVG(p = {}, size = 80) {
   const gender = p.gender === 'femme' ? 'femme' : 'homme';
