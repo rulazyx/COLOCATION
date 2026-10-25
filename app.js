@@ -196,12 +196,13 @@ function checkNewResults() {
 
 async function init() {
   let step = 'démarrage';
+  const sp = (p) => window.splashProgress?.(p);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
   try {
     const cloud = CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY;
-    step = 'connexion';
+    step = 'connexion'; sp(0.15);
     state.api = cloud ? await makeCloudApi() : makeDemoApi();
-    state.members = await state.api.members();
+    state.members = await state.api.members(); sp(0.4);
     state.initials = computeInitials(state.members);
     const meId = Number(store.get('coloc-me'));
     state.me = state.members.find((m) => m.id === meId) || null;
@@ -209,16 +210,16 @@ async function init() {
     const m0 = mondayOf();
     const rows = [];
     for (let i = 0; i <= WEEKS_AHEAD; i++) rows.push(...buildWeek(addDays(m0, 7 * i), state.members.filter((m) => m.kind !== 'copain')));
-    await state.api.ensureWeeks(rows);
+    await state.api.ensureWeeks(rows); sp(0.65);
     step = 'lecture des données (stats, défis…)';
-    await refresh();
+    await refresh(); sp(1); window.splashDone?.();
     state.api.onChange(debounce(() => refresh().catch(() => {}), 250));
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh().catch(() => {}); });
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
-    state.error = `${e.message || String(e)} [étape : ${step} · v5]`;
-    render();
+    state.error = `${e.message || String(e)} [étape : ${step} · v6]`;
+    render(); window.splashDone?.();
   }
 }
 
