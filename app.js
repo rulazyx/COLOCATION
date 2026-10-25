@@ -470,8 +470,15 @@ function render() {
   const duelsForMe = pendingForMe().length;
   const tab = state.tab;
   const anim = state.anim; state.anim = false;
+  const hp = levelProgress(xpOf(state.me.id));
   const badge = (n, color) => (n ? `<span class="badge" ${color ? `style="background:${color}"` : ''}>${n}</span>` : '');
   app.innerHTML = `
+    <header class="top hdr">
+      <span class="lvlcircle sm" title="Niveau">${hp.level}</span>
+      <div class="hbar"><div class="bar sm lvlbar"><i style="width:${hp.pct}%"></i></div><small>${xpOf(state.me.id)} XP · niv. ${hp.level + 1} dans ${hp.need - hp.into}</small></div>
+      <span class="hchip" title="Savons">🧼 ${state.scores.find((x) => x.member_id === state.me.id)?.coins ?? 0}</span>
+      <span class="hchip" title="Trophées">🏆 ${balanceOf(state.me.id)}</span>
+    </header>
     <main class="${anim ? 'pg' : ''}">
       ${pushOn() || store.get('coloc-push-dismiss') === '1' ? '' : `
         <div class="banner">

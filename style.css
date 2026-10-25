@@ -52,7 +52,7 @@ button:disabled { cursor: default; }
   min-width: 40px; height: 40px; padding: 0 12px;
   background: var(--card); border: 1px solid var(--line); border-radius: 999px; font-size: 18px;
 }
-main { padding: calc(16px + env(safe-area-inset-top)) 16px 16px; max-width: 640px; margin: 0 auto; }
+main { padding: 16px; max-width: 640px; margin: 0 auto; }
 
 /* ---------- Bandeau notifications ---------- */
 .banner {
@@ -444,3 +444,9 @@ button.tile:active { border-color: var(--accent); }
 .bj-b{flex:1;padding:16px;border-radius:14px;background:#ffc928;color:#3b2a00;font-weight:800;font-size:18px;text-align:center}
 .bj-b.alt{background:#fff}
 @media (prefers-reduced-motion:reduce){.pdots.bad,.pc,.gsplash span{animation:none}}
+
+/* v10 : bandeau fixe niveau / XP / savons / trophées (masqué par les jeux plein écran) */
+.top.hdr{justify-content:flex-start;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 14px 8px}
+.lvlcircle.sm{width:38px;height:38px;font-size:18px;border-width:2px;box-shadow:0 0 0 2px #ffb300}
+.hbar{flex:1;min-width:0}.hbar small{display:block;font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hchip{flex:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 10px;font-weight:700;font-size:14px}
