@@ -264,7 +264,7 @@ button.tile:active { border-color: var(--accent); }
 
 .pname { text-align: center; margin-bottom: 8px; font-size: 20px; }
 .pname .ptitle { font-size: 13px; }
-.stgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; }
+.stgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; }
 .stc { background: var(--card); border-radius: 12px; padding: 10px 4px; text-align: center; display: flex; flex-direction: column; gap: 2px; }
 .sheet .stc { background: var(--bg); }
 .stc span { font-size: 18px; }
@@ -335,3 +335,26 @@ button.tile:active { border-color: var(--accent); }
 .spad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; width: min(100%, 420px); }
 .spad button { padding: 14px 0; border-radius: 12px; background: var(--card); font-size: 20px; font-weight: 700; text-align: center; }
 .spad .era { background: var(--danger-soft); color: var(--danger); }
+
+
+/* ---------- v5 : niveau, quêtes, échange de tâches ---------- */
+.hero2 .hmain { flex: 1; min-width: 0; }
+.hero2 .lvl { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.lvlbar { margin: 8px 0 4px; max-width: none; height: 8px; }
+.lvlbar > i { background: var(--gold); }
+.soon { text-align: center; padding: 70px 20px; color: var(--muted); }
+.soon-ico { font-size: 64px; }
+.soon h2 { color: var(--text); margin: 10px 0 6px; }
+.pickrow { width: 100%; text-align: left; border: 0; }
+.pickrow[disabled] { opacity: .45; }
+
+/* v6 : quête principale */
+.quest{background:var(--card,#fff);border-radius:18px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin:8px 0}
+.q-head{display:flex;align-items:center;gap:12px;margin-bottom:10px}.q-head h2{margin:0;font-size:1.15rem}.q-head small{opacity:.6}
+.q-ico{font-size:2rem}.q-count{margin-left:auto;font-size:1.1rem}
+.q-steps{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.q-steps button{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:12px;border-radius:12px;border:1px solid rgba(128,128,128,.25);background:transparent;color:inherit;font:inherit}
+.q-steps em{margin-left:auto;font-style:normal}
+.q-n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(128,128,128,.2);font-weight:700;flex:none}
+.q-steps li.ok button{opacity:.65}.q-steps li.ok .q-n{background:#2f9e6b;color:#fff}
+.q-end{margin:12px 0 0;text-align:center;font-weight:600}

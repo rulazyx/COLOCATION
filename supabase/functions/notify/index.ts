@@ -1,4 +1,4 @@
-// Fonction Supabase "notify" : envoie les notifications push.
+// Fonction Supabase "notify" : envoie les notifications push (ruptures, défis chifoumi, échanges de tâches, rappel du soir).
 //  - {type:"stock", productId}  → prévient TOUS les colocs qu'un produit est en rupture
 //  - {type:"reminder"}          → (appelée chaque soir par pg_cron) relance ceux dont la tâche du jour n'est pas cochée
 //
@@ -102,6 +102,28 @@ Deno.serve(async (req) => {
           : (d.wager ? `Tu as perdu ${d.wager} 🪙 contre ${other} (${moves})` : `${other} gagne cette fois (${moves})`),
         tag: `duel-${d.id}`,
       };
+    } else return json({ error: "unknown event" }, 400);
+    const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", target);
+    return json({ sent: await send((subs ?? []) as Sub[], payload) });
+  }
+
+  if (body.type === "swap") {
+    // {type:"swap", event:"request"|"answer", requestId} → prévient le destinataire d'une proposition, ou l'auteur de la réponse
+    const { data: r } = await db.from("task_requests").select("*").eq("id", body.requestId).single();
+    if (!r) return json({ sent: 0 });
+    const age = (iso: string | null) => (iso ? Date.now() - new Date(iso).getTime() : Infinity);
+    const { data: t } = await db.from("tasks").select("label,day_index,week").eq("id", r.task_id).single();
+    const name = async (id: number) => (await db.from("members").select("name").eq("id", id).single()).data?.name ?? "?";
+    let target: number, payload: { title: string; body: string; tag: string };
+    if (body.event === "request") {
+      if (r.status !== "pending" || age(r.created_at) > 2 * 60_000) return json({ sent: 0 });
+      target = r.to_id;
+      payload = { title: "🙋 Échange de tâche", body: `${await name(r.from_id)} te propose : ${t?.label ?? "une tâche"}`, tag: `swap-${r.id}` };
+    } else if (body.event === "answer") {
+      if (!["accepted", "declined"].includes(r.status) || age(r.answered_at) > 2 * 60_000) return json({ sent: 0 });
+      target = r.from_id;
+      payload = { title: r.status === "accepted" ? "✅ Tâche acceptée" : "↩️ Tâche refusée",
+        body: `${await name(r.to_id)} ${r.status === "accepted" ? "a accepté" : "a refusé"} : ${t?.label ?? "ta tâche"}`, tag: `swap-${r.id}` };
     } else return json({ error: "unknown event" }, 400);
     const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", target);
     return json({ sent: await send((subs ?? []) as Sub[], payload) });

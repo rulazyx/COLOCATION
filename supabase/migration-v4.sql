@@ -17,7 +17,7 @@ create table if not exists coin_ledger (
 );
 -- 500 pièces offertes à chacun (une seule fois par personne)
 insert into coin_ledger (member_id, amount, reason)
-  select m.id, 500, 'start' from members m
+  select m.id, 0, 'start' from members m
   where not exists (select 1 from coin_ledger l where l.member_id = m.id and l.reason = 'start');
 
 -- ---------- Statistiques des jeux et de la connexion ----------
@@ -70,6 +70,7 @@ insert into challenges (key, coins, skin) values
   ('prince', 0, null),
   ('roi_coloc', 0, 'roi'),
   ('dieu_coloc', 0, 'zeus'),
+  ('noob', 0, null),
   ('mathematicien', 0, null),
   ('inspecteur', 0, 'detective');;
 create table if not exists shop_prices (item text primary key, price int not null check (price >= 0));

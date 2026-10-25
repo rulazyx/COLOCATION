@@ -1,13 +1,14 @@
 // Défis (titres à débloquer) et classements. Fonctions pures : elles ne touchent ni au DOM ni à la base.
-// ⚠️ Les clés (key), les pièces et les apparences de récompense doivent rester identiques à la table
+// ⚠️ Les clés (key), les trophées et les apparences de récompense doivent rester identiques à la table
 //    "challenges" de supabase/migration-v4.sql (c'est la base qui verse la récompense).
-import { OUTFITS, CHALLENGES_SINCE } from './config.js';
+import { OUTFITS, CHALLENGES_SINCE, levelOf } from './config.js';
 
-// ctx = { meId, members, stats:{id→ligne}, scores:{id→{coins,done_count}}, balances:{id→pièces}, wins:{id→n},
+// ctx = { meId, members, stats:{id→ligne}, scores:{id→{coins,done_count}}, balances:{id→trophées}, wins:{id→n},
 //         duels:[…], tasks:[…], owned:Set, viewed:Set, today:'AAAA-MM-JJ' }
 const st = (c) => c.stats[c.meId] ?? {};
 const chores = (c) => c.scores[c.meId]?.done_count ?? 0;
 const num = (v) => Number(v) || 0;
+export const questDone = (mask) => (mask & 15) === 15;
 
 // Séries de victoires au chifoumi (toutes parties terminées, dans l'ordre)
 export function duelRuns(duels, meId) {
@@ -36,7 +37,8 @@ function dayOf(t) {
 
 /* ---------- Classements ---------- */
 export const BOARDS = [
-  { key: 'coins',    emoji: '🪙', label: 'Pièces',            unit: '🪙',  low: false },
+  { key: 'level',    emoji: '⭐', label: 'Niveau',            unit: '',    low: false },
+  { key: 'coins',    emoji: '🏆', label: 'Trophées',          unit: ' 🏆', low: false },
   { key: 'chores',   emoji: '🧹', label: 'Tâches faites',     unit: '',    low: false },
   { key: 'chifoumi', emoji: '✊', label: 'Victoires chifoumi', unit: '',    low: false },
   { key: 'flappy',   emoji: '🐤', label: 'Flappy',            unit: '',    low: false },
@@ -44,11 +46,12 @@ export const BOARDS = [
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
 ];
 export const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : `${v}${board.unit}`);
+export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : board.key === 'level' ? `Niv. ${Math.floor(v / 100000)}` : `${v}${board.unit}`);
 
 export function boardValue(c, key, id) {
   const s = c.stats[id] ?? {};
   switch (key) {
+    case 'level': return c.xp?.[id] != null ? levelOf(c.xp[id]) * 100000 + c.xp[id] % 100000 : 0; // niveau d'abord, puis XP
     case 'coins': return num(c.balances[id]);
     case 'chores': return c.scores[id]?.done_count ?? 0;
     case 'chifoumi': return c.wins[id] ?? 0;
@@ -116,6 +119,7 @@ export const CHALLENGES = [
   { key: 'roi_coloc', title: 'Le roi de la coloc', emoji: '👑', desc: 'Être 1er dans deux classements.', check: (c) => prog(firstPlaces(c, c.meId), 2) },
   { key: 'dieu_coloc', title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Être 1er dans tous les classements.', check: (c) => prog(firstPlaces(c, c.meId), BOARDS.length) },
   // — Divers —
+  { key: 'noob', title: 'Le noob', emoji: '🐣', desc: 'Terminer ta première quête.', check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
   { key: 'mathematicien', title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
   { key: 'inspecteur', title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
     check: (c) => { const o = allOthers(c); return prog(o.filter((m) => c.viewed.has(m.id)).length, Math.max(o.length, 1)); } },
@@ -131,3 +135,22 @@ export const rewardOf = (key) => ({
 });
 export const challengeByKey = Object.fromEntries(CHALLENGES.map((x) => [x.key, x]));
 export const titleOf = (key) => challengeByKey[key]?.title ?? null;
+
+/* ---------- Classement hebdomadaire (trophées gagnés dans la semaine) ---------- */
+// rows = [{member_id, week:'AAAA-MM-JJ' (lundi), trophies}]
+export function weekRanking(members, rows, week) {
+  const by = Object.fromEntries(rows.filter((r) => r.week === week).map((r) => [r.member_id, r.trophies]));
+  const list = members.map((m) => ({ id: m.id, name: m.name, value: by[m.id] ?? 0 }))
+    .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name));
+  let rank = 0, prev;
+  list.forEach((r, i) => { if (r.value !== prev) rank = i + 1; r.rank = r.value > 0 ? rank : null; prev = r.value; });
+  return list;
+}
+// Gagnants des semaines passées (ex æquo : tous gagnent). Renvoie [{week, winners:[id], value}] du plus récent au plus ancien
+export function weekWinners(members, rows, currentWeek) {
+  const weeks = [...new Set(rows.map((r) => r.week))].filter((w) => w < currentWeek).sort().reverse();
+  return weeks.map((w) => {
+    const list = weekRanking(members, rows, w);
+    return list[0]?.value > 0 ? { week: w, winners: list.filter((r) => r.rank === 1).map((r) => r.id), value: list[0].value } : null;
+  }).filter(Boolean);
+}

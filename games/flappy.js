@@ -1,4 +1,4 @@
-// « Coucou » : un oiseau qui bat des ailes entre des colonnes de pierre (mécanique classique, dessin original).
+// « Coucou » : un oiseau rouge qui bat des ailes entre des colonnes jaunes (mécanique classique, dessin original).
 // Le score = nombre de colonnes passées. Toucher l'écran / espace / ↑ = battre des ailes.
 export const W = 288, H = 480, GROUND = 64;
 const GRAVITY = 0.42, FLAP = -6.9, MAX_FALL = 9;
@@ -60,11 +60,11 @@ function draw(ctx, g, frame) {
   // colonnes de pierre
   for (const p of g.pipes) {
     for (const [y0, y1, cap] of [[0, p.top, p.top - 16], [p.top + GAP, H - GROUND, p.top + GAP]]) {
-      ctx.fillStyle = '#8d8a96'; ctx.fillRect(p.x, y0, PIPE_W, y1 - y0);
-      ctx.fillStyle = '#a7a4b2'; ctx.fillRect(p.x + 6, y0, 8, y1 - y0);
-      ctx.fillStyle = '#6f6c79'; ctx.fillRect(p.x + PIPE_W - 10, y0, 10, y1 - y0);
-      ctx.fillStyle = '#76738a'; ctx.fillRect(p.x - 4, cap, PIPE_W + 8, 16);
-      ctx.fillStyle = '#5fae6b'; ctx.fillRect(p.x - 4, cap + (cap === p.top - 16 ? 10 : 0), PIPE_W + 8, 6);
+      ctx.fillStyle = '#facc15'; ctx.fillRect(p.x, y0, PIPE_W, y1 - y0);
+      ctx.fillStyle = '#fde68a'; ctx.fillRect(p.x + 6, y0, 8, y1 - y0);
+      ctx.fillStyle = '#ca8a04'; ctx.fillRect(p.x + PIPE_W - 10, y0, 10, y1 - y0);
+      ctx.fillStyle = '#eab308'; ctx.fillRect(p.x - 4, cap, PIPE_W + 8, 16);
+      ctx.fillStyle = '#a16207'; ctx.fillRect(p.x - 4, cap + (cap === p.top - 16 ? 10 : 0), PIPE_W + 8, 6);
     }
   }
   // sol
@@ -74,12 +74,12 @@ function draw(ctx, g, frame) {
   for (let x = -((frame * SPEED) % 24); x < W; x += 24) ctx.fillRect(x, H - GROUND + 22, 12, 5);
   // oiseau (rond, bleu, bec rouge)
   ctx.save(); ctx.translate(BIRD_X, g.y); ctx.rotate(g.tilt);
-  ctx.fillStyle = '#3b82f6'; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
-  ctx.fillStyle = '#dbeafe'; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#1d4ed8'; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
+  ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
+  ctx.fillStyle = '#fecaca'; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
   ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(7.4, -4, 2, 0, 7); ctx.fill();
-  ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
+  ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
   ctx.restore();
   // score
   ctx.textAlign = 'center'; ctx.font = '800 44px system-ui, sans-serif';

@@ -1,20 +1,30 @@
 // ============================================================
-//  CONFIGURATION — le seul fichier que tu dois modifier
+//  RÉGLAGES de l'appli (tâches, niveaux, apparences…). Tes clés sont dans keys.js
 // ============================================================
 
-export const CONFIG = {
-  // Laisse vide pour tester en "mode démo" (données stockées sur ton téléphone uniquement).
-  // Renseigne les 3 valeurs pour activer le partage entre colocataires + les notifications.
-  SUPABASE_URL: 'https://eycnuihgitlqvittyppj.supabase.co',        // ex : 'https://eycnuihgitlqvittyppj.supabase.co'
-  SUPABASE_ANON_KEY: 'sb_publishable_VkyT4OtTmcTX794nI4ed4A_W_84jlld',   // clé "anon" / "publishable" (publique, elle peut rester dans GitHub)
-  VAPID_PUBLIC_KEY: '3b7dd8bdfdf5ed995fde5aee1b813b04cefd921163a7897c6a4e28f8d8807db5',    // clé publique générée avec tools/vapid.html
+// Tes clés Supabase / notifications sont dans keys.js
+export { CONFIG } from './keys.js';
+
+// ---------- Trophées et niveaux ----------
+// Les trophées sont devenues des TROPHÉES : on les gagne, on ne les dépense plus.
+export const ALLOW_EARLY_VALIDATION = false; // true = on peut valider une tâche avant son jour
+// XP gagnée par action (⚠️ après un changement : node tools/build-sql.mjs puis relancer migration-v5.sql dans Supabase)
+export const XP_RULES = {
+  taskPerTrophy: 2,   // une tâche rapporte (trophées de la tâche × 2) XP
+  daily: 10, wheel: 20, challenge: 50,
+  duelPlay: 5, duelWin: 10,          // chifoumi : jouer / gagner
+  flappyPerObstacle: 1, raidPer50m: 1, gameCap: 100, // par partie, plafonné
+  sudoku: 40, stock: 5,              // grille terminée / produit signalé (1 fois par jour et par produit)
+};
+// Niveau L atteint à 50 × L × (L − 1) XP : niveau 2 = 100, 3 = 300, 4 = 600, 5 = 1000, 10 = 4500…
+export const xpForLevel = (l) => 50 * l * (l - 1);
+export const levelOf = (xp) => { let l = 1; while (xp >= xpForLevel(l + 1)) l++; return l; };
+export const levelProgress = (xp) => {
+  const l = levelOf(xp), lo = xpForLevel(l), hi = xpForLevel(l + 1);
+  return { level: l, into: xp - lo, need: hi - lo, pct: Math.min(100, ((xp - lo) / (hi - lo)) * 100) };
 };
 
-// ---------- Pièces ----------
-export const SKIP_PENALTY = 0;              // pièces perdues quand on saute une tâche (0 = aucune pénalité)
-export const ALLOW_EARLY_VALIDATION = false; // true = on peut valider une tâche avant son jour
-
-// ---------- Personnage, boutique, jeux ----------
+// ---------- Personnage, jeux ----------
 export const SKIN_COLORS = [
   { c: '#fde0cc', name: 'Très clair' }, { c: '#f5c9a0', name: 'Clair' }, { c: '#e0a878', name: 'Hâlé' },
   { c: '#c68642', name: 'Mat' }, { c: '#8d5524', name: 'Brun' }, { c: '#5c3a21', name: 'Foncé' },
@@ -24,17 +34,17 @@ export const HAIR_COLORS = [
   { c: '#e6c068', name: 'Blond' }, { c: '#c4571f', name: 'Roux' }, { c: '#b8bcc4', name: 'Gris' },
   { c: '#ec4899', name: 'Rose' }, { c: '#3b82f6', name: 'Bleu' },
 ];
-// Apparences. Deux façons de les obtenir :
-//   price: 30            → on l'achète dans la boutique (à garder identique à la table shop_prices de la base)
-//   challenge: 'cle'     → on la gagne en réussissant un défi (voir challenges.js ; ne s'achète pas)
+// Apparences. Deux façons de les débloquer (plus de boutique) :
+//   level: 4            → débloquée en atteignant ce niveau
+//   challenge: 'cle'    → gagnée en réussissant un défi (voir challenges.js)
 // hidesHair / hidesSkin : la tenue cache cheveux / peau. nameF : nom au féminin (facultatif)
 export const OUTFITS = {
-  none:         { name: 'Tenue de base', price: 0 },
-  singe:        { name: 'Singe',        price: 30,  hidesHair: true, hidesSkin: true },
-  pirate:       { name: 'Pirate',       price: 80 },
-  ninja:        { name: 'Ninja',        price: 100, hidesHair: true },
-  astronaute:   { name: 'Astronaute',   price: 120 },
-  zippo:        { name: 'Zippo',        price: 150, hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
+  none:         { name: 'Tenue de base' },
+  singe:        { name: 'Singe',        level: 2,  hidesHair: true, hidesSkin: true },
+  pirate:       { name: 'Pirate',       level: 4 },
+  ninja:        { name: 'Ninja',        level: 6,  hidesHair: true },
+  astronaute:   { name: 'Astronaute',   level: 8 },
+  zippo:        { name: 'Zippo',        level: 10, hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
   chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', challenge: 'pilier',            hidesHair: true },
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'roi_coloc' },
@@ -45,8 +55,19 @@ export const OUTFITS = {
   nickel:       { name: 'Monsieur Nickel', nameF: 'Madame Nickel', challenge: 'nickel' },
   clochard:     { name: 'Clochard',     nameF: 'Clocharde',  challenge: 'clochard' },
 };
-export const START_COINS = 500;              // pièces offertes à chacun au départ
-// Récompense quotidienne : pièces des jours 1 à 6, le jour 7 débloque la roue de la fortune
+export const START_COINS = 0;                // tout le monde commence à 0 trophée
+
+// Quête principale « Découverte de l'application » : une étape = un bit de member_stats.quest_mask
+export const MAIN_QUEST = {
+  title: "Découverte de l'application", emoji: '🧭',
+  steps: [
+    { n: 1, text: 'Personnalise ton personnage', emoji: '🎭', tab: 'me' },
+    { n: 2, text: 'Consulte les différents classements', emoji: '🥇', tab: 'rank' },
+    { n: 3, text: 'Lance une partie de jeu', emoji: '🎮', tab: 'games' },
+    { n: 4, text: 'Clique sur une tâche ménagère', emoji: '🧹', tab: 'tasks' },
+  ],
+};
+// Récompense quotidienne : trophées des jours 1 à 6, le jour 7 débloque la roue de la fortune
 export const DAILY_COINS = [10, 15, 20, 25, 30, 40];
 export const WHEEL_MIN = 50, WHEEL_MAX = 1000;
 // Les défis ne comptent que les tâches des semaines à partir de cette date (évite de punir le passé)
@@ -60,7 +81,7 @@ export const MOVES = {
 };
 
 // ---------- Les 6 types de tâches ----------
-// color : couleur de la ligne dans le tableau · coins : pièces gagnées quand la tâche est faite
+// color : couleur de la ligne dans le tableau · coins : trophées gagnées quand la tâche est faite
 export const TASK_KINDS = {
   cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', coins: 10,
                detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles' },
