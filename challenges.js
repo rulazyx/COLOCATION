@@ -133,7 +133,9 @@ export const CHALLENGES = [
   { key: 'jardinier', cat: 'Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
   { key: 'maraicher', cat: 'Ferme', xp: 1000, title: 'Maraîcher', emoji: '🚜', desc: 'Faire 100 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 100) },
   { key: 'bon_voisin', cat: 'Ferme', xp: 300, title: 'Bon voisin', emoji: '💧', desc: 'Arroser 20 fois les parcelles des autres colocs.', check: (c) => prog(num(st(c).farm_waters), 20) },
-  { key: 'ferme_1000', cat: 'Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en récoltes au total.', check: (c) => prog(num(st(c).farm_coins), 1000) },
+  { key: 'ferme_1000', cat: 'Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en vendant ta récolte à la grange.', check: (c) => prog(num(st(c).farm_coins), 1000) },
+  { key: 'premier_bati', cat: 'Ferme', xp: 200, title: 'Premier chantier', emoji: '🔨', desc: 'Construire un premier bâtiment ou une décoration.', check: (c) => prog(num(st(c).farm_builds), 1) },
+  { key: 'bati_10', cat: 'Ferme', xp: 700, title: 'Grand bâtisseur', emoji: '🏗️', desc: 'Faire 10 constructions dans ton domaine.', check: (c) => prog(num(st(c).farm_builds), 10) },
   { key: 'grand_domaine', cat: 'Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Débloquer les 6 parcelles.', check: (c) => prog(num(st(c).farm_slots), 6) },
   // — Chifoumi —
   { key: 'roc', cat: 'Jeux', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },

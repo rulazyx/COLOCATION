@@ -2,7 +2,7 @@
 // (pour que récompenses, niveaux et XP ne puissent pas se contredire).   Usage : node tools/build-sql.mjs
 // Les migrations v2 à v7 sont figées (déjà lancées) ; seule la v8 est générée.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { SHOP, OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, LEVEL_BASE, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, DAILY, SOAP_EXCHANGE, LEVEL_BONUS, FARM } from '../config.js';
+import { SHOP, OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, LEVEL_BASE, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, DAILY, SOAP_EXCHANGE, LEVEL_BONUS, FARM } from '../config.js';
 import { CHALLENGES, rewardOf } from '../challenges.js';
 
 const root = new URL('../', import.meta.url);
@@ -22,11 +22,12 @@ const subs = {
   __TASK_KINDS__: Object.entries(TASK_KINDS).filter(([, t]) => !t.legacy).map(([k, t]) => `  (${q(k)}, ${t.soap}, ${t.cooldownH})`).join(',\n'),
   __SKINS__: Object.entries(OUTFITS).filter(([, o]) => o.level).map(([k, o]) => `  (${q(k)}, ${o.level})`).join(',\n') + ';',
   __LB_EVERY__: LEVEL_BONUS.every, __LB_CHIPS__: LEVEL_BONUS.chips, __WEEK_WIN__: GOOSE.weekWin,
-  __FARM_CROPS__: FARM.crops.map((c) => `  (${q(c.key)}, ${c.hours}, ${c.cost}, ${c.gain}, ${c.level})`).join(',\n'), __FARM_BASE__: FARM.baseSlots, __FARM_SLOT_COSTS__: FARM.slotCosts.join(', '), __FARM_MAX__: FARM.slotCosts.length,
+  __FARM_CROPS__: FARM.crops.map((c) => `  (${q(c.key)}, ${c.hours}, ${c.cost}, ${c.sell * FARM.yield}, ${c.level}, ${c.sell})`).join(',\n'), __FARM_BASE__: FARM.baseSlots, __FARM_SLOT_COSTS__: FARM.slotCosts.join(', '), __FARM_MAX__: FARM.slotCosts.length,
+  __FARM_ITEMS__: FARM.items.map((i) => `  (${q(i.key)}, '${i.kind}', '${JSON.stringify(i.cost)}'::jsonb)`).join(',\n'), __FARM_YIELD__: FARM.yield, __FARM_WELL__: FARM.perks.wellCut, __FARM_STALL__: FARM.perks.stallBonus, __FARM_SILO__: FARM.perks.siloCap, __FARM_GH__: FARM.perks.greenhouseUnits, __FARM_SB__: FARM.spots.b, __FARM_SD__: FARM.spots.d,
   __FARM_CAP__: FARM.capPerDay, __FARM_WITHER__: FARM.witherH, __FARM_CUT__: FARM.waterCut, __FARM_WR__: FARM.waterReward, __FARM_WRMAX__: FARM.waterRewardMaxPerDay, __FARM_BOOST__: FARM.taskBoost,
   __GOOSE_SIZE__: GOOSE.size, __GOOSE_FIN_XP__: GOOSE.finish.xp, __GOOSE_FIN_TR__: GOOSE.finish.trophy,
   __GOOSE_CELLS__: Object.entries(GOOSE.cells).map(([cell, c]) => { const kind = c.xp ? 'xp' : c.chips ? 'chips' : c.back ? 'back' : 'goose'; return `  (${cell}, '${kind}', ${c.xp ?? c.chips ?? c.back ?? 0})`; }).join(',\n') + ';',
-  __DICE_PRICES__: DICE_PRICES.join(', '), __DICE_N__: DICE_PRICES.length, __PERK_KINDS__: PERKS.map((k) => `'${k.key}'`).join(', '), __PERK_N__: PERKS.length, __PERK_CONFIRM__: PERKS.filter((k) => k.confirm).map((k) => `'${k.key}'`).join(', '),
+  __DICE_PRICES__: DICE_PRICES.join(', '), __DICE_N__: DICE_PRICES.length, __DICE_MAX__: DICE_MAX_DAY, __PERK_KINDS__: PERKS.map((k) => `'${k.key}'`).join(', '), __PERK_N__: PERKS.length, __PERK_CONFIRM__: PERKS.filter((k) => k.confirm).map((k) => `'${k.key}'`).join(', '),
   __DUEL_STAKE__: X.duelStake, __BJ_BETS__: [...new Set([...BJ_BETS.low, ...BJ_BETS.mid, ...BJ_BETS.high])].join(', '), __LEVEL_BASE__: LEVEL_BASE, __INTRO_XP__: X.introXp, __FIRST_GAME_XP__: X.firstGameXp, __EXCHANGE_CASE__: SOAP_EXCHANGE.map((o) => `when ${o.soap} then ${o.coins}`).join(' '), __SHOP_VALUES__: Object.entries(SHOP).flatMap(([slot, list]) => list.map((i) => `('${slot}:${i.key}', '${slot}', ${i.price})`)).join(',\n  '), __DAILY_CHIPS__: DAILY.chips, __DAILY_XP__: DAILY.xp, __MESSAGE_MAX__: MESSAGE_MAX,
   __CHALLENGES__: CHALLENGES.map((c) => { const r = rewardOf(c.key); return `  (${q(c.key)}, 0, ${q(r.skin)}, ${r.xp})`; }).join(',\n') + ';',
 };

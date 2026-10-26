@@ -204,3 +204,13 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 - Colo-Ferme devient un vrai jeu (games/ferme.js) : tuile → fiche → plein écran, parcelles et fruits dessinés/animés, visite des fermes voisines, arrosage animé. Plafond de récolte : 200 🪙/jour.
 - Tâches : 5 catégories (Nettoyage, Aspirateur, Serpillère, Poubelles, Cuisiner) qui ouvrent leurs choix.
 - RÉINITIALISATION GÉNÉRALE (`reset_v20`) incluse dans migration-v8.sql.
+
+## v22
+- Jeux : Colo-Ferme et Blackjack se lancent directement ; Chifoumi ouvre le choix de l'adversaire (têtes) puis du coup ; plus de classements de records pour ces trois jeux.
+- Savons : onglet Tâches avec en-tête « savons cette semaine » (tête de chaque coloc) ; les dés ne consomment plus de savons : ils demandent un cumul de savons gagnés dans la semaine ; pastille 🎲 = dés restants.
+
+## v23 — Colo-Ferme, le domaine
+- 3 onglets dans le jeu : Domaine (grange, 5 bâtiments, 8 décorations à construire avec des fruits et légumes), Champs (la terre et ses 6 parcelles), Grange (stock, vente, bonus).
+- Récolter donne des unités (3 par parcelle) rangées dans la grange ; on les vend (plafond 200 🪙/jour) ou on les garde pour construire.
+- Bonus : puits −10 % de pousse, étal +15 % de vente, serre +1 unité, silo +50 de plafond.
+- Nouveaux défis : Premier chantier, Grand bâtisseur.

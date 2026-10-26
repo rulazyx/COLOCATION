@@ -1,6 +1,6 @@
 import {
   CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE,
 } from './config.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
@@ -75,7 +75,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -139,11 +139,11 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay'];
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds'];
   const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(),
   ]);
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
@@ -497,10 +497,10 @@ async function openProfile(id) {
 
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
-  chifoumi: { name: 'Chifoumi', cls: 'chif', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
+  chifoumi: { direct: 'duel', name: 'Chifoumi', cls: 'chif', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
   flappy: { name: 'Jumpy Cardinal', cls: 'flap', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
-  blackjack: { name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
-  ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: "Plante, arrose, récolte ! Tes cultures poussent en temps réel, même quand l'appli est fermée. Arrose les parcelles des autres colocs pour les aider (et gagner des pièces), et une tâche ménagère validée accélère tes cultures. Récolte plafonnée à " + FARM.capPerDay + " 🪙 par jour." },
+  blackjack: { direct: 'game', name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
   sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null;
@@ -511,6 +511,8 @@ function farmCtx() {
     colocs: () => colocs(), nameOf: (id) => nameOf(id), avatar: (m, sz) => av(m, sz),
     farm: () => state.farm, slotsOf: (id) => farmSlots(id), got: () => state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0,
     chips: () => chipsOf(me.id), level: () => lvlOf(me.id),
+    stock: () => state.farmStock.filter((x) => x.member_id === me.id), builds: (id) => state.farmBuilds.filter((b) => b.member_id === id),
+    sell: (crop, qty) => api.farmSell(me.id, crop, qty), build: (spot, item) => api.farmBuild(me.id, spot, item),
     plant: (slot, crop) => api.farmPlant(me.id, slot, crop), harvest: (slot) => api.farmHarvest(me.id, slot),
     water: (owner, slot) => api.farmWater(me.id, owner, slot), unlock: () => api.farmUnlock(me.id),
     refresh: () => refresh(true),
@@ -620,7 +622,7 @@ function render() {
   const step = introStep();
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
-    ${tab === 'me' ? '' : `<header class="top hdr">
+    ${tab === 'me' ? '' : tab === 'tasks' ? weekHeaderHTML() : `<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
       <span class="grow"></span>
@@ -650,6 +652,15 @@ function render() {
 }
 
 // Tâches faites par un autre coloc : on peut les confirmer depuis n'importe quel onglet
+// Onglet Tâches : l'en-tête habituel est remplacé par les savons gagnés cette semaine (tête de chaque coloc)
+function weekHeaderHTML() {
+  const me = state.me;
+  const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
+  return `<header class="top wkhdr">
+    <div class="wkt"><b>🧼 Savons cette semaine</b>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
+    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>
+  </header>`;
+}
 function syncBarHTML() {
   if (!state.syncErr) return '';
   return `<div class="syncerr"><span>⚠️ Données non à jour : ${esc(state.syncErr)}</span><button class="mini" data-action="sync">↻ Réessayer</button></div>`;
@@ -718,7 +729,14 @@ const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.
 const posThisWeek = (id) => state.dice.filter((r) => r.member_id === id && r.week === currentWeek()).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
 const cellOfPos = (pos) => (pos <= 0 ? 0 : ((pos - 1) % GOOSE.size) + 1);
 const lapsOf = (pos) => Math.floor(pos / GOOSE.size);
-const diceCost = (id) => DICE_PRICES[Math.min(rollsToday(id), DICE_PRICES.length - 1)];
+const dicePriceAt = (k) => DICE_PRICES[Math.min(k, DICE_PRICES.length - 1)];
+const diceCost = (id) => dicePriceAt(rollsToday(id));   // savons à avoir gagnés CETTE SEMAINE (ils ne sont pas dépensés)
+const weekSoap = (id) => state.logs.filter((l) => l.doer_id === id && l.status === 'validated' && l.answered_at && iso(new Date(l.answered_at)) >= currentWeek()).reduce((a, l) => a + l.soap, 0);
+function diceLeft(id) {                                  // dés que tu peux lancer maintenant
+  let n = 0; const ws = weekSoap(id);
+  for (let k = rollsToday(id); k < DICE_MAX_DAY && dicePriceAt(k) <= ws; k++) n++;
+  return n;
+}
 const rollsToday = (id) => state.dice.filter((r) => r.member_id === id && iso(new Date(r.created_at)) === iso(new Date())).length;
 function cellLabel(n) {
   const c = GOOSE.cells[n];
@@ -774,8 +792,8 @@ function plateauHTML() {
     cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
   pts.push(pts[0]);                           // boucle fermée
-  const pos = shownPos(me.id), cost = diceCost(me.id), have = soapOf(me.id), laps = lapsOf(pos);
-  const can = isColoc && have >= cost && !state.rolling;
+  const pos = shownPos(me.id), cost = diceCost(me.id), have = weekSoap(me.id), laps = lapsOf(pos), left = diceLeft(me.id);
+  const can = isColoc && have >= cost && !state.rolling && rollsToday(me.id) < DICE_MAX_DAY;
   const hist = state.dice.slice(0, 15);
   const free = DICE_PRICES[0] === 0;
   const ranked = colocs().map((m) => ({ m, l: lapsOf(posThisWeek(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
@@ -789,7 +807,7 @@ function plateauHTML() {
       ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
     </div>`;
   return `
-    <p class="summary" style="margin-top:0">Le plateau est une <b>boucle</b> : on tourne à l'infini. Chaque tour terminé rapporte ${GOOSE.finish.xp} XP, et à la fin de la semaine, celui qui a fait le <b>plus de tours</b> gagne <b>${GOOSE.weekWin} 🪙</b>. ${free ? 'Le <b>premier dé du jour est gratuit</b>, puis ' : 'Un dé coûte '}<b>${DICE_PRICES.slice(free ? 1 : 0).join(', ')} 🧼</b> (retour au début à minuit).</p>
+    <p class="summary" style="margin-top:0">Le plateau est une <b>boucle</b> : on tourne à l'infini. Chaque tour terminé rapporte ${GOOSE.finish.xp} XP, et à la fin de la semaine, celui qui a fait le <b>plus de tours</b> gagne <b>${GOOSE.weekWin} 🪙</b>. Le <b>premier dé du jour est gratuit</b>. Les suivants se débloquent avec tes <b>savons gagnés cette semaine</b> (${DICE_PRICES.slice(1).join(', ')} 🧼) : ils ne sont <b>pas dépensés</b>. ${DICE_MAX_DAY} dés maximum par jour.</p>
     <div class="perkbox"><b>Récompense du premier tour de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)}</small></div>
     <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
@@ -800,11 +818,11 @@ function plateauHTML() {
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
     <div class="legend"><span><i class="cl xp">+N</i> EXP</span><span><i class="cl tr">🪙</i> colocoins</span><span><i class="cl bk">−1</i> piège</span><span><i class="cl go">Oie</i> avance encore</span></div>
-    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 ? 'Lancer le dé · gratuit' : `Lancer le dé · ${cost} 🧼`}</button>
-    <div class="det" style="text-align:center">Tu as ${have} 🧼 · case ${cellOfPos(pos) || 'départ'} sur ${GOOSE.size} · ${laps} tour${laps > 1 ? 's' : ''} terminé${laps > 1 ? 's' : ''} cette semaine</div>
+    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : rollsToday(me.id) >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui' : have < cost ? `Encore ${cost - have} 🧼 cette semaine pour le prochain dé` : cost === 0 ? 'Lancer le dé · gratuit' : 'Lancer le dé'}${isColoc ? `<span class="dleft" title="Dés restants">🎲 ${left}</span>` : ''}</button>
+    <div class="det" style="text-align:center">${have} 🧼 gagnés cette semaine · case ${cellOfPos(pos) || 'départ'} sur ${GOOSE.size} · ${laps} tour${laps > 1 ? 's' : ''} terminé${laps > 1 ? 's' : ''} cette semaine</div>
     <h3 class="sec">Derniers lancers</h3>
     ${hist.length ? hist.map((r) => `<div class="up hist"><div class="mini-av">${av(memberById(r.member_id), 38)}</div>
-      <div class="txt"><b>${esc(nameOf(r.member_id))} : dé ${r.roll}</b><small>case ${cellOfPos(r.from_pos) || 'départ'} → ${cellOfPos(r.to_pos) || 'départ'}${r.note ? ` · ${esc(r.note)}` : ''} · ${ago(r.created_at)} · ${r.cost ? `−${r.cost} 🧼` : 'gratuit'}</small></div></div>`).join('')
+      <div class="txt"><b>${esc(nameOf(r.member_id))} : dé ${r.roll}</b><small>case ${cellOfPos(r.from_pos) || 'départ'} → ${cellOfPos(r.to_pos) || 'départ'}${r.note ? ` · ${esc(r.note)}` : ''} · ${ago(r.created_at)} · </small></div></div>`).join('')
       : '<div class="empty-msg" style="padding:16px 0">Personne n\'a encore lancé le dé.</div>'}`;
 }
 
@@ -933,6 +951,7 @@ function sheetHTML() {
     case 'task-do': return taskConfirmHTML(s);
     case 'task-group': return taskGroupHTML(s);
     case 'levelup': return levelUpSheetHTML();
+    case 'duel-pick': return duelPickHTML();
     case 'duel-new': return duelNewHTML(s);
     case 'duel-play': return duelPlayHTML(s);
     case 'duel-result': return duelResultHTML(s);
@@ -1028,9 +1047,9 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gfarm" data-action="ginfo" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
-      <button class="gtile g-${g.cls}" data-action="ginfo" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? '<span class="paidbadge" title="Payant (colocoins)">🪙</span>' : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
+      <button class="gtile g-${g.cls}" data-action="${g.direct === 'duel' ? 'duel-pick' : g.direct ? 'game' : 'ginfo'}" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? '<span class="paidbadge" title="Payant (colocoins)">🪙</span>' : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
     ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
       <div class="up"><div class="mini-av">${av(memberById(d.opponent_id), 44)}</div>
@@ -1113,6 +1132,12 @@ function gameArt(cls) {
 }
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
+function duelPickHTML() {
+  const me = state.me, others = [...colocs(), ...copains()].filter((m) => m.id !== me.id);
+  return sheetWrap(`
+    <div class="sh"><div><h2>✊ Chifoumi</h2><div class="when">Mise ${XP_RULES.duelStake} 🪙 · choisis ton adversaire</div></div>${closeBtn}</div>
+    <div class="heads picker">${others.map((m) => `<button class="headb" data-action="duel-with" data-id="${m.id}">${av(m, 56)}<small>${esc(m.name)}</small>${m.kind === 'copain' ? '<i>copain</i>' : ''}</button>`).join('')}</div>`);
+}
 function gameInfoHTML(s) {
   const g = GAMES[s.id], me = state.me, st = statsOf(me.id);
   if (!g) return '';
@@ -1505,6 +1530,8 @@ document.addEventListener('click', (e) => {
     case 'hair': saveProfile({ hair: v }); break;
     case 'equip': if (ownedBy(state.me.id).has(id)) saveProfile({ outfit: id }); break;
     // --- Jeux ---
+    case 'duel-pick': state.sheet = { type: 'duel-pick' }; render(); break;
+    case 'duel-with': state.opp = Number(id); state.sheet = { type: 'duel-new', opp: state.opp, move: null }; render(); break;
     case 'duel-new': if (state.opp) { state.sheet = { type: 'duel-new', opp: state.opp, move: null }; render(); } break;
     case 'pick-move': if (s) { s.move = v; render(); } break;
     case 'duel-send': sendDuel(); break;

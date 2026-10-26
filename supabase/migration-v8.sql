@@ -330,6 +330,13 @@ end $$;
 grant execute on function confirm_perk(bigint, int) to anon, authenticated;
 
 -- Lancer un dé : le 1er du jour est gratuit, puis 1, 3, 5, 10, 20 savons (repart à minuit, heure de La Réunion). Tours infinis.
+-- Savons gagnés (tâches validées) depuis lundi
+create or replace function week_soap_of(p_member int) returns int
+language sql stable security definer set search_path = public as $$
+  select coalesce(sum(soap), 0)::int from task_logs
+  where doer_id = p_member and status = 'validated'
+    and (answered_at at time zone 'Indian/Reunion')::date >= date_trunc('week', now() at time zone 'Indian/Reunion')::date
+$$;
 create or replace function roll_dice(p_member int) returns json
 language plpgsql security definer set search_path = public as $$
 declare
@@ -342,7 +349,8 @@ begin
   perform pg_advisory_xact_lock(hashtext('dice:' || p_member));
   select count(*) into v_n from dice_rolls where member_id = p_member and (created_at at time zone 'Indian/Reunion')::date = v_today;
   v_cost := (array[0, 1, 3, 5, 10, 20])[least(v_n + 1, 6)];
-  if soap_of(p_member) < v_cost then raise exception 'Il te faut % savon% pour ce dé.', v_cost, case when v_cost > 1 then 's' else '' end; end if;
+  if v_n >= 8 then raise exception 'Tu as lancé tous tes dés du jour (maximum 8).'; end if;
+  if week_soap_of(p_member) < v_cost then raise exception 'Il te faut % savon% gagnés cette semaine pour ce dé.', v_cost, case when v_cost > 1 then 's' else '' end; end if;
   select to_pos into v_pos from dice_rolls where member_id = p_member and week = v_week order by id desc limit 1;
   v_pos := coalesce(v_pos, 0);                                           -- position cumulée (les tours sont infinis)
   select coalesce(max(to_pos / v_size), 0) into v_laps from dice_rolls where member_id = p_member and week = v_week;
@@ -366,7 +374,7 @@ begin
       insert into perks (member_id, week, kind) values (p_member, v_week, v_perk) on conflict do nothing;
     end if;
   end if;
-  insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, v_cost, v_roll, v_pos, v_to, nullif(trim(v_note), ''));
+  insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, 0, v_roll, v_pos, v_to, nullif(trim(v_note), ''));   -- les dés ne consomment plus de savons
   if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
   if v_tr > 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_tr, 'plateau'); end if;
   if v_ch > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_ch, 'plateau'); end if;
@@ -495,6 +503,8 @@ insert into challenges (key, coins, skin, xp) values
   ('maraicher', 0, 'fermier', 1000),
   ('bon_voisin', 0, null, 300),
   ('ferme_1000', 0, null, 600),
+  ('premier_bati', 0, null, 200),
+  ('bati_10', 0, null, 700),
   ('grand_domaine', 0, null, 500),
   ('roc', 0, null, 100),
   ('tailladeur', 0, null, 200),
@@ -594,19 +604,21 @@ grant execute on function settle_plateau() to anon, authenticated;
 -- ---------- Colo-Ferme ----------
 create table if not exists farm_crops (key text primary key, hours int not null, cost int not null, gain int not null);
 alter table farm_crops add column if not exists level int not null default 1;
-insert into farm_crops (key, hours, cost, gain, level) values
-  ('curcuma', 1, 5, 9, 1),
-  ('tomate', 2, 9, 18, 3),
-  ('letchi', 4, 14, 28, 6),
-  ('passion', 6, 20, 40, 9),
-  ('papaye', 8, 27, 55, 12),
-  ('ananas', 12, 35, 70, 15),
-  ('avocat', 16, 42, 85, 18),
-  ('vanille', 24, 50, 100, 21)
-on conflict (key) do update set hours = excluded.hours, cost = excluded.cost, gain = excluded.gain, level = excluded.level;
+alter table farm_crops add column if not exists sell int not null default 1;
+insert into farm_crops (key, hours, cost, gain, level, sell) values
+  ('curcuma', 1, 5, 9, 1, 3),
+  ('tomate', 2, 9, 18, 3, 6),
+  ('letchi', 4, 14, 27, 6, 9),
+  ('passion', 6, 20, 39, 9, 13),
+  ('papaye', 8, 27, 54, 12, 18),
+  ('ananas', 12, 35, 69, 15, 23),
+  ('avocat', 16, 42, 84, 18, 28),
+  ('vanille', 24, 50, 99, 21, 33)
+on conflict (key) do update set hours = excluded.hours, cost = excluded.cost, gain = excluded.gain, level = excluded.level, sell = excluded.sell;
 alter table member_stats add column if not exists farm_harvests int not null default 0;
 alter table member_stats add column if not exists farm_coins    int not null default 0;
 alter table member_stats add column if not exists farm_waters   int not null default 0;
+alter table member_stats add column if not exists farm_builds   int not null default 0;
 alter table member_stats add column if not exists farm_slots    int not null default 1;
 update members set outfit = 'none' where outfit = 'hugodeck';
 create table if not exists farm_plots (
@@ -621,7 +633,7 @@ create table if not exists farm_plots (
 create table if not exists farm_state (member_id int primary key references members(id) on delete cascade, slots int not null default 1);
 create or replace view farm_day as
   select member_id, sum(amount)::int as got from chip_ledger
-  where reason = 'ferme:recolte' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date
+  where reason = 'ferme:vente' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date
   group by member_id;
 alter table farm_crops enable row level security; alter table farm_plots enable row level security; alter table farm_state enable row level security;
 drop policy if exists "farm_crops lecture" on farm_crops; create policy "farm_crops lecture" on farm_crops for select using (true);
@@ -631,6 +643,34 @@ grant select on farm_crops, farm_plots, farm_state, farm_day to anon, authentica
 do $$ begin
   begin alter publication supabase_realtime add table farm_plots; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table farm_state; exception when duplicate_object then null; end;
+end $$;
+
+create table if not exists farm_stock (member_id int not null references members(id) on delete cascade, crop text not null references farm_crops(key), qty int not null default 0 check (qty >= 0), primary key (member_id, crop));
+create table if not exists farm_items (key text primary key, kind text not null, cost jsonb not null);
+insert into farm_items (key, kind, cost) values
+  ('puits', 'b', '{"curcuma":6,"tomate":4}'::jsonb),
+  ('etal', 'b', '{"letchi":6,"passion":4}'::jsonb),
+  ('serre', 'b', '{"papaye":6,"ananas":5}'::jsonb),
+  ('silo', 'b', '{"avocat":6,"ananas":6}'::jsonb),
+  ('poulailler', 'b', '{"tomate":8,"letchi":4}'::jsonb),
+  ('fleurs', 'd', '{"curcuma":3}'::jsonb),
+  ('epouvantail', 'd', '{"curcuma":5,"tomate":3}'::jsonb),
+  ('arbre', 'd', '{"letchi":4}'::jsonb),
+  ('banc', 'd', '{"tomate":5}'::jsonb),
+  ('fontaine', 'd', '{"passion":6,"papaye":3}'::jsonb),
+  ('mare', 'd', '{"papaye":4}'::jsonb),
+  ('lanterne', 'd', '{"passion":4}'::jsonb),
+  ('foin', 'd', '{"curcuma":8}'::jsonb)
+on conflict (key) do update set kind = excluded.kind, cost = excluded.cost;
+create table if not exists farm_builds (member_id int not null references members(id) on delete cascade, spot text not null, item text not null references farm_items(key), built_at timestamptz not null default now(), primary key (member_id, spot));
+alter table farm_stock enable row level security; alter table farm_items enable row level security; alter table farm_builds enable row level security;
+drop policy if exists "farm_stock lecture" on farm_stock; create policy "farm_stock lecture" on farm_stock for select using (true);
+drop policy if exists "farm_items lecture" on farm_items; create policy "farm_items lecture" on farm_items for select using (true);
+drop policy if exists "farm_builds lecture" on farm_builds; create policy "farm_builds lecture" on farm_builds for select using (true);
+grant select on farm_stock, farm_items, farm_builds to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table farm_stock; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table farm_builds; exception when duplicate_object then null; end;
 end $$;
 
 create or replace function farm_slots_of(p_member int) returns int
@@ -653,12 +693,13 @@ begin
   end if;
   if chips_of(p_member) < c.cost then raise exception 'Il te faut % colocoins pour ces graines.', c.cost; end if;
   insert into chip_ledger (member_id, amount, reason) values (p_member, -c.cost, 'ferme:semis');
-  insert into farm_plots (member_id, slot, crop, ready_at) values (p_member, p_slot, p_crop, now() + make_interval(hours => c.hours));
+  insert into farm_plots (member_id, slot, crop, ready_at) values (p_member, p_slot, p_crop,
+    now() + make_interval(secs => (c.hours * 3600 * (case when exists (select 1 from farm_builds where member_id = p_member and item = 'puits') then 1 - 0.1 else 1 end))::int));
 end $$;
 
 create or replace function farm_harvest(p_member int, p_slot int) returns json
 language plpgsql security definer set search_path = public as $$
-declare p farm_plots; c farm_crops; v_got int; v_pay int;
+declare p farm_plots; v_qty int;
 begin
   perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
   select * into p from farm_plots where member_id = p_member and slot = p_slot for update;
@@ -666,17 +707,64 @@ begin
   if p.ready_at > now() then raise exception 'Ce n''est pas encore mûr.'; end if;
   delete from farm_plots where member_id = p_member and slot = p_slot;
   if p.ready_at + make_interval(hours => 24) < now() then
-    return json_build_object('coins', 0, 'lost', 0, 'withered', true);
+    return json_build_object('crop', p.crop, 'qty', 0, 'withered', true);
   end if;
-  select * into c from farm_crops where key = p.crop;
-  select coalesce(got, 0) into v_got from farm_day where member_id = p_member;
-  v_got := coalesce(v_got, 0);
-  v_pay := least(c.gain, greatest(200 - v_got, 0));
-  if v_pay > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_pay, 'ferme:recolte'); end if;
-  insert into member_stats (member_id, farm_harvests, farm_coins) values (p_member, 1, v_pay)
-    on conflict (member_id) do update set farm_harvests = member_stats.farm_harvests + 1, farm_coins = member_stats.farm_coins + v_pay;
-  return json_build_object('coins', v_pay, 'lost', c.gain - v_pay, 'withered', false);
+  v_qty := 3 + (case when exists (select 1 from farm_builds where member_id = p_member and item = 'serre') then 1 else 0 end);
+  insert into farm_stock (member_id, crop, qty) values (p_member, p.crop, v_qty)
+    on conflict (member_id, crop) do update set qty = farm_stock.qty + v_qty;
+  insert into member_stats (member_id, farm_harvests) values (p_member, 1)
+    on conflict (member_id) do update set farm_harvests = member_stats.farm_harvests + 1;
+  return json_build_object('crop', p.crop, 'qty', v_qty, 'withered', false);
 end $$;
+
+-- Vente à la grange : unités → colocoins (plafond quotidien, +silo ; prix +étal)
+create or replace function farm_sell(p_member int, p_crop text, p_qty int) returns json
+language plpgsql security definer set search_path = public as $$
+declare c farm_crops; v_have int; v_unit int; v_cap int; v_got int; v_n int;
+begin
+  perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
+  select * into c from farm_crops where key = p_crop;
+  if not found then raise exception 'Culture inconnue.'; end if;
+  select coalesce(qty, 0) into v_have from farm_stock where member_id = p_member and crop = p_crop;
+  v_have := coalesce(v_have, 0);
+  if v_have <= 0 or p_qty <= 0 then raise exception 'Tu n''as rien à vendre.'; end if;
+  v_unit := round(c.sell * (case when exists (select 1 from farm_builds where member_id = p_member and item = 'etal') then 1 + 0.15 else 1 end))::int;
+  v_cap := 200 + (case when exists (select 1 from farm_builds where member_id = p_member and item = 'silo') then 50 else 0 end);
+  select coalesce(got, 0) into v_got from farm_day where member_id = p_member; v_got := coalesce(v_got, 0);
+  v_n := least(p_qty, v_have, floor(greatest(v_cap - v_got, 0)::numeric / v_unit)::int);
+  if v_n <= 0 then raise exception 'Plafond de vente du jour atteint (% 🪙). Reviens demain !', v_cap; end if;
+  update farm_stock set qty = qty - v_n where member_id = p_member and crop = p_crop;
+  insert into chip_ledger (member_id, amount, reason) values (p_member, v_n * v_unit, 'ferme:vente');
+  insert into member_stats (member_id, farm_coins) values (p_member, v_n * v_unit)
+    on conflict (member_id) do update set farm_coins = member_stats.farm_coins + v_n * v_unit;
+  return json_build_object('sold', v_n, 'coins', v_n * v_unit, 'cap', v_cap);
+end $$;
+
+-- Construction : bâtiments (emplacements b0…) et décorations (d0…) payés en fruits et légumes
+create or replace function farm_build(p_member int, p_spot text, p_item text) returns void
+language plpgsql security definer set search_path = public as $$
+declare it farm_items; k text; v int; v_idx int;
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires ont une ferme.'; end if;
+  select * into it from farm_items where key = p_item;
+  if not found then raise exception 'Construction inconnue.'; end if;
+  if left(p_spot, 1) <> it.kind or p_spot !~ '^[bd][0-9]+$' then raise exception 'Mauvais emplacement.'; end if;
+  v_idx := substr(p_spot, 2)::int;
+  if v_idx >= (case when it.kind = 'b' then 5 else 8 end) then raise exception 'Emplacement inconnu.'; end if;
+  perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
+  if exists (select 1 from farm_builds where member_id = p_member and (spot = p_spot or item = p_item)) then raise exception 'Déjà construit.'; end if;
+  for k, v in select key, value::int from jsonb_each_text(it.cost) loop
+    if coalesce((select qty from farm_stock where member_id = p_member and crop = k), 0) < v then raise exception 'Il te manque des fruits et légumes (%).', k; end if;
+  end loop;
+  for k, v in select key, value::int from jsonb_each_text(it.cost) loop
+    update farm_stock set qty = qty - v where member_id = p_member and crop = k;
+  end loop;
+  insert into farm_builds (member_id, spot, item) values (p_member, p_spot, p_item);
+  insert into member_stats (member_id, farm_builds) values (p_member, 1)
+    on conflict (member_id) do update set farm_builds = member_stats.farm_builds + 1;
+end $$;
+grant execute on function farm_sell(int, text, int)  to anon, authenticated;
+grant execute on function farm_build(int, text, text) to anon, authenticated;
 
 create or replace function farm_water(p_waterer int, p_owner int, p_slot int) returns json
 language plpgsql security definer set search_path = public as $$
@@ -790,6 +878,8 @@ do $$ begin
     delete from messages;
     delete from farm_plots;
     delete from farm_state;
+    delete from farm_stock;
+    delete from farm_builds;
     delete from plateau_weeks;
     delete from member_stats;
     insert into member_stats (member_id) select id from members;

@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -61,6 +61,10 @@ export async function makeCloudApi() {
     async farm() { return check(await sb.from('farm_plots').select('*')); },
     async farmState() { return check(await sb.from('farm_state').select('*')); },
     async farmDay() { return check(await sb.from('farm_day').select('*')); },
+    async farmStock() { return check(await sb.from('farm_stock').select('*')); },
+    async farmBuilds() { return check(await sb.from('farm_builds').select('*')); },
+    async farmSell(m, crop, qty) { return check(await sb.rpc('farm_sell', { p_member: m, p_crop: crop, p_qty: qty })); },
+    async farmBuild(m, spot, item) { return check(await sb.rpc('farm_build', { p_member: m, p_spot: spot, p_item: item })); },
     async farmPlant(m, slot, crop) { return check(await sb.rpc('farm_plant', { p_member: m, p_slot: slot, p_crop: crop })); },
     async farmHarvest(m, slot) { return check(await sb.rpc('farm_harvest', { p_member: m, p_slot: slot })); },
     async farmWater(w, o, slot) { return check(await sb.rpc('farm_water', { p_waterer: w, p_owner: o, p_slot: slot })); },
@@ -119,7 +123,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, cb).subscribe();
       }
     },
@@ -141,10 +145,11 @@ export function makeDemoApi() {
   try { db = JSON.parse(store.get(KEY)); } catch { db = null; }
   if (!db) db = { products: PRODUCTS.map((name, i) => ({ id: i + 1, name, out_of_stock: false, updated_by: null })) };
   db.profiles ??= {}; db.purchases ??= []; db.duels ??= []; db.nextDuel ??= 1; db.logs ??= []; db.nextLog ??= 1; db.pins ??= {};
-  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= []; db.pweeks ??= []; db.farm ??= []; db.farmSt ??= {};
+  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= []; db.pweeks ??= []; db.farm ??= []; db.farmSt ??= {}; db.fstock ??= {}; db.fbuilds ??= [];
   const save = () => store.set(KEY, JSON.stringify(db));
   const now = () => new Date().toISOString();
   const HOUR_MS = 3600000;
+  const hasItem = (m, key) => db.fbuilds.some((b) => b.member_id === m && b.item === key);
 
   // Mêmes règles de calcul que la base de données (voir migration-v7.sql)
   const addChips0 = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
@@ -161,7 +166,7 @@ export function makeDemoApi() {
   const addChips = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
   const chipsOf = (id) => db.chips.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
   const balance = (id) => db.ledger.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
-  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, farm_harvests: 0, farm_coins: 0, farm_waters: 0, farm_slots: FARM.baseSlots, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
+  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, farm_harvests: 0, farm_coins: 0, farm_waters: 0, farm_builds: 0, farm_slots: FARM.baseSlots, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
     login_days: 0, streak: 0, last_login: null, wheel_ready: false, quest_mask: 0 });
   const statsOf = (id) => (db.stats[id] ??= emptyStats());
   const dayShift = (s, n) => { const [y, m, d] = s.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
@@ -350,9 +355,9 @@ export function makeDemoApi() {
       const mondayOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
       const week = mondayOf(Date.now());
       const cost = DICE_PRICES[Math.min(db.dice.filter((r) => r.member_id === member && dayOf(r.created_at) === today).length, DICE_PRICES.length - 1)];
-      const earned = db.logs.filter((l) => l.doer_id === member && l.status === 'validated').reduce((a, l) => a + l.soap, 0);
-      const spent = db.dice.filter((r) => r.member_id === member).reduce((a, r) => a + r.cost, 0);
-      if (earned - spent < cost) fail(`Il te faut ${cost} savon${cost > 1 ? 's' : ''} pour ce dé.`);
+      if (db.dice.filter((r) => r.member_id === member && dayOf(r.created_at) === today).length >= DICE_MAX_DAY) fail(`Tu as lancé tous tes dés du jour (maximum ${DICE_MAX_DAY}).`);
+      const weekSoap = db.logs.filter((l) => l.doer_id === member && l.status === 'validated' && l.answered_at && dayOf(l.answered_at) >= week).reduce((a, l) => a + l.soap, 0);
+      if (weekSoap < cost) fail(`Il te faut ${cost} savon${cost > 1 ? 's' : ''} gagnés cette semaine pour ce dé.`);
       const mine = db.dice.filter((r) => r.member_id === member && r.week === week).sort((x, y) => y.id - x.id);
       const from = mine.length ? mine[0].to_pos : 0;                       // position cumulée : les tours sont infinis
       const laps = mine.reduce((m, r) => Math.max(m, Math.floor(r.to_pos / GOOSE.size)), 0);
@@ -371,7 +376,7 @@ export function makeDemoApi() {
         xp += GOOSE.finish.xp; tr += GOOSE.finish.trophy; note += ` TOUR TERMINÉ ! +${GOOSE.finish.xp} XP, +${GOOSE.finish.trophy} trophées`;
         if (laps === 0) { perk = perkOfWeek(new Date(week + 'T00:00:00')).key; db.perks.push({ id: db.nextPerk++, member_id: member, week, kind: perk, created_at: now() }); }
       }
-      db.dice.push({ id: db.nextDice++, member_id: member, week, cost, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
+      db.dice.push({ id: db.nextDice++, member_id: member, week, cost: 0, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
       addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); addChips(member, ch, 'plateau'); save();
       return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
@@ -380,7 +385,7 @@ export function makeDemoApi() {
     async farmState() { return Object.entries(db.farmSt).map(([id, slots]) => ({ member_id: Number(id), slots })); },
     async farmDay() {
       const day = iso(new Date()), out = {};
-      db.chips.filter((l) => l.reason === 'ferme:recolte' && l.at.slice(0, 10) === day).forEach((l) => { out[l.member_id] = (out[l.member_id] ?? 0) + l.amount; });
+      db.chips.filter((l) => l.reason === 'ferme:vente' && l.at.slice(0, 10) === day).forEach((l) => { out[l.member_id] = (out[l.member_id] ?? 0) + l.amount; });
       return Object.entries(out).map(([id, got]) => ({ member_id: Number(id), got }));
     },
     async farmPlant(m, slot, crop) {
@@ -392,20 +397,43 @@ export function makeDemoApi() {
       if (o) { if (Date.parse(o.ready_at) + FARM.witherH * HOUR_MS < Date.now()) db.farm = db.farm.filter((p) => p !== o); else fail('Cette parcelle est occupée.'); }
       if (chipsOf(m) < c.cost) fail(`Il te faut ${c.cost} colocoins pour ces graines.`);
       addChips(m, -c.cost, 'ferme:semis');
-      db.farm.push({ member_id: m, slot, crop, planted_at: now(), ready_at: new Date(Date.now() + c.hours * HOUR_MS).toISOString(), watered_by: [] }); save();
+      db.farm.push({ member_id: m, slot, crop, planted_at: now(), ready_at: new Date(Date.now() + c.hours * HOUR_MS * (hasItem(m, 'puits') ? 1 - FARM.perks.wellCut : 1)).toISOString(), watered_by: [] }); save();
     },
     async farmHarvest(m, slot) {
       const p = db.farm.find((x) => x.member_id === m && x.slot === slot);
       if (!p) fail('Rien à récolter ici.');
       if (Date.parse(p.ready_at) > Date.now()) fail("Ce n'est pas encore mûr.");
       db.farm = db.farm.filter((x) => x !== p);
-      if (Date.parse(p.ready_at) + FARM.witherH * HOUR_MS < Date.now()) { save(); return { coins: 0, lost: 0, withered: true }; }
-      const c = FARM.crops.find((x) => x.key === p.crop);
+      if (Date.parse(p.ready_at) + FARM.witherH * HOUR_MS < Date.now()) { save(); return { crop: p.crop, qty: 0, withered: true }; }
+      const qty = FARM.yield + (hasItem(m, 'serre') ? FARM.perks.greenhouseUnits : 0);
+      const stock = (db.fstock[m] ??= {}); stock[p.crop] = (stock[p.crop] ?? 0) + qty;
+      statsOf(m).farm_harvests = (statsOf(m).farm_harvests ?? 0) + 1;
+      save(); return { crop: p.crop, qty, withered: false };
+    },
+    async farmStock() { return Object.entries(db.fstock).flatMap(([id, st]) => Object.entries(st).map(([crop, qty]) => ({ member_id: Number(id), crop, qty }))); },
+    async farmBuilds() { return db.fbuilds.map((b) => ({ ...b })); },
+    async farmSell(m, crop, qty) {
+      const c = FARM.crops.find((x) => x.key === crop); if (!c) fail('Culture inconnue.');
+      const have = db.fstock[m]?.[crop] ?? 0; if (have <= 0 || qty <= 0) fail("Tu n'as rien à vendre.");
+      const unit = Math.round(c.sell * (hasItem(m, 'etal') ? 1 + FARM.perks.stallBonus : 1));
+      const cap = FARM.capPerDay + (hasItem(m, 'silo') ? FARM.perks.siloCap : 0);
       const got = (await this.farmDay()).find((d) => d.member_id === m)?.got ?? 0;
-      const pay = Math.min(c.gain, Math.max(FARM.capPerDay - got, 0));
-      if (pay > 0) addChips(m, pay, 'ferme:recolte');
-      const sh = statsOf(m); sh.farm_harvests = (sh.farm_harvests ?? 0) + 1; sh.farm_coins = (sh.farm_coins ?? 0) + pay;
-      save(); return { coins: pay, lost: c.gain - pay, withered: false };
+      const n = Math.min(qty, have, Math.floor(Math.max(cap - got, 0) / unit));
+      if (n <= 0) fail(`Plafond de vente du jour atteint (${cap} 🪙). Reviens demain !`);
+      db.fstock[m][crop] -= n; addChips(m, n * unit, 'ferme:vente');
+      statsOf(m).farm_coins = (statsOf(m).farm_coins ?? 0) + n * unit; save();
+      return { sold: n, coins: n * unit, cap };
+    },
+    async farmBuild(m, spot, item) {
+      if (!isColoc(m)) fail('Seuls les colocataires ont une ferme.');
+      const it = FARM.items.find((x) => x.key === item); if (!it) fail('Construction inconnue.');
+      if (!/^[bd]\d+$/.test(spot) || spot[0] !== it.kind || Number(spot.slice(1)) >= FARM.spots[it.kind]) fail('Mauvais emplacement.');
+      if (db.fbuilds.some((b) => b.member_id === m && (b.spot === spot || b.item === item))) fail('Déjà construit.');
+      const st = (db.fstock[m] ??= {});
+      for (const [k, v] of Object.entries(it.cost)) if ((st[k] ?? 0) < v) fail(`Il te manque des fruits et légumes (${k}).`);
+      for (const [k, v] of Object.entries(it.cost)) st[k] -= v;
+      db.fbuilds.push({ member_id: m, spot, item, built_at: now() });
+      statsOf(m).farm_builds = (statsOf(m).farm_builds ?? 0) + 1; save();
     },
     async farmWater(w, o, slot) {
       if (!isColoc(w)) fail('Seuls les colocataires arrosent.');
