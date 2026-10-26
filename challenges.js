@@ -51,7 +51,7 @@ export function duelLosses(duels, meId) {
 /* ---------- Classements ---------- */
 export const BOARDS = [
   { key: 'level',    emoji: '⭐', label: 'Niveau',            unit: '',    low: false },
-  { key: 'coins',    emoji: '🏆', label: 'Trophées',          unit: ' 🏆', low: false },
+  { key: 'dollars',  emoji: '🪙', label: 'Colocoins',         unit: ' 🪙', low: false },
   { key: 'chores',   emoji: '🧼', label: 'Savons',            unit: ' 🧼', low: false },
   { key: 'chifoumi', emoji: '✊', label: 'Victoires chifoumi', unit: '',    low: false },
   { key: 'flappy',   emoji: '🐦', label: 'Jumpy Cardinal',    unit: '',    low: false },
@@ -66,7 +66,7 @@ export function boardValue(c, key, id) {
   const s = c.stats[id] ?? {};
   switch (key) {
     case 'level': return c.xp?.[id] != null ? levelOf(c.xp[id]) * 100000 + c.xp[id] % 100000 : 0; // niveau d'abord, puis XP
-    case 'coins': return num(c.balances[id]);
+    case 'dollars': return num(c.chipsMap?.[id]);
     case 'chores': return c.scores[id]?.coins ?? 0;
     case 'blackjack': return num(s.blackjack_wins);
     case 'chifoumi': return c.wins[id] ?? 0;
@@ -80,7 +80,7 @@ export function boardValue(c, key, id) {
 // Liste triée : [{id, value, rank}]. Les ex æquo partagent le même rang. Sans score (null ou 0) : en bas, sans rang.
 export function ranking(c, board) {
   const rows = c.members.map((m) => ({ id: m.id, name: m.name, value: boardValue(c, board.key, m.id) }));
-  const has = (r) => r.value != null && (board.low || r.value > 0 || board.key === 'coins');
+  const has = (r) => r.value != null && (board.low || r.value > 0);
   rows.sort((a, b) => {
     if (has(a) !== has(b)) return has(a) ? -1 : 1;
     if (a.value !== b.value && has(a)) return board.low ? a.value - b.value : b.value - a.value;
@@ -142,13 +142,10 @@ export const CHALLENGES = [
     check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, skinsToCollect.length) },
   // — Coloc —
   { key: 'pilier', cat: 'Coloc', xp: 800, title: 'Pilier de la coloc', emoji: '🏛️', desc: 'Te connecter 30 jours (cumulés).', check: (c) => prog(num(st(c).login_days), 30) },
-  { key: 'prince', cat: 'Coloc', xp: 300, title: 'Le prince de la coloc', emoji: '🤴', desc: 'Terminer une semaine à la 1re place du classement des trophées.', check: (c) => prog(weekWins(c).length, 1) },
-  { key: 'roi_coloc', cat: 'Coloc', xp: 600, title: 'Le roi de la coloc', emoji: '👑', desc: 'Terminer 2 semaines d\'affilée à la 1re place.', check: (c) => prog(longestRun(weekWins(c)), 2) },
-  { key: 'dieu_coloc', cat: 'Coloc', xp: 2000, title: 'Le dieu de la coloc', emoji: '⚡', desc: 'Terminer 6 semaines à la 1re place (cumulées).', check: (c) => prog(weekWins(c).length, 6) },
-  // — Dollars (blackjack, récompense du jour) —
-  { key: 'dollars_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '💵', desc: 'Atteindre 500 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
-  { key: 'dollars_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
-  { key: 'dollars_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 dollars.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
+  // — Colocoins (blackjack, récompense du jour) —
+  { key: 'dollars_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '🪙', desc: 'Atteindre 500 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
+  { key: 'dollars_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
+  { key: 'dollars_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
   // — Divers —
   { key: 'noob', cat: 'Coloc', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
   { key: 'mathematicien', cat: 'Jeux', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },

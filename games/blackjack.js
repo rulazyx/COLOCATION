@@ -1,4 +1,4 @@
-// Blackjack : mises en trophées (dollars), doubler, séparer, tirage animé.
+// Blackjack : mises en trophées (colocoins), doubler, séparer, tirage animé.
 // La banque tire jusqu'à 17. Le résultat de chaque main est envoyé à la fin :
 //   onEnd({ bet, net, hands, wins, blackjack }) — net = trophées gagnés (+) ou perdus (−)
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -70,12 +70,12 @@ export function mount(root, { onEnd, balance }) {
          <div class="bj-btns"><button class="bj-b sm" data-act="double" ${canDouble ? '' : 'disabled'}>Doubler</button><button class="bj-b sm" data-act="split" ${canSplit ? '' : 'disabled'}>Séparer</button></div>`
       : phase === 'bet' || phase === 'over'
         ? `<div class="bj-bets">${bets().map((b) => `<button class="bj-chip ${b === bet ? 'sel' : ''}" data-bet="${b}" ${b > bal ? 'disabled' : ''}>${b}</button>`).join('')}</div>
-           ${bal < bets()[0] ? `<div class="bj-msg lose" style="min-height:0">Il te faut au moins ${bets()[0]} dollars pour jouer. Tu en reçois 50 chaque jour dans Défis.</div>` : ''}
+           ${bal < bets()[0] ? `<div class="bj-msg lose" style="min-height:0">Il te faut au moins ${bets()[0]} colocoins pour jouer. Tu en reçois 50 chaque jour dans Défis.</div>` : ''}
            <div class="bj-btns"><button class="bj-b" data-act="deal" ${bal < bets()[0] || bet < 1 ? 'disabled' : ''}>${phase === 'bet' ? 'Distribuer' : 'Nouvelle main'}</button></div>`
         : '';
     root.innerHTML = `<div class="bj">
       <div class="dealer ${fresh && fresh !== 'flip' ? 'dealing' : ''}">${DEALER}</div>
-      <div class="bj-bal">Dollars : <b>${bal}</b>${bet ? ` · Mise : <b>${bet}</b>` : ''}</div>
+      <div class="bj-bal">Colocoins : <b>${bal}</b>${bet ? ` · Mise : <b>${bet}</b>` : ''}</div>
       <div class="bj-side"><div class="bj-lab">Banque ${dealer.length ? `<b>${dTot}</b>` : ''}</div>
         <div class="bj-hand">${dealer.map((c, k) => card(c, k === 1 && !hideDealer && fresh === 'flip' ? 'flip' : `d${k}`, hideDealer && k === 1, true)).join('')}</div></div>
       ${TABLE_ARC}
@@ -85,19 +85,19 @@ export function mount(root, { onEnd, balance }) {
     </div>`;
   }
   async function give(target, key) {
-    target.push(deck.pop()); fresh = key; draw(); await sleep(620); fresh = null;
+    target.push(deck.pop()); fresh = key; draw(); await sleep(380); fresh = null;
   }
   async function deal() {
     if (busy) return;
     busy = true; split = false; msg = ''; deck = newDeck();
     fit(); if (bet < 1) { busy = false; return draw(); }
     hands = [{ cards: [], bet, result: '' }]; dealer = []; active = 0; hideDealer = true; phase = 'dealing'; draw();
-    await sleep(500); if (destroyed) return;
+    await sleep(250); if (destroyed) return;
     await give(hands[0].cards, 'p0-0'); if (destroyed) return;
     await give(dealer, 'd0'); if (destroyed) return;
-    await sleep(1000); if (destroyed) return;            // suspense avant la 2e carte
+    await sleep(180); if (destroyed) return;
     await give(hands[0].cards, 'p0-1'); if (destroyed) return;
-    await sleep(1100); if (destroyed) return;
+    await sleep(180); if (destroyed) return;
     await give(dealer, 'd1');
     if (destroyed) return;
     if (isNatural(hands[0].cards) || isNatural(dealer)) { busy = false; return settle(); }
@@ -129,11 +129,11 @@ export function mount(root, { onEnd, balance }) {
     settle();
   }
   async function settle() {
-    busy = true; phase = 'dealer'; draw(); await sleep(1300);          // la banque réfléchit…
+    busy = true; phase = 'dealer'; draw(); await sleep(500);          // la banque réfléchit…
     if (destroyed) return;
-    hideDealer = false; fresh = 'flip'; draw(); await sleep(900); fresh = null;
+    hideDealer = false; fresh = 'flip'; draw(); await sleep(450); fresh = null;
     const live = hands.some((h) => total(h.cards) <= 21) && !isNatural(hands[0].cards) && !(isNatural(dealer));
-    if (live) while (total(dealer) < 17) { await sleep(900); if (destroyed) return; await give(dealer, `d${dealer.length}`); if (destroyed) return; }
+    if (live) while (total(dealer) < 17) { await sleep(350); if (destroyed) return; await give(dealer, `d${dealer.length}`); if (destroyed) return; }
     draw();
     const d = total(dealer), dNat = isNatural(dealer);
     let net = 0, wins = 0, losses = 0, blackjack = false;

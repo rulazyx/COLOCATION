@@ -134,3 +134,25 @@ Ajouts v11c : dollars 💵 (monnaie du blackjack, 50 offerts par jour avec 50 XP
 Ajouts v11d : `migration-v8.sql` **remet tout à zéro une fois** (XP, records, trophées, dollars, savons et historique des tâches, défis, apparences, duels, plateau ; l'introduction déjà vue n'est pas rejouée). Les jetons s'appellent maintenant dollars 💵. Onglet Profil > Colocs & copains, badge mis en avant sur son profil (colonne `members.badge`).
 
 Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.sql`), couleurs et sexe cachés derrière « Changer de couleur » / « Changer de sexe », un seul défi chifoumi en attente à la fois avec un même joueur.
+
+## v12
+- Blackjack : distribution plus rapide (moins de suspense).
+- En-tête : 💵 à droite avec 🧼 et 🏆.
+- Pastille 💵 (jeu payant) sur les tuiles Chifoumi et Blackjack.
+- Chifoumi : mise de 10 💵 (le gagnant prend 10 💵 au perdant, jamais sous 0) + 5 🏆 au gagnant (plafond 25/jour). Plus de perte de trophées. Il faut ≥ 10 💵 pour défier / relever.
+- Mise à jour : exécuter `supabase/migration-v8.sql`, redéployer `notify`.
+
+## v13
+- Dollars → **colocoins** (pièce jaune trouée en SVG, le texte 🪙 est remplacé automatiquement).
+- Nouveau classement « Colocoins » (onglet Classement : Trophées / Colocoins).
+- Cadre doré animé + couronne sur l'avatar du·de la premier·ère de la semaine (trophées).
+- Plateau : premier dé du jour gratuit (puis 1, 3, 5, 10, 20 🧼), tours infinis (200 XP + 5 🏆 par tour, récompense de la semaine au 1er tour), position = dernier lancer (les pièges font vraiment reculer), décor plage en 2D.
+- Mise à jour : exécuter `supabase/migration-v8.sql`, redéployer `notify`.
+
+## v14
+- Boutique (caddie 🛒 à côté du personnage) : cadres de profil, effets de pseudo, looks de l'oiseau de Jumpy Cardinal, payés en colocoins (`buy_shop`, table `shop_items`, colonnes `members.frame/namefx/bird`).
+- Popup d'un jeu : classement des records. Classement : Colocoins / Niveau / Savons.
+- Blackjack : mises 5-10-25-50, puis 25-50-100-200 (> 200 🪙), puis 100-200-300-500 (> 500 🪙).
+- Trophées supprimés de l'interface et des gains (à repenser). Défis prince/roi/dieu retirés ; les tenues Roi et Zeus se débloquent avec « Gros joueur » et « Roi du casino ».
+- Onglets illustrés (TÂCHES, QUÊTES, JEUX, CLASSEMENT, PERSO). Perso : Garde-robe / Titres / Badges / Cadres / Réglages.
+- Mise à jour : exécuter `supabase/migration-v8.sql`, redéployer `notify`.

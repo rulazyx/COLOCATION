@@ -1245,8 +1245,90 @@ end $$;
 -- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
 update member_stats set quest_mask = 63 where quest_mask in (15, 31);
 
--- ---------- Dollars (monnaie du blackjack) ----------
+-- ---------- Colocoins (monnaie du blackjack) ----------
 alter table members add column if not exists badge text;   -- badge mis en avant sur le profil
+alter table members add column if not exists frame text;    -- cadre de profil équipé (boutique)
+alter table members add column if not exists namefx text;   -- effet de pseudo équipé (boutique)
+alter table members add column if not exists bird text;     -- look de l'oiseau de Jumpy Cardinal (boutique)
+
+-- ---------- Boutique : cadres, effets de pseudo, looks de l'oiseau (payés en colocoins) ----------
+create table if not exists shop_items (item text primary key, slot text not null, price int not null check (price >= 0));
+delete from shop_items;
+insert into shop_items (item, slot, price) values
+  ('frame:bronze', 'frame', 150),
+  ('frame:argent', 'frame', 300),
+  ('frame:or', 'frame', 600),
+  ('frame:rubis', 'frame', 500),
+  ('frame:neon', 'frame', 800),
+  ('frame:arcenciel', 'frame', 1000),
+  ('frame:flammes', 'frame', 1500),
+  ('frame:glace', 'frame', 1500),
+  ('frame:royal', 'frame', 2500),
+  ('namefx:rouge', 'namefx', 100),
+  ('namefx:bleu', 'namefx', 100),
+  ('namefx:vert', 'namefx', 100),
+  ('namefx:violet', 'namefx', 100),
+  ('namefx:rose', 'namefx', 100),
+  ('namefx:dore', 'namefx', 300),
+  ('namefx:neon', 'namefx', 400),
+  ('namefx:arcenciel', 'namefx', 500),
+  ('namefx:feu', 'namefx', 600),
+  ('bird:bleu', 'bird', 120),
+  ('bird:vert', 'bird', 120),
+  ('bird:rose', 'bird', 150),
+  ('bird:jaune', 'bird', 150),
+  ('bird:lunettes', 'bird', 250),
+  ('bird:ninja', 'bird', 300),
+  ('bird:or', 'bird', 700),
+  ('bird:arcenciel', 'bird', 1000);
+alter table shop_items enable row level security;
+drop policy if exists "shop lecture" on shop_items; create policy "shop lecture" on shop_items for select using (true);
+
+create or replace function buy_shop(p_member int, p_item text) returns json
+language plpgsql security definer set search_path = public as $$
+declare v_price int;
+begin
+  perform pg_advisory_xact_lock(hashtext('shop:' || p_member));
+  select price into v_price from shop_items where item = p_item;
+  if v_price is null then raise exception 'Article inconnu.'; end if;
+  if exists (select 1 from purchases where member_id = p_member and item = p_item) then raise exception 'Tu possèdes déjà cet article.'; end if;
+  if chips_of(p_member) < v_price then raise exception 'Il te faut % colocoins.', v_price; end if;
+  insert into chip_ledger (member_id, amount, reason) values (p_member, -v_price, 'shop');
+  insert into purchases (member_id, item, price) values (p_member, p_item, 0);
+  return json_build_object('item', p_item, 'price', v_price);
+end $$;
+grant execute on function buy_shop(int, text) to anon, authenticated;
+
+create or replace function members_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_level int; v_need int;
+begin
+  if new.outfit is distinct from old.outfit and new.outfit <> 'none'
+     and not exists (select 1 from purchases where member_id = new.id and item = new.outfit) then
+    select level into v_need from skin_levels where item = new.outfit;
+    select level_of(xp) into v_level from member_xp where member_id = new.id;
+    if v_need is null or coalesce(v_level, 1) < v_need then
+      raise exception 'Tu n''as pas encore débloqué cette apparence.';
+    end if;
+  end if;
+  if new.title is distinct from old.title and new.title is not null
+     and not exists (select 1 from unlocks where member_id = new.id and key = new.title) then
+    raise exception 'Ce titre n''est pas débloqué.';
+  end if;
+  if new.frame is distinct from old.frame and new.frame is not null
+     and not exists (select 1 from purchases where member_id = new.id and item = 'frame:' || new.frame) then
+    raise exception 'Ce cadre n''est pas acheté.';
+  end if;
+  if new.namefx is distinct from old.namefx and new.namefx is not null
+     and not exists (select 1 from purchases where member_id = new.id and item = 'namefx:' || new.namefx) then
+    raise exception 'Cet effet n''est pas acheté.';
+  end if;
+  if new.bird is distinct from old.bird and new.bird is not null
+     and not exists (select 1 from purchases where member_id = new.id and item = 'bird:' || new.bird) then
+    raise exception 'Ce look n''est pas acheté.';
+  end if;
+  return new;
+end $$;
 
 create table if not exists chip_ledger (
   id         bigint generated always as identity primary key,
@@ -1270,7 +1352,7 @@ do $$ begin
   begin alter publication supabase_realtime add table chip_ledger; exception when duplicate_object then null; end;
 end $$;
 
--- Récompense du jour : 50 dollars + 50 XP (plus de série ni de roue)
+-- Récompense du jour : 50 colocoins + 50 XP (plus de série ni de roue)
 create or replace function claim_daily(p_member int, p_day date) returns json
 language plpgsql security definer set search_path = public as $$
 declare s member_stats; v_streak int;
@@ -1293,14 +1375,15 @@ language plpgsql security definer set search_path = public as $$
 declare v_id bigint;
 begin
   if p_move not in ('pierre', 'feuille', 'ciseaux') then raise exception 'Coup invalide.'; end if;
-  if coalesce(p_wager, 0) <> 0 then raise exception 'Le chifoumi se joue sans mise.'; end if;
+  if coalesce(p_wager, 0) <> 10 then raise exception 'La mise du chifoumi est de 10 colocoins.'; end if;
+  if chips_of(p_challenger) < 10 then raise exception 'Il te faut au moins 10 colocoins pour défier.'; end if;
   if p_challenger = p_opponent then raise exception 'Tu ne peux pas te défier toi-même.'; end if;
   perform pg_advisory_xact_lock(hashtext('duel:' || least(p_challenger, p_opponent) || '-' || greatest(p_challenger, p_opponent)));
   if exists (select 1 from duels where status = 'pending'
              and ((challenger_id = p_challenger and opponent_id = p_opponent) or (challenger_id = p_opponent and opponent_id = p_challenger))) then
     raise exception 'Un défi est déjà en attente avec ce joueur.';
   end if;
-  insert into duels (challenger_id, opponent_id, wager) values (p_challenger, p_opponent, 0) returning id into v_id;
+  insert into duels (challenger_id, opponent_id, wager) values (p_challenger, p_opponent, 10) returning id into v_id;
   insert into duel_secrets (duel_id, move) values (v_id, p_move);
   return v_id;
 end $$;
@@ -1384,40 +1467,42 @@ begin
 end $$;
 grant execute on function confirm_perk(bigint, int) to anon, authenticated;
 
--- Lancer un dé : coûte 1 savon, puis +1 à chaque achat de la journée (repart à 1 à minuit, heure de La Réunion)
+-- Lancer un dé : le 1er du jour est gratuit, puis 1, 3, 5, 10, 20 savons (repart à minuit, heure de La Réunion). Tours infinis.
 create or replace function roll_dice(p_member int) returns json
 language plpgsql security definer set search_path = public as $$
 declare
   v_today date := (now() at time zone 'Indian/Reunion')::date;
   v_week  date := date_trunc('week', now() at time zone 'Indian/Reunion')::date;
-  v_n int; v_cost int; v_pos int; v_roll int; v_to int; v_note text := ''; v_finished boolean;
+  v_n int; v_cost int; v_pos int; v_roll int; v_to int; v_note text := ''; v_laps int; v_cellno int;
   v_perk text; v_ch int := 0; v_cell goose_cells; v_depth int := 0; v_xp int := 0; v_tr int := 0; v_size int := 30;
 begin
   if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires jouent au plateau.'; end if;
   perform pg_advisory_xact_lock(hashtext('dice:' || p_member));
   select count(*) into v_n from dice_rolls where member_id = p_member and (created_at at time zone 'Indian/Reunion')::date = v_today;
-  v_cost := (array[1, 3, 5, 10, 20])[least(v_n + 1, 5)];
+  v_cost := (array[0, 1, 3, 5, 10, 20])[least(v_n + 1, 6)];
   if soap_of(p_member) < v_cost then raise exception 'Il te faut % savon% pour ce dé.', v_cost, case when v_cost > 1 then 's' else '' end; end if;
-  select coalesce(max(to_pos), 0) into v_pos from dice_rolls where member_id = p_member and week = v_week;
-  v_finished := exists (select 1 from dice_rolls where member_id = p_member and week = v_week and to_pos >= v_size);
-  if v_pos >= v_size then raise exception 'Tu es déjà arrivé cette semaine ! Reviens lundi.'; end if;
+  select to_pos into v_pos from dice_rolls where member_id = p_member and week = v_week order by id desc limit 1;
+  v_pos := coalesce(v_pos, 0);                                           -- position cumulée (les tours sont infinis)
+  select coalesce(max(to_pos / v_size), 0) into v_laps from dice_rolls where member_id = p_member and week = v_week;
   v_roll := 1 + floor(random() * 6)::int;
   v_to := v_pos + v_roll;
-  if v_to > v_size then v_to := v_size - (v_to - v_size); end if;       -- on rebondit après l'arrivée
   loop
-    select * into v_cell from goose_cells where cell = v_to;
+    v_cellno := case when v_to <= 0 then 0 else ((v_to - 1) % v_size) + 1 end;
+    select * into v_cell from goose_cells where cell = v_cellno;
     exit when not found or v_depth >= 3;
     v_depth := v_depth + 1;
     if v_cell.kind = 'xp' then v_xp := v_xp + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' XP'; exit;
-    elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' dollars'; exit;
+    elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' colocoins'; exit;
     elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' piège : recule de ' || v_cell.v;
-    elsif v_cell.kind = 'goose' then v_to := least(v_to + v_roll, v_size); v_note := v_note || ' oie : avance encore de ' || v_roll;
+    elsif v_cell.kind = 'goose' then v_to := v_to + v_roll; v_note := v_note || ' oie : avance encore de ' || v_roll;
     else exit; end if;
   end loop;
-  if v_to >= v_size and not v_finished then
-    v_xp := v_xp + 200; v_tr := v_tr + 5; v_note := v_note || ' ARRIVÉE ! +' || 200 || ' XP, +' || 5 || ' trophées';
-    v_perk := (array['biere', 'course', 'vacances'])[1 + ((v_week - date '2024-01-01') / 7) % 3];
-    insert into perks (member_id, week, kind) values (p_member, v_week, v_perk) on conflict do nothing;
+  if v_to / v_size > v_laps then
+    v_xp := v_xp + 200; v_tr := v_tr + 0; v_note := v_note || ' TOUR TERMINÉ ! +' || 200 || ' XP';
+    if v_laps = 0 then
+      v_perk := (array['biere', 'course', 'vacances'])[1 + ((v_week - date '2024-01-01') / 7) % 3];
+      insert into perks (member_id, week, kind) values (p_member, v_week, v_perk) on conflict do nothing;
+    end if;
   end if;
   insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, v_cost, v_roll, v_pos, v_to, nullif(trim(v_note), ''));
   if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
@@ -1472,15 +1557,16 @@ do $$ begin
   begin alter publication supabase_realtime add table messages; exception when duplicate_object then null; end;
 end $$;
 
--- ---------- Chifoumi : +5 trophées au gagnant, −4 au perdant (sans passer sous 0) ----------
+-- ---------- Chifoumi : mise de 10 colocoins (le gagnant les prend au perdant) + 5 trophées au gagnant ----------
 create or replace function play_duel(p_duel bigint, p_player int, p_move text) returns duels
 language plpgsql security definer set search_path = public as $$
-declare d duels; cm text; w int; l int; v_today int; v_gain int; v_loss int;
+declare d duels; cm text; w int; l int; v_today int; v_gain int; v_loss int; v_stake int;
 begin
   if p_move not in ('pierre', 'feuille', 'ciseaux') then raise exception 'Coup invalide.'; end if;
   select * into d from duels where id = p_duel for update;
   if not found or d.status <> 'pending' then raise exception 'Ce défi n''est plus disponible.'; end if;
   if d.opponent_id <> p_player then raise exception 'Ce défi ne t''est pas adressé.'; end if;
+  if chips_of(p_player) < d.wager then raise exception 'Il te faut au moins % colocoins pour relever ce défi.', d.wager; end if;
   select move into cm from duel_secrets where duel_id = p_duel;
   w := case
     when cm = p_move then null
@@ -1499,21 +1585,24 @@ begin
     select coalesce(sum(amount), 0) into v_today from coin_ledger
       where member_id = w and reason = 'duel-win'
         and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
-    v_gain := greatest(0, least(5, 25 - v_today));
+    v_gain := greatest(0, least(0, 25 - v_today));
     if v_gain > 0 then insert into coin_ledger (member_id, amount, reason) values (w, v_gain, 'duel-win'); end if;
-    v_loss := least(4, greatest(balance_of(l), 0));
-    if v_loss > 0 then insert into coin_ledger (member_id, amount, reason) values (l, -v_loss, 'duel-loss'); end if;
+    v_stake := least(d.wager, greatest(chips_of(l), 0));          -- le perdant paie sa mise (jamais sous 0)
+    if v_stake > 0 then
+      insert into chip_ledger (member_id, amount, reason) values (l, -v_stake, 'duel-loss');
+      insert into chip_ledger (member_id, amount, reason) values (w, v_stake, 'duel-win');
+    end if;
   end if;
   return d;
 end $$;
 
--- ---------- Blackjack : on mise des dollars (10-20-30-50, puis 100-200-300-500 au-delà de 500 dollars) ----------
--- p_net = gain (+) ou perte (−) de dollars de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
+-- ---------- Blackjack : on mise des colocoins (10-20-30-50, puis 100-200-300-500 au-delà de 500 colocoins) ----------
+-- p_net = gain (+) ou perte (−) de colocoins de la main, p_hands = 1 (ou 2 après un split), p_wins = mains gagnées
 create or replace function report_blackjack(p_member int, p_bet int, p_net int, p_hands int, p_wins int, p_blackjack boolean) returns member_stats
 language plpgsql security definer set search_path = public as $$
 declare s member_stats; v_xp int; v_net int; v_bal int;
 begin
-  if p_bet not in (10, 20, 30, 50, 100, 200, 300, 500) then raise exception 'Mise invalide.'; end if;
+  if p_bet not in (5, 10, 25, 50, 100, 200, 300, 500) then raise exception 'Mise invalide.'; end if;
   if p_hands not between 1 and 2 or p_wins not between 0 and p_hands then raise exception 'Résultat invalide.'; end if;
   if abs(p_net) > 4 * p_bet then raise exception 'Résultat invalide.'; end if;
   insert into member_stats (member_id) values (p_member) on conflict do nothing;
@@ -1547,17 +1636,14 @@ insert into challenges (key, coins, skin, xp) values
   ('petit_nouveau', 0, null, 100),
   ('maitre_rh', 0, null, 1000),
   ('pilier', 0, 'chevalier', 800),
-  ('prince', 0, null, 300),
-  ('roi_coloc', 0, 'roi', 600),
-  ('dieu_coloc', 0, 'zeus', 2000),
   ('dollars_500', 0, null, 300),
-  ('dollars_1000', 0, null, 800),
-  ('dollars_10000', 0, null, 3000),
+  ('dollars_1000', 0, 'roi', 800),
+  ('dollars_10000', 0, 'zeus', 3000),
   ('noob', 0, 'zippo', 100),
   ('mathematicien', 0, null, 200),
   ('inspecteur', 0, 'detective', 200);;
 
--- ---------- REMISE À ZÉRO COMPLÈTE (une seule fois) : XP, records, trophées, dollars, savons, défis, apparences ----------
+-- ---------- REMISE À ZÉRO COMPLÈTE (une seule fois) : XP, records, trophées, colocoins, savons, défis, apparences ----------
 do $$ begin
   if not exists (select 1 from app_meta where key = 'reset_v11b') then
     create temp table _qm on commit drop as select member_id, quest_mask from member_stats;

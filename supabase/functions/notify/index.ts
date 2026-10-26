@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     if (body.event === "challenge") {
       if (d.status !== "pending" || age(d.created_at) > 2 * 60_000) return json({ sent: 0 });
       target = d.opponent_id;
-      payload = { title: "⚔️ Défi chifoumi !", body: d.wager ? `${await name(d.challenger_id)} te défie. Mise : ${d.wager}` : `${await name(d.challenger_id)} te défie au chifoumi !`, tag: `duel-${d.id}` };
+      payload = { title: "⚔️ Défi chifoumi !", body: d.wager ? `${await name(d.challenger_id)} te défie. Mise : ${d.wager} 🪙` : `${await name(d.challenger_id)} te défie au chifoumi !`, tag: `duel-${d.id}` };
     } else if (body.event === "result") {
       if (d.status !== "done" || age(d.played_at) > 2 * 60_000) return json({ sent: 0 });
       target = d.challenger_id;
@@ -100,8 +100,8 @@ Deno.serve(async (req) => {
       payload = {
         title: "🎮 Résultat du duel",
         body: !d.winner_id ? `Égalité contre ${other} (${moves})`
-          : d.winner_id === d.challenger_id ? (d.wager ? `Tu as gagné ${d.wager} contre ${other} (${moves})` : `Tu as battu ${other} (${moves})`)
-          : (d.wager ? `Tu as perdu ${d.wager} contre ${other} (${moves})` : `${other} gagne cette fois (${moves})`),
+          : d.winner_id === d.challenger_id ? (d.wager ? `Tu as gagné ${d.wager} 🪙 contre ${other} (${moves})` : `Tu as battu ${other} (${moves})`)
+          : (d.wager ? `Tu as perdu ${d.wager} 🪙 contre ${other} (${moves})` : `${other} gagne cette fois (${moves})`),
         tag: `duel-${d.id}`,
       };
     } else return json({ error: "unknown event" }, 400);

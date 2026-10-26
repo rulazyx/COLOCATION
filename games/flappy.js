@@ -1,5 +1,6 @@
 // « Coucou » : un oiseau rouge qui bat des ailes entre des colonnes jaunes (mécanique classique, dessin original).
 // Le score = nombre de colonnes passées. Toucher l'écran / espace / ↑ = battre des ailes.
+import { SHOP } from '../config.js';
 export const W = 288, H = 480, GROUND = 64;
 const GRAVITY = 0.42, FLAP = -6.9, MAX_FALL = 9;
 const PIPE_W = 54, GAP = 128, SPEED = 2.3, SPACING = 176, BIRD_X = 78, BIRD_R = 12;
@@ -46,7 +47,8 @@ function sky() {
   return skyCache;
 }
 
-function draw(ctx, g, frame) {
+const BASE = { body: '#ef4444', belly: '#fecaca', wing: '#b91c1c' };
+function draw(ctx, g, frame, skin = BASE) {
   ctx.drawImage(sky(), 0, 0);
   // collines + nuages
   ctx.fillStyle = '#ffffffaa';
@@ -74,12 +76,17 @@ function draw(ctx, g, frame) {
   for (let x = -((frame * SPEED) % 24); x < W; x += 24) ctx.fillRect(x, H - GROUND + 22, 12, 5);
   // oiseau (rond, bleu, bec rouge)
   ctx.save(); ctx.translate(BIRD_X, g.y); ctx.rotate(g.tilt);
-  ctx.fillStyle = '#ef4444'; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
-  ctx.fillStyle = '#fecaca'; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = '#b91c1c'; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
+  let body = skin.body;
+  if (skin.rainbow) { const gr = ctx.createLinearGradient(-14, -14, 14, 14); ['#ef4444', '#facc15', '#22c55e', '#3b82f6'].forEach((c, i) => gr.addColorStop(i / 3, c)); body = gr; }
+  ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.wing; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
   ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(7.4, -4, 2, 0, 7); ctx.fill();
   ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
+  if (skin.acc === 'shades') { ctx.fillStyle = '#111'; ctx.fillRect(2, -8, 12, 6); ctx.fillRect(-2, -6, 5, 2); }
+  if (skin.acc === 'band') { ctx.fillStyle = '#dc2626'; ctx.fillRect(-12, -10, 24, 4); ctx.beginPath(); ctx.moveTo(-12, -9); ctx.lineTo(-22, -4 + Math.sin(frame / 4) * 3); ctx.lineTo(-12, -6); ctx.fill(); }
+  if (skin.acc === 'crown') { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(-6, -11); ctx.lineTo(-7, -21); ctx.lineTo(-2, -16); ctx.lineTo(2, -22); ctx.lineTo(6, -16); ctx.lineTo(10, -21); ctx.lineTo(9, -11); ctx.closePath(); ctx.fill(); }
   ctx.restore();
   // score
   ctx.textAlign = 'center'; ctx.font = '800 44px system-ui, sans-serif';
@@ -89,7 +96,8 @@ function draw(ctx, g, frame) {
   }
 }
 
-export function mount(root, { onEnd }) {
+export function mount(root, { onEnd, bird }) {
+  const skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
     <div class="gover" hidden><h2>Perdu !</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer</button></div>`;
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
@@ -106,7 +114,7 @@ export function mount(root, { onEnd }) {
     if (destroyed) return;
     acc += Math.min(ts - (last || ts), 100); last = ts;
     while (acc >= 1000 / 60) { g.step(); acc -= 1000 / 60; frame++; }
-    draw(ctx, g, frame);
+    draw(ctx, g, frame, skin);
     if (g.dead && !reported && g.y >= H - GROUND - BIRD_R - 0.5) {
       reported = true;
       over.querySelector('.gscore').textContent = `${g.score} colonne${g.score > 1 ? 's' : ''} passée${g.score > 1 ? 's' : ''}`;

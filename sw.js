@@ -1,6 +1,6 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v17';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/raid.js', './games/sudoku.js', './games/blackjack.js', './manifest.webmanifest', './icon-192.png'];
+const CACHE = 'coloc-v23';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/raid.js', './games/sudoku.js', './games/blackjack.js', './manifest.webmanifest', './icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));

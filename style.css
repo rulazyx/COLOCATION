@@ -569,7 +569,7 @@ h4.cat{margin:16px 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:
 @keyframes dealarm{40%{transform:rotate(-26deg) translate(-8px,6px)}}
 .bj-arc{width:min(100%,360px);height:auto;display:block;margin:0 auto;opacity:.9}
 .pc{animation:none;width:56px;height:80px}
-.pc.in{animation:cardslide .62s cubic-bezier(.2,.75,.3,1) both;--d:-70vh}
+.pc.in{animation:cardslide .4s cubic-bezier(.2,.75,.3,1) both;--d:-70vh}
 .pc.in.dlr{--d:-32vh}
 @keyframes cardslide{from{opacity:0;transform:translateY(var(--d)) rotate(-9deg) scale(.7)}60%{opacity:1}to{transform:none}}
 .pc.flip{animation:cardflip .6s ease-out}
@@ -594,3 +594,70 @@ details.allbadges{margin:6px 0}details.allbadges summary{cursor:pointer;font-wei
 .rrow.gens .muted{color:var(--muted)}
 .pts2{display:flex;flex-direction:column;align-items:flex-end;font-size:14px}
 .foldbtn{margin-top:10px;display:block;width:100%;text-align:center;background:var(--card);border:1.5px solid var(--line);font-weight:700}
+/* v12 : pastille « payant » en haut à gauche des tuiles blackjack / chifoumi */
+.gtile .paidbadge{position:absolute;top:8px;left:8px;z-index:3;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;background:rgba(10,10,30,.55);box-shadow:0 0 0 2px #7ed957,0 2px 6px rgba(0,0,0,.4)}
+.hdr .hchip{padding-left:8px;padding-right:8px}
+
+/* ---------- v12 : colocoin, cadre du premier, plateau plage ---------- */
+.cc{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.17em;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path fill-rule='evenodd' fill='%23e0a100' d='M16 1a15 15 0 1 0 0 30a15 15 0 0 0 0-30zm0 11a4 4 0 1 1 0 8a4 4 0 0 1 0-8z'/><path fill-rule='evenodd' fill='%23ffd23f' d='M16 3.2a12.8 12.8 0 1 0 0 25.6a12.8 12.8 0 0 0 0-25.6zm0 8.2a4.6 4.6 0 1 1 0 9.2a4.6 4.6 0 0 1 0-9.2z'/><path fill='none' stroke='%23fff2a8' stroke-width='1.6' stroke-linecap='round' d='M8 11a10 10 0 0 1 6-5.5'/></svg>")}
+.gtile .paidbadge .cc{width:19px;height:19px}
+.lframe{position:relative;display:inline-block;line-height:0;border-radius:50%;box-shadow:0 0 0 2.5px #ffd54a,0 0 0 5px #b8860b,0 0 0 6.5px #fff3b0,0 0 14px 4px rgba(255,200,0,.75);animation:lglow 2.2s ease-in-out infinite}
+.lframe .lcrown{position:absolute;top:calc(var(--fs) * -.33);left:50%;transform:translateX(-50%) rotate(-8deg);font-style:normal;font-size:calc(var(--fs) * .36);line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+@keyframes lglow{50%{box-shadow:0 0 0 2.5px #ffe27a,0 0 0 5px #d9a21b,0 0 0 6.5px #fff,0 0 20px 7px rgba(255,210,60,.95)}}
+.beach{position:relative;border-radius:18px;overflow:hidden;background:linear-gradient(#f4dd9d 0,#f1d089 100%);border:2px solid #e8c777;box-shadow:0 3px 10px rgba(0,0,0,.15)}
+.beach .bscene{display:block;width:100%;height:112px}
+.beach .palm{position:absolute;top:34px;width:62px;z-index:2;pointer-events:none}
+.beach .palm.l{left:-6px}.beach .palm.r{right:-6px;transform:scaleX(-1)}
+.beach .goose{background:transparent;border:0;border-radius:0;padding:2px 10px 0;margin-top:-10px;position:relative;z-index:1}
+.beach .gstart{font-size:13px;color:#7a5a1d}
+.beach .ggrid{position:relative}
+.beach .gpath{position:absolute;inset:0;width:100%;height:100%;z-index:0}
+.beach .gc{position:relative;z-index:1;background:rgba(255,250,232,.9);border:1.5px solid #e4c477;box-shadow:0 2px 0 #d9b25f;color:#5a4318}
+.beach .gc b{color:#8c6d2a}
+.beach .gc.sp{background:#fff1b8;border-color:#f0b429}
+.beach .gc.end{background:#c7f0d2;border-color:#4caf6a}
+.beach .gc.end::after{content:"🏁";position:absolute;right:2px;bottom:0;font-size:12px}
+.beach .bfoot{display:block;width:100%;height:44px;margin-top:2px}
+
+/* ---------- v14 : onglets illustrés, caddie, cadres, effets de pseudo, boutique ---------- */
+nav.tabs button{padding:6px 0 5px;gap:0}
+nav.tabs button .ico{height:38px;display:flex;align-items:center;justify-content:center;font-size:0}
+nav.tabs button .ico svg{display:block;max-height:38px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+nav.tabs button:not(.active) .ico{opacity:.8}
+nav.tabs button .tl{font-size:9.5px;font-weight:800;letter-spacing:.4px;margin-top:1px}
+.hcart{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);margin-left:6px}
+.seg.five button{font-size:11.5px;padding:8px 2px}
+.shopgrid{grid-template-columns:repeat(3,1fr)}
+.shopgrid .item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;text-align:center}
+.shopgrid .item .mini{margin-top:2px}.nprev{font-size:15px;min-height:40px;display:flex;align-items:center}
+/* cadres de profil */
+.fr{display:inline-block;line-height:0;position:relative;border-radius:50%;padding:calc(var(--fs) * .06);vertical-align:middle}
+.fr .lcrown{position:absolute;top:calc(var(--fs) * -.28);left:50%;transform:translateX(-50%) rotate(-8deg);font-style:normal;font-size:calc(var(--fs) * .36);line-height:1}
+.fr-bronze{background:linear-gradient(135deg,#e7a46a,#8c4f1c,#e7a46a)}
+.fr-argent{background:linear-gradient(135deg,#fff,#9aa3ad,#f3f4f6)}
+.fr-or{background:linear-gradient(135deg,#fff3a8,#d49a00,#ffe27a);box-shadow:0 0 8px rgba(255,200,0,.6)}
+.fr-rubis{background:linear-gradient(135deg,#ff8a8a,#b3122b,#ff5d73);box-shadow:0 0 8px rgba(220,30,60,.6)}
+.fr-neon{background:#12f2ff;box-shadow:0 0 6px #12f2ff,0 0 14px #12f2ff,0 0 22px #6a5cff;animation:frpulse 1.6s ease-in-out infinite}
+.fr-arcenciel{background:conic-gradient(#ef4444,#f59e0b,#facc15,#22c55e,#06b6d4,#3b82f6,#a855f7,#ef4444);animation:frspin 5s linear infinite}
+.fr-flammes{background:conic-gradient(#ff3d00,#ffb300,#ff3d00,#ff6d00,#ffd54f,#ff3d00);box-shadow:0 0 10px 2px rgba(255,100,0,.8);animation:frpulse 1s ease-in-out infinite}
+.fr-glace{background:linear-gradient(135deg,#fff,#7dd3fc,#e0f2fe,#38bdf8);box-shadow:0 0 10px rgba(125,211,252,.9)}
+.fr-royal{background:linear-gradient(135deg,#fff3a8,#c58b00,#ffe27a,#a16207);box-shadow:0 0 12px 2px rgba(255,200,0,.8);animation:frpulse 2s ease-in-out infinite}
+@keyframes frpulse{50%{filter:brightness(1.35)}}
+@keyframes frspin{to{filter:hue-rotate(360deg)}}
+/* effets de pseudo */
+.nfx{font-weight:800}
+.nfx-rouge{color:#dc2626}.nfx-bleu{color:#2563eb}.nfx-vert{color:#16a34a}.nfx-violet{color:#9333ea}.nfx-rose{color:#ec4899}
+.nfx-dore{background:linear-gradient(90deg,#b8860b,#ffd700,#b8860b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.nfx-neon{color:#e0ffff;text-shadow:0 0 4px #12f2ff,0 0 10px #12f2ff,0 0 18px #6a5cff}
+.nfx-arcenciel{background:linear-gradient(90deg,#ef4444,#f59e0b,#22c55e,#3b82f6,#a855f7,#ef4444);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:nfxmove 3s linear infinite}
+.nfx-feu{background:linear-gradient(0deg,#ff3d00,#ffd54f);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 6px rgba(255,100,0,.5)}
+@keyframes nfxmove{to{background-position:200% 0}}
+.seg.five button{white-space:nowrap;font-size:11px;padding:8px 1px}
+/* v14b : icônes d'onglets sobres (noir / blanc / jaune) */
+nav.tabs button .ico{color:var(--text)}
+nav.tabs button.active .ico{color:var(--text)}
+nav.tabs button .ico svg{filter:none;max-height:40px}
+nav.tabs button:not(.active) .ico{opacity:.55}
+.nico .f{fill:var(--card)}.nico .y{fill:var(--accent)}.nico .k{fill:currentColor;stroke:none}
+nav.tabs button .tl{font-weight:800;letter-spacing:.8px}
+.nico .ys{stroke:var(--accent)}
