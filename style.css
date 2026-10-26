@@ -766,3 +766,25 @@ button.np.grow:not(:disabled){background:#e0f2fe;border-color:#7dd3fc}
 .tgrp{display:flex;align-items:center;gap:6px;margin:16px 2px 6px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--c)}
 .tgrp span{font-size:16px}
 .kcard{padding:8px 10px}
+
+/* ---------- Colo-Ferme (jeu) ---------- */
+.g-ferme .gbody{padding-top:0;height:100%;background:#8fd27a}
+.fgame{position:relative;height:100%;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+.fcv{display:block;touch-action:manipulation;user-select:none;width:min(100%,calc((100dvh - 78px) * .6));aspect-ratio:360/600;margin-top:auto;margin-bottom:auto}
+.fhud{position:absolute;top:calc(8px + env(safe-area-inset-top));left:60px;right:12px;z-index:4;display:flex;gap:8px;align-items:center;justify-content:flex-end;pointer-events:none}
+.fhud span{background:rgba(20,20,40,.55);color:#fff;border-radius:14px;padding:5px 11px;font-size:12px;font-weight:700}
+.fvisit{position:absolute;left:0;right:0;bottom:0;z-index:4;display:flex;gap:6px;justify-content:center;padding:6px 8px calc(6px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(20,40,20,.55))}
+.fv{position:relative;display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border-radius:12px;color:#fff;background:rgba(20,20,40,.35);min-width:52px}
+.fv small{font-size:9px;font-weight:700;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fv.on{background:var(--accent);color:var(--on-accent)}
+.fv i{position:absolute;top:-4px;right:-2px;font-style:normal;font-size:12px}
+.fover{position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.45);display:flex;align-items:flex-end}
+.fover[hidden]{display:none}
+.fsheet{width:100%;max-height:82%;overflow:auto;background:var(--bg);border-radius:20px 20px 0 0;padding:14px 14px calc(16px + env(safe-area-inset-bottom))}
+.fsh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:16px}
+.fsh button{width:30px;height:30px;border-radius:50%;background:var(--card);text-align:center}
+.fcrops{display:flex;flex-direction:column;gap:7px}
+.fcrop{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.fcrop:disabled{opacity:.5}.fcrop.lk{background:var(--bg)}
+.fcrop .ct{flex:1;display:flex;flex-direction:column}.fcrop .ct small{color:var(--muted);font-size:11px}.fcrop .cp{font-weight:800;font-size:13px}
+.fp{margin:8px 0}.fbtns{display:flex;gap:8px}.fbtns .btn{flex:1}

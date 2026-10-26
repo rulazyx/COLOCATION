@@ -671,7 +671,7 @@ begin
   select * into c from farm_crops where key = p.crop;
   select coalesce(got, 0) into v_got from farm_day where member_id = p_member;
   v_got := coalesce(v_got, 0);
-  v_pay := least(c.gain, greatest(100 - v_got, 0));
+  v_pay := least(c.gain, greatest(200 - v_got, 0));
   if v_pay > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_pay, 'ferme:recolte'); end if;
   insert into member_stats (member_id, farm_harvests, farm_coins) values (p_member, 1, v_pay)
     on conflict (member_id) do update set farm_harvests = member_stats.farm_harvests + 1, farm_coins = member_stats.farm_coins + v_pay;
@@ -770,3 +770,30 @@ insert into task_kinds (kind, soap, cooldown_h) values
   ('cuis_patisserie', 4, 24),
   ('cuis_repas', 8, 24)
 on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;
+
+-- ---------- RÉINITIALISATION GÉNÉRALE (une seule fois) : niveaux, pièces, savons, tâches, cultures, achats… ----------
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_v20') then
+    delete from xp_log;
+    delete from coin_ledger;
+    delete from chip_ledger;
+    delete from duel_secrets;
+    delete from duels;
+    delete from unlocks;
+    delete from purchases;
+    delete from profile_views;
+    delete from task_logs;
+    delete from dice_rolls;
+    delete from perks;
+    delete from perk_confirms;
+    delete from soap_exchanges;
+    delete from messages;
+    delete from farm_plots;
+    delete from farm_state;
+    delete from plateau_weeks;
+    delete from member_stats;
+    insert into member_stats (member_id) select id from members;
+    update members set outfit = 'none', title = null, badge = null, frame = null, namefx = null, bird = null;
+    insert into app_meta (key, value) values ('reset_v20', 'done');
+  end if;
+end $$;

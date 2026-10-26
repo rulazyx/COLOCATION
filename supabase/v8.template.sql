@@ -669,3 +669,30 @@ grant execute on function answer_task(bigint, int, boolean) to anon, authenticat
 insert into task_kinds (kind, soap, cooldown_h) values
 __TASK_KINDS__
 on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;
+
+-- ---------- RÉINITIALISATION GÉNÉRALE (une seule fois) : niveaux, pièces, savons, tâches, cultures, achats… ----------
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_v20') then
+    delete from xp_log;
+    delete from coin_ledger;
+    delete from chip_ledger;
+    delete from duel_secrets;
+    delete from duels;
+    delete from unlocks;
+    delete from purchases;
+    delete from profile_views;
+    delete from task_logs;
+    delete from dice_rolls;
+    delete from perks;
+    delete from perk_confirms;
+    delete from soap_exchanges;
+    delete from messages;
+    delete from farm_plots;
+    delete from farm_state;
+    delete from plateau_weeks;
+    delete from member_stats;
+    insert into member_stats (member_id) select id from members;
+    update members set outfit = 'none', title = null, badge = null, frame = null, namefx = null, bird = null;
+    insert into app_meta (key, value) values ('reset_v20', 'done');
+  end if;
+end $$;

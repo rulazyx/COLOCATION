@@ -56,6 +56,7 @@ export const BOARDS = [
   { key: 'flappy',   emoji: '🐦', label: 'Jumpy Cardinal',    unit: '',    low: false },
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
   { key: 'blackjack', emoji: '🃏', label: 'Victoires Blackjack', unit: '', low: false },
+  { key: 'ferme',    emoji: '🌾', label: 'Récoltes (Colo-Ferme)', unit: '', low: false },
 ];
 export const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : board.key === 'level' ? `Niv. ${Math.floor(v / 100000)}` : `${v}${board.unit}`);
@@ -69,6 +70,7 @@ export function boardValue(c, key, id) {
     case 'blackjack': return num(s.blackjack_wins);
     case 'chifoumi': return c.wins[id] ?? 0;
     case 'flappy': return num(s.flappy_best);
+    case 'ferme': return num(s.farm_harvests);
     case 'sudoku': return s.sudoku_best ?? null;
     default: return null;
   }

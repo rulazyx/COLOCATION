@@ -238,7 +238,7 @@ export const FARM = {
   ],
   baseSlots: 1,
   slotCosts: [0, 100, 200, 400, 700, 1000],   // prix de chaque parcelle : on commence avec 1, les 5 autres s'achètent
-  capPerDay: 100,                         // colocoins de récolte maximum par jour
+  capPerDay: 200,                         // colocoins de récolte maximum par jour
   witherH: 24,
   waterCut: 0.2,                          // arroser la parcelle d'un autre : -20 % du temps restant
   waterReward: 5, waterRewardMaxPerDay: 4, // 5 🪙 par arrosage, 4 fois par jour au maximum

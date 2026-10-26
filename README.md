@@ -199,3 +199,8 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 ## v20 — Tâches par catégorie
 - Nettoyage / Aspirateur / Serpillère (cuisine, salon, salle de bain, WC +2 🧼 ; toute la maison +10), Poubelles (4 × +1), Cuisiner (pâtisseries +4, repas +8). Délais de disponibilité réglables dans `config.js` (TASK_KINDS).
 - Les anciennes tâches restent en base pour l'historique mais ne s'affichent plus dans la liste.
+
+## v21
+- Colo-Ferme devient un vrai jeu (games/ferme.js) : tuile → fiche → plein écran, parcelles et fruits dessinés/animés, visite des fermes voisines, arrosage animé. Plafond de récolte : 200 🪙/jour.
+- Tâches : 5 catégories (Nettoyage, Aspirateur, Serpillère, Poubelles, Cuisiner) qui ouvrent leurs choix.
+- RÉINITIALISATION GÉNÉRALE (`reset_v20`) incluse dans migration-v8.sql.

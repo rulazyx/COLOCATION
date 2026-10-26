@@ -212,7 +212,6 @@ async function init() {
       if (document.hidden || state.game || state.sheet || !state.me || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
       refresh().catch(() => {});
     }, 15000);
-    setInterval(() => { if (state.me && state.tab === 'games' && state.gamesSeg === 'ferme' && !state.sheet && !state.game) render(); }, 30000);
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
@@ -501,9 +500,22 @@ const GAMES = {
   chifoumi: { name: 'Chifoumi', cls: 'chif', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
   flappy: { name: 'Jumpy Cardinal', cls: 'flap', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
   blackjack: { name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: "Plante, arrose, récolte ! Tes cultures poussent en temps réel, même quand l'appli est fermée. Arrose les parcelles des autres colocs pour les aider (et gagner des pièces), et une tâche ménagère validée accélère tes cultures. Récolte plafonnée à " + FARM.capPerDay + " 🪙 par jour." },
   sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null;
+function farmCtx() {
+  const me = state.me, api = state.api;
+  return {
+    meId: me.id, isColoc: () => me.kind === 'coloc', esc, toast,
+    colocs: () => colocs(), nameOf: (id) => nameOf(id), avatar: (m, sz) => av(m, sz),
+    farm: () => state.farm, slotsOf: (id) => farmSlots(id), got: () => state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0,
+    chips: () => chipsOf(me.id), level: () => lvlOf(me.id),
+    plant: (slot, crop) => api.farmPlant(me.id, slot, crop), harvest: (slot) => api.farmHarvest(me.id, slot),
+    water: (owner, slot) => api.farmWater(me.id, owner, slot), unlock: () => api.farmUnlock(me.id),
+    refresh: () => refresh(true),
+  };
+}
 async function openGame(id) {
   const G = GAMES[id];
   if (!G || state.game) return;
@@ -522,7 +534,7 @@ async function openGame(id) {
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      balance: () => chipsOf(state.me.id), bird: state.me.bird,
+      balance: () => chipsOf(state.me.id), bird: state.me.bird, ...(id === 'ferme' ? farmCtx() : {}),
       async onEnd(r) {
         try {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
@@ -817,22 +829,33 @@ function taskListHTML() {
     <h3 class="sec" ${confirm.length || mine.length ? '' : 'style="margin-top:0"'}>Tâches à faire</h3>
     ${isColoc ? '<p class="summary" style="margin-top:0">Fais une tâche quand tu veux : touche-la, confirme, puis un autre coloc validera.</p>'
       : '<p class="summary" style="margin-top:0">Les tâches ménagères sont réservées aux colocataires.</p>'}
-    ${TASK_GROUPS.map((G) => `<h4 class="tgrp" style="--c:${G.color}"><span>${G.emoji}</span>${esc(G.label)}</h4>
-      <div class="klist">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
-        const { st, log, left } = kindStatus(k);
-        const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
-          : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}`
-          : esc(K.detail);
-        return `<button class="kcard ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
-          <span class="kemo">${K.emoji}</span>
-          <span class="ktxt"><b>${esc(K.room)}</b><small>${sub}</small></span>
-          <span class="ksoap">+${K.soap} 🧼</span></button>`;
-      }).join('')}</div>`).join('')}
+    <div class="klist">${TASK_GROUPS.map((G) => {
+      const ks = Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key);
+      const free = ks.filter(([k]) => kindStatus(k).st === 'free').length, max = Math.max(...ks.map(([, K]) => K.soap));
+      return `<button class="kcard" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
+        <span class="kemo">${G.emoji}</span>
+        <span class="ktxt"><b>${esc(G.label)}</b><small>${ks.length} choix · ${free} disponible${free > 1 ? 's' : ''}</small></span>
+        <span class="ksoap">jusqu'à +${max} 🧼</span></button>`;
+    }).join('')}</div>
     ${done.length ? `<h3 class="sec">Dernières tâches</h3>${done.map((l) => {
       const K = TASK_KINDS[l.kind];
       return `<div class="up hist"><div class="mini-av">${av(memberById(l.doer_id), 38)}</div>
         <div class="txt"><b>${esc(nameOf(l.doer_id))} : ${K.emoji} ${esc(K.short)}</b><small>${ago(l.answered_at)} · +${l.soap} 🧼 · confirmé par ${esc(nameOf(l.validator_id))}</small></div></div>`;
     }).join('')}` : ''}`;
+}
+
+// Menu d'une catégorie : les différents choix
+function taskGroupHTML(s) {
+  const G = TASK_GROUPS.find((g) => g.key === s.group), isColoc = state.me.kind === 'coloc';
+  return sheetWrap(`
+    <div class="sh"><div><h2>${G.emoji} ${esc(G.label)}</h2><div class="when">Choisis ce que tu as fait</div></div>${closeBtn}</div>
+    <div class="klist">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
+      const { st, log, left } = kindStatus(k);
+      const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
+        : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}` : esc(K.detail);
+      return `<button class="kcard ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
+        <span class="kemo">${K.emoji}</span><span class="ktxt"><b>${esc(K.room)}</b><small>${sub}</small></span><span class="ksoap">+${K.soap} 🧼</span></button>`;
+    }).join('')}</div>`, G.color);
 }
 
 // Fenêtre de confirmation d'une tâche (avant l'envoi)
@@ -903,12 +926,12 @@ function sheetHTML() {
     case 'dice': return diceSheetHTML(s);
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
-    case 'farm-pick': return farmPickHTML(s);
     case 'shop': return shopHTML(s);
     case 'exchange': return exchangeHTML();
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'task-do': return taskConfirmHTML(s);
+    case 'task-group': return taskGroupHTML(s);
     case 'levelup': return levelUpSheetHTML();
     case 'duel-new': return duelNewHTML(s);
     case 'duel-play': return duelPlayHTML(s);
@@ -990,10 +1013,7 @@ function stockHTML() {
 }
 
 /* ---------- Onglet 3 : jeux ---------- */
-function gamesHTML() {
-  if (state.gamesSeg === 'ferme') return `<button class="mini" style="margin-bottom:10px" data-action="gseg" data-v="games">‹ Jeux</button>` + fermeHTML();
-  return gamesListHTML();
-}
+function gamesHTML() { return gamesListHTML(); }
 function gamesListHTML() {
   const me = state.me;
   const received = pendingForMe();
@@ -1008,8 +1028,8 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gfarm" data-action="gseg" data-v="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
-    <div class="gtiles">${Object.entries(GAMES).map(([id, g]) => `
+    <button class="gfarm" data-action="ginfo" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+    <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${g.cls}" data-action="ginfo" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? '<span class="paidbadge" title="Payant (colocoins)">🪙</span>' : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
     ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
@@ -1057,59 +1077,6 @@ function farmArt() {
     <g fill="#c0392b"><rect x="40" y="38" width="46" height="34"/><path d="M34 40 L63 18 L92 40Z" fill="#8a2b20"/></g><rect x="56" y="52" width="14" height="20" fill="#f5e6c8"/>
   </svg>`;
 }
-function fermeHTML() {
-  const me = state.me;
-  if (me.kind !== 'coloc') return '<div class="empty-msg">La Colo-Ferme est réservée aux colocataires. Tu peux quand même en profiter en regardant les cultures des autres !</div>' + neighborsHTML();
-  const slots = farmSlots(me.id), got = state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0, left = Math.max(FARM.capPerDay - got, 0);
-  const plots = Array.from({ length: FARM.slotCosts.length }, (_, i) => {
-    if (i >= slots) {
-      const next = i === slots;
-      return `<button class="fplot locked" ${next ? `data-action="farm-unlock"` : 'disabled'}><span class="fe">🔒</span><small>${next ? `Débloquer · ${FARM.slotCosts[i]} 🪙` : 'Verrouillée'}</small></button>`;
-    }
-    const p = farmOf(me.id).find((x) => x.slot === i);
-    if (!p) return `<button class="fplot empty" data-action="farm-pick" data-id="${i}"><span class="fe">➕</span><small>Planter</small></button>`;
-    const c = cropOf(p.crop), st = farmStatus(p);
-    if (st === 'ready') return `<button class="fplot ready" data-action="farm-harvest" data-id="${i}"><span class="fe">${c.emoji}</span><small>Récolter ✨ +${c.gain} 🪙</small></button>`;
-    if (st === 'dead') return `<button class="fplot dead" data-action="farm-harvest" data-id="${i}"><span class="fe">🥀</span><small>Fané · nettoyer</small></button>`;
-    const total = c.hours * 3600000, rest = Date.parse(p.ready_at) - Date.now(), pct = Math.min(100, Math.max(0, 100 - (rest / total) * 100));
-    return `<div class="fplot grow"><span class="fe">🌱</span><small>${esc(c.name)} · ${fmtLeft(rest)}</small><i class="fbar"><b style="width:${pct}%"></b></i>${p.watered_by?.length ? `<em>💧${p.watered_by.length}</em>` : ''}</div>`;
-  });
-  return `
-    <p class="summary" style="margin-top:0">Plante, patiente, récolte ! Chaque culture pousse en temps réel. Non récoltée <b>24 h</b> après maturité, elle fane. Les récoltes rapportent au maximum <b>${FARM.capPerDay} 🪙 par jour</b> (<b>${left}</b> restants aujourd'hui).</p>
-    <div class="fgrid">${plots.join('')}</div>
-    <div class="legend"><span>💧 Un autre coloc arrose : −${Math.round(FARM.waterCut * 100)} % de temps</span><span>🧼 Une tâche validée : −${Math.round(FARM.taskBoost * 100)} % sur toutes tes cultures</span></div>
-    <h3 class="sec">Chez les voisins</h3>
-    ${neighborsHTML()}`;
-}
-function neighborsHTML() {
-  const me = state.me;
-  const list = colocs().filter((m) => m.id !== me.id);
-  return list.map((m) => {
-    const ps = farmOf(m.id).sort((a, b) => a.slot - b.slot);
-    return `<div class="up"><div class="mini-av">${av(m, 38)}</div><div class="txt"><b>${esc(m.name)}</b>
-      <div class="nplots">${ps.length ? ps.map((p) => {
-        const c = cropOf(p.crop), st = farmStatus(p);
-        if (st !== 'grow') return `<span class="np ${st}">${st === 'dead' ? '🥀' : c.emoji + ' ✨'}</span>`;
-        const mine = p.watered_by?.includes(me.id), can = me.kind === 'coloc' && !mine;
-        return `<button class="np grow" data-action="farm-water" data-id="${m.id}:${p.slot}" ${can ? '' : 'disabled'}>${c.emoji} ${fmtLeft(Date.parse(p.ready_at) - Date.now())} ${mine ? '💧✓' : '💧'}</button>`;
-      }).join('') : '<small>Rien de planté</small>'}</div></div></div>`;
-  }).join('') + (me.kind === 'coloc' ? `<div class="det">Arroser la parcelle d'un voisin la fait pousser plus vite et te rapporte ${FARM.waterReward} 🪙 (${FARM.waterRewardMaxPerDay} fois par jour).</div>` : '');
-}
-function farmPickHTML(s) {
-  const have = chipsOf(state.me.id);
-  return sheetWrap(`
-    <div class="sh"><div><h2>Planter</h2><div class="when">Parcelle ${s.slot + 1} · tu as ${have} 🪙</div></div>${closeBtn}</div>
-    <div class="cropl">${FARM.crops.map((c) => {
-      const lv = lvlOf(state.me.id), locked = lv < c.level;
-      return `<button class="crop ${locked ? 'lk' : ''}" data-action="farm-plant" data-id="${s.slot}" data-v="${c.key}" ${!locked && have >= c.cost ? '' : 'disabled'}>
-        <span class="fe">${locked ? '🔒' : c.emoji}</span><span class="ct"><b>${esc(c.name)}</b><small>${locked ? `Se débloque au niveau ${c.level}` : `Pousse en ${c.hours} h · rapporte ${c.gain} 🪙`}</small></span><span class="cp">${locked ? `Niv. ${c.level}` : `−${c.cost} 🪙`}</span></button>`;
-    }).join('')}</div>`, 'var(--accent)');
-}
-async function farmDo(fn, okMsg) {
-  try { const r = await fn(); state.sheet = null; if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); }
-  catch (e) { state.sheet = null; toast(e.message || 'Action impossible.'); }
-  await refresh(true).catch(() => {});
-}
 
 // Décors des tuiles de jeux (dessins originaux en SVG, sans texte : le nom est ajouté par-dessus)
 function gameArt(cls) {
@@ -1150,7 +1117,7 @@ function gameInfoHTML(s) {
   const g = GAMES[s.id], me = state.me, st = statsOf(me.id);
   if (!g) return '';
   const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
-  const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`,
+  const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`, ferme: `${st.farm_harvests || 0} récolte${(st.farm_harvests || 0) > 1 ? 's' : ''}`,
     sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé', blackjack: `${chipsOf(me.id)} colocoins · ${st.blackjack_wins || 0} main${(st.blackjack_wins || 0) > 1 ? 's' : ''} gagnée${(st.blackjack_wins || 0) > 1 ? 's' : ''}` }[s.id];
   const others = state.members.filter((m) => m.id !== me.id);
   if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
@@ -1512,6 +1479,7 @@ document.addEventListener('click', (e) => {
     case 'close': if (e.target === el) closeSheet(); break;
     case 'rseg': state.anim = state.rankSeg !== v; state.rankSeg = v; render(); window.scrollTo(0, 0); break;
     case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
+    case 'task-group': state.sheet = { type: 'task-group', group: id }; render(); break;
     case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); break;
     case 'task-submit': submitTaskNow(id); break;
     case 'task-ok': answerTaskNow(Number(id), true); break;
@@ -1520,12 +1488,6 @@ document.addEventListener('click', (e) => {
     case 'push': enablePush(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
-    case 'gseg': state.anim = state.gamesSeg !== v; state.gamesSeg = v; render(); window.scrollTo(0, 0); break;
-    case 'farm-pick': state.sheet = { type: 'farm-pick', slot: Number(id) }; render(); break;
-    case 'farm-plant': farmDo(() => state.api.farmPlant(state.me.id, Number(id), v), 'Planté ! 🌱'); break;
-    case 'farm-harvest': farmDo(() => state.api.farmHarvest(state.me.id, Number(id)), (r) => r.withered ? 'Parcelle nettoyée 🥀' : r.coins ? `Récolte : +${r.coins} 🪙${r.lost ? ` (plafond du jour atteint, ${r.lost} perdus)` : ''}` : 'Plafond du jour atteint : récolte perdue 😬'); break;
-    case 'farm-water': { const [o, sl] = id.split(':').map(Number); farmDo(() => state.api.farmWater(state.me.id, o, sl), (r) => r.reward ? `Arrosé 💧 +${r.reward} 🪙` : 'Arrosé 💧'); break; }
-    case 'farm-unlock': farmDo(() => state.api.farmUnlock(state.me.id), 'Nouvelle parcelle ! 🌾'); break;
     case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
     // --- Toi : personnage et boutique ---
     case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
