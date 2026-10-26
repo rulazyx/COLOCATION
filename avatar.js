@@ -134,6 +134,71 @@ const OUTFIT_DRAW = {
     '<path d="M13 84 C12 78 20 76 22 82 L24 92 C20 96 14 92 13 84Z" fill="#facc15"/><path d="M82 90 C86 88 92 90 92 96 C88 100 84 98 82 94Z" fill="#facc15"/>' +
     '<circle cx="10" cy="64" r="4.5" fill="#bae6fd" fill-opacity=".6" stroke="#7dd3fc"/><circle cx="19" cy="55" r="3" fill="#bae6fd" fill-opacity=".6" stroke="#7dd3fc"/><circle cx="90" cy="60" r="3.6" fill="#bae6fd" fill-opacity=".6" stroke="#7dd3fc"/>',
 
+  fee: ({ gender, skin, hair }) =>
+    '<ellipse cx="14" cy="66" rx="13" ry="25" transform="rotate(-24 14 66)" fill="#cfe9ff" fill-opacity=".8" stroke="#fff" stroke-width="2"/>' +
+    '<ellipse cx="86" cy="66" rx="13" ry="25" transform="rotate(24 86 66)" fill="#cfe9ff" fill-opacity=".8" stroke="#fff" stroke-width="2"/>' +
+    '<ellipse cx="22" cy="86" rx="8" ry="14" transform="rotate(-30 22 86)" fill="#e9d5ff" fill-opacity=".8"/><ellipse cx="78" cy="86" rx="8" ry="14" transform="rotate(30 78 86)" fill="#e9d5ff" fill-opacity=".8"/>' +
+    body('#c026d3', '<path d="M38 74 L50 84 L62 74Z" fill="#f5d0fe"/><circle cx="34" cy="92" r="1.6" fill="#fde68a"/><circle cx="66" cy="90" r="1.6" fill="#fde68a"/><circle cx="50" cy="96" r="1.6" fill="#fde68a"/>') +
+    hairBack(gender, hair) + neck(skin) + headBase(skin) + eyes() + lashes(gender) + mouth + hairFront(gender, hair) +
+    '<path d="M37 24 L40 13 L46 20 L50 9 L54 20 L60 13 L63 24Z" fill="#fde047" stroke="#f59e0b" stroke-width="1.4" stroke-linejoin="round"/>' +
+    '<path d="M82 62 L74 88" stroke="#f59e0b" stroke-width="2.4" stroke-linecap="round"/><path d="M83 50 l2.6 5.4 5.8.8 -4.2 4 1 5.8 -5.2 -2.8 -5.2 2.8 1 -5.8 -4.2 -4 5.8 -.8z" fill="#fde047" stroke="#f59e0b" stroke-width="1"/>' +
+    '<circle cx="20" cy="30" r="1.8" fill="#fde047"/><circle cx="14" cy="42" r="1.2" fill="#fff"/><circle cx="88" cy="28" r="1.4" fill="#fff"/>',
+
+  creole: ({ gender, skin, hair }) =>
+    body('#15803d', '<circle cx="30" cy="88" r="3.2" fill="#f472b6"/><circle cx="30" cy="88" r="1.2" fill="#fde047"/><circle cx="66" cy="92" r="3.2" fill="#fb923c"/><circle cx="66" cy="92" r="1.2" fill="#fde047"/><circle cx="48" cy="97" r="3" fill="#f472b6"/><circle cx="48" cy="97" r="1.1" fill="#fde047"/><path d="M42 74 L50 85 L58 74Z" fill="#fde68a"/>') +
+    hairBack(gender, hair) + neck(skin) + headBase(skin) + eyes() + lashes(gender) + mouth +
+    '<path d="M27 41 C26 22 37 14 50 14 C63 14 74 22 73 41 C66 31 58 28 50 28 C42 28 34 31 27 41Z" fill="#f59e0b"/>' +
+    '<path d="M31 32 L44 18 M40 36 L56 16 M52 33 L66 19 M62 34 L71 26" stroke="#dc2626" stroke-width="3.2" stroke-linecap="round"/>' +
+    '<path d="M28 36 L68 22 M30 30 L60 17" stroke="#7f1d1d" stroke-width="1" opacity=".5"/>' +
+    '<path d="M70 24 L82 12 L80 28Z" fill="#f59e0b"/><path d="M72 24 L80 17" stroke="#dc2626" stroke-width="2.4"/>' +
+    '<circle cx="31" cy="30" r="3.6" fill="#f472b6"/><circle cx="31" cy="30" r="1.3" fill="#fde047"/>',
+
+  docteur: ({ gender, skin, hair }) =>
+    body('#f8fafc', '<path d="M50 74 L38 100 M50 74 L62 100" stroke="#cbd5e1" stroke-width="2"/><path d="M44 74 L50 90 L56 74Z" fill="#38bdf8"/><rect x="62" y="86" width="9" height="7" rx="1.4" fill="#e2e8f0"/><path d="M65 86 v-3 M68 86 v-3" stroke="#64748b" stroke-width="1.2"/>') +
+    hairBack(gender, hair) + neck(skin) + headBase(skin) + eyes() + lashes(gender) + mouth +
+    '<path d="M28 41 C27 24 38 16 50 16 C62 16 73 24 72 41 C65 33 36 33 28 41Z" fill="#38bdf8"/><path d="M31 34 C40 26 60 26 69 34" stroke="#7dd3fc" stroke-width="2" fill="none"/>' +
+    '<path d="M34 74 C30 90 40 98 48 92 M66 74 C70 90 60 98 52 92" stroke="#334155" stroke-width="2.2" fill="none" stroke-linecap="round"/><circle cx="50" cy="94" r="3.4" fill="#cbd5e1" stroke="#334155" stroke-width="1.6"/>' +
+    '<rect x="46.5" y="19" width="7" height="7" rx="1.2" fill="#fff"/><path d="M50 20 v5 M47.6 22.5 h4.8" stroke="#e5484d" stroke-width="1.6"/>',
+
+  tortue: () => {
+    const g = '#5fb04a', dg = '#3f8a33', shell = '#9a6a2f';
+    return `<path d="M8 100 C8 70 28 58 50 58 C72 58 92 70 92 100Z" fill="${shell}"/>` +
+      `<path d="M50 58 V100 M26 68 L38 82 L26 100 M74 68 L62 82 L74 100 M38 82 H62" stroke="#6e4a1d" stroke-width="2" fill="none"/>` +
+      `<path d="M24 100 C24 86 34 78 50 78 C66 78 76 86 76 100Z" fill="${g}"/><ellipse cx="50" cy="96" rx="14" ry="11" fill="#e8e0a0"/>` +
+      `<rect x="43" y="58" width="14" height="22" rx="6" fill="${g}"/>` +
+      `<ellipse cx="50" cy="42" rx="22" ry="22" fill="${g}"/><path d="M33 30 Q50 18 67 30" stroke="${dg}" stroke-width="2" fill="none" stroke-linecap="round"/>` +
+      `<circle cx="41" cy="40" r="4.6" fill="#fff"/><circle cx="59" cy="40" r="4.6" fill="#fff"/><circle cx="42" cy="41" r="2.6" fill="${INK}"/><circle cx="58" cy="41" r="2.6" fill="${INK}"/>` +
+      `<circle cx="47" cy="49" r="1.1" fill="${dg}"/><circle cx="53" cy="49" r="1.1" fill="${dg}"/>` +
+      `<path d="M41 55 Q50 62 59 55" stroke="${INK}" stroke-width="2" fill="none" stroke-linecap="round"/><circle cx="35" cy="50" r="3" fill="#ff9d7a" opacity=".4"/><circle cx="65" cy="50" r="3" fill="#ff9d7a" opacity=".4"/>`;
+  },
+
+  lion: () => {
+    const mane = '#b8691f', dm = '#8f4d12', face = '#f2c27b';
+    let curls = '';
+    for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2; curls += `<circle cx="${(50 + 33 * Math.cos(a)).toFixed(1)}" cy="${(46 + 33 * Math.sin(a)).toFixed(1)}" r="11" fill="${i % 2 ? mane : dm}"/>`; }
+    return body('#e0a75e', `<ellipse cx="50" cy="96" rx="15" ry="12" fill="#f6dba6"/>`) + curls +
+      `<circle cx="50" cy="46" r="31" fill="${mane}"/>` +
+      `<circle cx="31" cy="26" r="8" fill="${face}"/><circle cx="69" cy="26" r="8" fill="${face}"/><circle cx="31" cy="26" r="4" fill="#e89a8a"/><circle cx="69" cy="26" r="4" fill="#e89a8a"/>` +
+      `<ellipse cx="50" cy="48" rx="21" ry="23" fill="${face}"/>` +
+      `<ellipse cx="50" cy="58" rx="12" ry="9" fill="#fbe9c6"/>` +
+      `<circle cx="41" cy="44" r="2.8" fill="${INK}"/><circle cx="59" cy="44" r="2.8" fill="${INK}"/><circle cx="42" cy="43" r=".9" fill="#fff"/><circle cx="60" cy="43" r=".9" fill="#fff"/>` +
+      `<path d="M45 52 L55 52 L50 58Z" fill="#8a3b2b"/><path d="M50 58 V61 M50 61 Q45 66 41 62 M50 61 Q55 66 59 62" stroke="${INK}" stroke-width="1.8" fill="none" stroke-linecap="round"/>` +
+      '<circle cx="42" cy="58" r=".9" fill="#8a5a2a"/><circle cx="46" cy="60" r=".9" fill="#8a5a2a"/><circle cx="58" cy="58" r=".9" fill="#8a5a2a"/><circle cx="54" cy="60" r=".9" fill="#8a5a2a"/>';
+  },
+
+  dino: () => {
+    const g = '#4cc16b', dg = '#2f9a4d', belly = '#d9f5b8', sp = '#f59e0b';
+    return body(g, `<ellipse cx="50" cy="95" rx="15" ry="12" fill="${belly}"/>`) +
+      `<path d="M34 72 L30 60 L40 66Z M66 72 L70 60 L60 66Z" fill="${sp}"/>` +
+      `<rect x="42" y="58" width="16" height="20" rx="6" fill="${g}"/>` +
+      `<path d="M36 28 L40 14 L45 26Z M46 24 L50 8 L55 24Z M56 26 L60 14 L64 28Z" fill="${sp}"/>` +
+      `<ellipse cx="50" cy="42" rx="23" ry="22" fill="${g}"/><ellipse cx="50" cy="54" rx="21" ry="14" fill="${g}"/><ellipse cx="50" cy="56" rx="17" ry="10" fill="${belly}"/>` +
+      `<circle cx="43" cy="51" r="1.6" fill="${dg}"/><circle cx="57" cy="51" r="1.6" fill="${dg}"/>` +
+      `<circle cx="40" cy="38" r="4.8" fill="#fff"/><circle cx="60" cy="38" r="4.8" fill="#fff"/><circle cx="41.5" cy="38.5" r="2.7" fill="${INK}"/><circle cx="58.5" cy="38.5" r="2.7" fill="${INK}"/>` +
+      `<path d="M40 60 Q50 66 60 60" stroke="${INK}" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M44 61.5 l1.6 3 1.6 -2 M52.8 62 l1.6 -2.6 1.6 2.6" fill="#fff" stroke="#fff" stroke-width="1"/>` +
+      `<circle cx="32" cy="48" r="3.2" fill="#fb7185" opacity=".35"/><circle cx="68" cy="48" r="3.2" fill="#fb7185" opacity=".35"/>`;
+  },
+
   clochard: ({ gender, skin, hair }) =>
     body('#6b5b4b', '<rect x="26" y="84" width="11" height="9" fill="#a3866a"/><rect x="62" y="80" width="10" height="10" fill="#4f6b8a"/><path d="M42 74 L50 84 L58 74Z" fill="#8a7662"/><path d="M14 100 L19 96 L24 100 L30 95 L36 100" stroke="#4a3d31" stroke-width="2" fill="none"/>') +
     hairBack(gender, hair) + neck(skin) + headBase(skin) +

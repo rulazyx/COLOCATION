@@ -2,7 +2,7 @@
 // (pour que récompenses, niveaux et XP ne puissent pas se contredire).   Usage : node tools/build-sql.mjs
 // Les migrations v2 à v7 sont figées (déjà lancées) ; seule la v8 est générée.
 import { readFileSync, writeFileSync } from 'node:fs';
-import { SHOP, OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, DAILY } from '../config.js';
+import { SHOP, OUTFITS, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, LEVEL_K, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, DAILY, SOAP_EXCHANGE } from '../config.js';
 import { CHALLENGES, rewardOf } from '../challenges.js';
 
 const root = new URL('../', import.meta.url);
@@ -24,7 +24,7 @@ const subs = {
   __GOOSE_SIZE__: GOOSE.size, __GOOSE_FIN_XP__: GOOSE.finish.xp, __GOOSE_FIN_TR__: GOOSE.finish.trophy,
   __GOOSE_CELLS__: Object.entries(GOOSE.cells).map(([cell, c]) => { const kind = c.xp ? 'xp' : c.chips ? 'chips' : c.back ? 'back' : 'goose'; return `  (${cell}, '${kind}', ${c.xp ?? c.chips ?? c.back ?? 0})`; }).join(',\n') + ';',
   __DICE_PRICES__: DICE_PRICES.join(', '), __DICE_N__: DICE_PRICES.length, __PERK_KINDS__: PERKS.map((k) => `'${k.key}'`).join(', '), __PERK_N__: PERKS.length, __PERK_CONFIRM__: PERKS.filter((k) => k.confirm).map((k) => `'${k.key}'`).join(', '),
-  __DUEL_STAKE__: X.duelStake, __BJ_BETS__: [...new Set([...BJ_BETS.low, ...BJ_BETS.mid, ...BJ_BETS.high])].join(', '), __SHOP_VALUES__: Object.entries(SHOP).flatMap(([slot, list]) => list.map((i) => `('${slot}:${i.key}', '${slot}', ${i.price})`)).join(',\n  '), __DAILY_CHIPS__: DAILY.chips, __DAILY_XP__: DAILY.xp, __MESSAGE_MAX__: MESSAGE_MAX,
+  __DUEL_STAKE__: X.duelStake, __BJ_BETS__: [...new Set([...BJ_BETS.low, ...BJ_BETS.mid, ...BJ_BETS.high])].join(', '), __EXCHANGE_CASE__: SOAP_EXCHANGE.map((o) => `when ${o.soap} then ${o.coins}`).join(' '), __SHOP_VALUES__: Object.entries(SHOP).flatMap(([slot, list]) => list.map((i) => `('${slot}:${i.key}', '${slot}', ${i.price})`)).join(',\n  '), __DAILY_CHIPS__: DAILY.chips, __DAILY_XP__: DAILY.xp, __MESSAGE_MAX__: MESSAGE_MAX,
   __CHALLENGES__: CHALLENGES.map((c) => { const r = rewardOf(c.key); return `  (${q(c.key)}, 0, ${q(r.skin)}, ${r.xp})`; }).join(',\n') + ';',
 };
 const gen = (name) => {

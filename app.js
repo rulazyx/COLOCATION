@@ -1,8 +1,8 @@
 import {
   CONFIG, TASK_KINDS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, shopItem,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, shopItem, SOAP_EXCHANGE,
 } from './config.js';
-import { NAV_ICONS, CART_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
@@ -116,6 +116,8 @@ const av = (m, size) => {
   const svg = avatarSVG(m ?? {}, size);
   return m?.frame && size >= 30 && shopItem('frame', m.frame) ? `<span class="fr fr-${m.frame}" style="--fs:${size}px">${svg}${m.frame === 'royal' ? '<i class="lcrown">👑</i>' : ''}</span>` : svg;
 };
+// Couleur du niveau (code couleur : gris, bronze, argent, or, glace, violet)
+const lvlColor = (n) => (n >= 50 ? '#c48bff' : n >= 30 ? '#7fe3f5' : n >= 20 ? '#ffc928' : n >= 10 ? '#cfd6df' : n >= 5 ? '#e0a36a' : '#d9dde3');
 const nameHTML = (m) => (m?.namefx && shopItem('namefx', m.namefx) ? `<span class="nfx nfx-${m.namefx}">${esc(m.name)}</span>` : esc(m?.name ?? '?'));
 const shopOwned = (id) => new Set(state.purchases.filter((p) => p.member_id === id).map((p) => p.item));
 
@@ -390,15 +392,23 @@ function soapHistHTML() {
 }
 
 /* ---------- Plateau, messages ---------- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Lancer le dé : le dé roule, puis le pion avance de case en case (puis saute si piège / oie)
 async function rollDiceNow() {
   if (state.rolling) return;
   state.rolling = true; render();
   try {
     const r = await state.api.rollDice(state.me.id);
-    state.rolling = false;
+    state.moving = { id: state.me.id, pos: r.from, roll: r.roll, tumble: true };
+    render();
+    await sleep(750);
+    state.moving.tumble = false; render(); await sleep(450);
+    for (let i = 1; i <= r.roll; i++) { state.moving.pos = r.from + i; render(); await sleep(400); }
+    if (r.to !== r.from + r.roll) { await sleep(500); state.moving.pos = r.to; render(); await sleep(600); }
+    state.moving = null; state.rolling = false;
     state.sheet = { type: 'dice', r };
     await refresh(true);
-  } catch (e) { state.rolling = false; toast(e.message || 'Lancer impossible.'); refresh(true).catch(() => {}); }
+  } catch (e) { state.moving = null; state.rolling = false; toast(e.message || 'Lancer impossible.'); refresh(true).catch(() => {}); }
 }
 async function sendMessageNow() {
   const s = state.sheet, text = (s.text || '').trim();
@@ -592,11 +602,11 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${tab === 'me' ? '' : `<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau">${lvlOf(me.id)}</span></button>
-      <button class="hcart" data-action="shop" data-slot="frame" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
+      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
+      <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
       <span class="grow"></span>
-      <span class="hchip" title="Colocoins">🪙 ${chipsOf(me.id)}</span>
-      <button class="hchip" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>
+      <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
+      <button class="hchip cur-soap" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>
           </header>
     ${state.heads ? headsHTML() : ''}`}
     <main class="${anim ? 'pg' : ''} ${tab === 'me' ? 'nohdr' : ''}">
@@ -681,6 +691,7 @@ function tasksHTML() {
 }
 
 /* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
+const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posThisWeek(id));
 const posThisWeek = (id) => state.dice.filter((r) => r.member_id === id && r.week === currentWeek()).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
 const cellOfPos = (pos) => (pos <= 0 ? 0 : ((pos - 1) % GOOSE.size) + 1);
 const lapsOf = (pos) => Math.floor(pos / GOOSE.size);
@@ -700,11 +711,11 @@ const BEACH_SCENE = `<svg class="bscene" viewBox="0 0 360 150" preserveAspectRat
   <defs><linearGradient id="bsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fcdf5"/><stop offset="1" stop-color="#d6f3ff"/></linearGradient>
   <linearGradient id="bsea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fa8d0"/><stop offset="1" stop-color="#76dde6"/></linearGradient></defs>
   <rect width="360" height="150" fill="url(#bsky)"/>
-  <circle cx="300" cy="36" r="30" fill="#ffe36a" opacity=".35"/><circle cx="300" cy="36" r="20" fill="#ffd93b"/>
+  <circle class="sunhalo" cx="300" cy="36" r="30" fill="#ffe36a" opacity=".35"/><circle cx="300" cy="36" r="20" fill="#ffd93b"/>
   <g fill="#fff" opacity=".9"><ellipse cx="70" cy="26" rx="26" ry="8"/><ellipse cx="90" cy="20" rx="18" ry="8"/><ellipse cx="200" cy="40" rx="22" ry="7"/><ellipse cx="216" cy="35" rx="14" ry="6"/></g>
   <rect y="66" width="360" height="62" fill="url(#bsea)"/>
-  <g fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".75"><path d="M10 80q10-6 20 0t20 0"/><path d="M130 76q10-6 20 0t20 0"/><path d="M250 86q10-6 20 0t20 0"/><path d="M60 98q10-6 20 0t20 0"/><path d="M200 104q10-6 20 0t20 0"/></g>
-  <g transform="translate(150 70)"><path d="M-22 0h44l-8 10h-28z" fill="#c0392b"/><rect x="-1" y="-30" width="2" height="30" fill="#6b4a2b"/><path d="M3-28v24l18-4z" fill="#fff"/><path d="M-3-24v20l-14-4z" fill="#ffe3a3"/></g>
+  <g class="waves" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".75"><path d="M10 80q10-6 20 0t20 0"/><path d="M130 76q10-6 20 0t20 0"/><path d="M250 86q10-6 20 0t20 0"/><path d="M60 98q10-6 20 0t20 0"/><path d="M200 104q10-6 20 0t20 0"/></g>
+  <g transform="translate(150 70)"><g class="boat"><path d="M-22 0h44l-8 10h-28z" fill="#c0392b"/><rect x="-1" y="-30" width="2" height="30" fill="#6b4a2b"/><path d="M3-28v24l18-4z" fill="#fff"/><path d="M-3-24v20l-14-4z" fill="#ffe3a3"/></g></g>
   <path d="M0 122q30-10 60 0t60 0 60 0 60 0 60 0 60 0V150H0z" fill="#f4dd9d"/>
   <path d="M0 120q30-10 60 0t60 0 60 0 60 0 60 0 60 0" fill="none" stroke="#fff" stroke-width="3" opacity=".9"/></svg>`;
 const PALM = `<svg viewBox="0 0 80 110" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M40 108C38 80 44 56 52 34" fill="none" stroke="#8a5a2b" stroke-width="7" stroke-linecap="round"/>
@@ -722,26 +733,26 @@ function plateauHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
   const cols = 6, rows = GOOSE.size / cols;
   const pawns = {};
-  colocs().forEach((m) => { const p = cellOfPos(posThisWeek(m.id)); (pawns[p] ??= []).push(m); });
-  const pawnHTML = (n) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''}" title="${esc(m.name)}${lapsOf(posThisWeek(m.id)) ? ` · ${lapsOf(posThisWeek(m.id))} tour(s)` : ''}">${av(m, 22)}</span>`).join('');
+  colocs().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
+  const pawnHTML = (n) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}${lapsOf(posThisWeek(m.id)) ? ` · ${lapsOf(posThisWeek(m.id))} tour(s)` : ''}">${av(m, 22)}</span>`).join('');
   const cells = [], pts = [];
   for (let r = rows - 1; r >= 0; r--) {         // ligne du haut = les cases les plus hautes
     const row = Array.from({ length: cols }, (_, i) => r * cols + i + 1);
     if (r % 2 === 1) row.reverse();
-    row.forEach((n) => cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`));
+    row.forEach((n) => cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`));
   }
   for (let n = 1; n <= GOOSE.size; n++) {       // chemin de sable qui serpente derrière les cases
     const r = Math.floor((n - 1) / cols), i = (n - 1) % cols, col = r % 2 === 1 ? cols - 1 - i : i;
     pts.push(`${(col + 0.5) * 100},${(rows - 1 - r + 0.5) * 100}`);
   }
-  const pos = posThisWeek(me.id), cost = diceCost(me.id), have = soapOf(me.id), laps = lapsOf(pos);
+  const pos = shownPos(me.id), cost = diceCost(me.id), have = soapOf(me.id), laps = lapsOf(pos);
   const can = isColoc && have >= cost && !state.rolling;
   const hist = state.dice.slice(0, 15);
   const free = DICE_PRICES[0] === 0;
   return `
     <p class="summary" style="margin-top:0">Chaque semaine le plateau repart de zéro, mais les tours sont <b>infinis</b> : à chaque tour terminé, tu gagnes ${GOOSE.finish.xp} XP. ${free ? 'Le <b>premier dé du jour est gratuit</b>, puis ' : 'Un dé coûte '}<b>${DICE_PRICES.slice(free ? 1 : 0).join(', ')} 🧼</b> au fil des lancers (retour au début à minuit). Les cases rapportent de l'XP et des colocoins 🪙.</p>
     <div class="perkbox"><b>Récompense du premier tour de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)}</small></div>
-    <div class="beach">${BEACH_SCENE}<span class="palm l">${PALM}</span><span class="palm r">${PALM}</span>
+    <div class="beach">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}${BEACH_SCENE}<span class="palm l">${PALM}</span><span class="palm r">${PALM}</span>
       <div class="goose"><div class="gstart"><b>🏖️ Départ</b><div class="pw">${pawnHTML(0)}</div></div>
         <div class="ggrid"><svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>${cells.join('')}</div>
       </div>${BEACH_FOOT}</div>
@@ -824,7 +835,7 @@ function dailyCardHTML() {
   const st = statsOf(state.me.id), due = dailyDue();
   return `<div class="dailycard ${due ? 'due' : ''}">
     <div class="dh"><b>🎁 Récompense du jour</b><small>${due ? 'À récupérer' : 'Récupérée · reviens demain'}</small></div>
-    <div class="dreward"><span>🪙 +${DAILY.chips} colocoins</span><span>⭐ +${DAILY.xp} XP</span></div>
+    <div class="dreward"><span>🪙 +${DAILY.chips} colocoins</span><span>+${DAILY.xp} XP</span></div>
     ${due ? `<button class="btn primary" data-action="daily-claim">Récupérer</button>` : ''}
     ${st.wheel_ready ? `<button class="wheelban" data-action="wheel">🎡 Ta roue de la fortune est prête ! <b>Tourner</b></button>` : ''}
   </div>`;
@@ -862,6 +873,7 @@ function sheetHTML() {
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
     case 'shop': return shopHTML(s);
+    case 'exchange': return exchangeHTML();
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'task-do': return taskConfirmHTML(s);
@@ -877,7 +889,7 @@ function levelUpSheetHTML() {
   const l = state.levelUps[state.levelUps.length - 1];
   const p = levelProgress(xpOf(state.me.id));
   return sheetWrap(`
-    <div class="sh"><div><h2>⭐ Niveau ${l.level} !</h2><div class="when">Bravo ${esc(state.me.name)}, tu montes en niveau</div></div>${closeBtn}</div>
+    <div class="sh"><div><h2>Niveau ${l.level} !</h2><div class="when">Bravo ${esc(state.me.name)}, tu montes en niveau</div></div>${closeBtn}</div>
     ${l.skins.length ? `<div class="det">Nouveau${l.skins.length > 1 ? 'x' : ''} personnage${l.skins.length > 1 ? 's' : ''} débloqué${l.skins.length > 1 ? 's' : ''} :</div>
       <div class="shop" style="margin-top:8px">${l.skins.map((k) => `<div class="item">${av({ ...state.me, outfit: k }, 84)}<b>${esc(outfitName(k, state.me.gender))}</b></div>`).join('')}</div>` : '<div class="det">Continue comme ça pour débloquer de nouveaux personnages.</div>'}
     <div class="det">Prochain niveau dans ${p.need - p.into} XP.</div>
@@ -1033,14 +1045,16 @@ function gameInfoHTML(s) {
 /* ---------- Onglet Profil ---------- */
 function meHTML() {
   const me = state.me, seg = state.meSeg, lp = levelProgress(xpOf(me.id)), unread = unreadCount();
-  const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres'], ['regl', 'Réglages']];
+  const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres']];
   return `
-    <div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div>
+    <div class="mehead"><button class="gearbtn ${seg === 'regl' ? 'on' : ''}" data-action="seg" data-seg="${seg === 'regl' ? 'robe' : 'regl'}" aria-label="Réglages" title="Réglages">${GEAR_SVG}</button>
+    <div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div><span class="gsp"></span></div>
     <div class="center-av">${av(me, 150)}</div>
     <div class="lvlline"><b>Niveau ${lp.level}</b> · ${xpOf(me.id)} XP · encore ${lp.need - lp.into} pour le niveau ${lp.level + 1}
       <div class="bar sm lvlbar"><i style="width:${lp.pct}%"></i></div></div>
     ${unread && seg !== 'regl' ? `<button class="btn" style="margin:10px 0" data-action="seg" data-seg="regl">✉️ ${unread} nouveau${unread > 1 ? 'x' : ''} message${unread > 1 ? 's' : ''}</button>` : ''}
-    <div class="seg five">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
+    <div class="seg four">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
+    ${seg === 'regl' ? '' : ''}
     ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : robeHTML()}`;
 }
 
@@ -1049,7 +1063,7 @@ function badgeCells(m) {
   const st = statsOf(m.id);
   const wins = state.duelStats.find((x) => x.member_id === m.id)?.wins ?? 0;
   return [
-    ['level', '⭐', 'Niveau', lvlOf(m.id)],
+    ['level', 'NV', 'Niveau', lvlOf(m.id)],
     ['chores', '🧼', 'Savons', earnedSoap(m.id)],
     ['dollars', '🪙', 'Colocoins', chipsOf(m.id)],
     ['chifoumi', '✊', 'Victoires chifoumi', wins],
@@ -1153,10 +1167,12 @@ function cadresHTML() {
 
 function reglagesHTML() {
   const me = state.me;
+  const head = '<h3 class="sec" style="margin-top:14px">⚙️ Réglages</h3>';
   const swatches = (list, field, current) => list.map((o) =>
     `<button class="sw ${current?.toLowerCase() === o.c ? 'sel' : ''}" style="background:${o.c}" data-action="${field}" data-v="${o.c}" aria-label="${esc(o.name)}" aria-pressed="${current?.toLowerCase() === o.c}"></button>`).join('');
   const cur = OUTFITS[me.outfit] ?? OUTFITS.none;
   return `
+    ${head}
     <button class="btn foldbtn" data-action="tog" data-id="sexe" aria-expanded="${!!state.open.sexe}">Changer de sexe ${state.open.sexe ? '▴' : '▾'}</button>
     ${state.open.sexe ? `<div class="seg small" style="margin-top:8px">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
       `<button class="${me.gender === k ? 'on' : ''}" data-action="gender" data-v="${k}">${l}</button>`).join('')}</div>` : ''}
@@ -1184,25 +1200,45 @@ function robeHTML() {
     <h3 class="sec">À débloquer</h3>
     <div class="shop">${Object.entries(OUTFITS).filter(([id]) => id !== 'none' && !owned.has(id)).map(([id, o]) => `
       <div class="item locked">
-        ${av({ ...me, outfit: id, frame: null }, 76)}<b>${esc(outfitName(id, me.gender))}</b><small>${o.level ? `Niveau ${o.level}` : `Défi : ${esc(titleOf(o.challenge) ?? '?')}`}</small></div>`).join('') || '<div class="det" style="grid-column:1/-1">Tu as tout débloqué 🎉</div>'}</div>`;
+        ${av({ ...me, outfit: id, frame: null }, 76)}<b>${esc(outfitName(id, me.gender))}</b><small>${o.level ? `Niveau ${o.level}` : o.price ? `Boutique · ${o.price} 🪙` : `Défi : ${esc(titleOf(o.challenge) ?? '?')}`}</small></div>`).join('') || '<div class="det" style="grid-column:1/-1">Tu as tout débloqué 🎉</div>'}</div>`;
 }
 
 // ---------- Boutique (caddie) : cadres, effets de pseudo, looks de l'oiseau ----------
 function shopHTML(s) {
-  const me = state.me, slot = s.slot || 'frame', owned = shopOwned(me.id), bal = chipsOf(me.id);
-  const none = { frame: 'Sans cadre', namefx: 'Pseudo normal', bird: 'Oiseau classique' }[slot];
-  const preview = (key) => (slot === 'frame' ? av({ ...me, frame: key }, 64) : slot === 'namefx' ? `<span class="nprev">${nameHTML({ name: me.name, namefx: key })}</span>` : birdSVG(key, 70));
+  const me = state.me, slot = s.slot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
+  const none = { outfit: 'Tenue de base', frame: 'Sans cadre', namefx: 'Pseudo normal', bird: 'Oiseau classique' }[slot];
+  const noneKey = slot === 'outfit' ? 'none' : null;
+  const cur = slot === 'outfit' ? (me.outfit || 'none') : (me[slot] || null);
+  const preview = (key) => (slot === 'outfit' ? av({ ...me, outfit: key, frame: null }, 64) : slot === 'frame' ? (key ? av({ ...me, frame: key }, 64) : avatarSVG(me, 64))
+    : slot === 'namefx' ? `<span class="nprev">${nameHTML({ name: me.name, namefx: key })}</span>` : birdSVG(key, 70));
   const tile = (key, name, price) => {
-    const has = !key || owned.has(`${slot}:${key}`), eq = (me[slot] || null) === (key || null);
-    return `<div class="item ${eq ? 'eq' : ''}">${slot === 'frame' && !key ? avatarSVG(me, 64) : preview(key)}<b>${esc(name)}</b>
+    const isNone = key === noneKey;
+    const has = isNone || (slot === 'outfit' ? skins.has(key) : owned.has(`${slot}:${key}`)), eq = cur === key;
+    return `<div class="item ${eq ? 'eq' : ''}">${preview(key)}<b>${esc(slot === 'outfit' && !isNone ? outfitName(key, me.gender) : name)}</b>
       ${has ? `<button class="mini ${eq ? 'ok' : ''}" data-action="shop-equip" data-slot="${slot}" data-id="${key ?? ''}">${eq ? 'Équipé' : 'Équiper'}</button>`
         : `<button class="mini ok" data-action="shop-buy" data-slot="${slot}" data-id="${key}" ${bal >= price ? '' : 'disabled'}>${price} 🪙</button>`}</div>`;
   };
   return sheetWrap(`
     <div class="sh"><div><h2>🛒 Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>${closeBtn}</div>
-    <div class="seg" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>
-    <div class="shop shopgrid">${tile(null, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
-    <div class="det">${{ frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.', bird: "Un nouveau look pour l'oiseau de Jumpy Cardinal." }[slot]} Gagne des colocoins avec la récompense du jour, le blackjack, le chifoumi et le plateau.</div>`, 'var(--gold)');
+    <div class="seg five" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>
+    <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
+    <div class="det">${{ outfit: 'Des personnages à acheter. Singe, tortue, lion et dino se débloquent aux niveaux 5, 10, 20 et 30.', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.', bird: "Un nouveau look pour l'oiseau de Jumpy Cardinal." }[slot]}</div>`, 'var(--gold)');
+}
+function exchangeHTML() {
+  const me = state.me, have = soapOf(me.id), coloc = me.kind === 'coloc';
+  return sheetWrap(`
+    <div class="sh"><div><h2>Échange</h2><div class="when">Tu as ${have} 🧼 · ${chipsOf(me.id)} 🪙</div></div>${closeBtn}</div>
+    <div class="det">Change tes savons contre des colocoins : plus tu en échanges d'un coup, plus c'est avantageux.</div>
+    ${SOAP_EXCHANGE.map((o) => `<div class="up"><div class="txt"><b>${o.soap} 🧼 → ${o.coins} 🪙</b><small>${o.coins / o.soap} colocoins par savon</small></div>
+      <button class="mini ok" data-action="exchange-do" data-id="${o.soap}" ${coloc && have >= o.soap ? '' : 'disabled'}>Échanger</button></div>`).join('')}
+    ${coloc ? '' : '<div class="det">Seuls les colocataires gagnent des savons.</div>'}`, 'var(--gold)');
+}
+async function exchangeNow(soap) {
+  try {
+    const r = await state.api.exchangeSoap(state.me.id, soap);
+    await refresh(true);
+    toast(`+${r.coins} colocoins !`);
+  } catch (e) { toast(e.message || 'Échange impossible.'); refresh(true).catch(() => {}); }
 }
 async function shopBuy(slot, key) {
   try {
@@ -1219,7 +1255,7 @@ const ordinal = (n) => (n === 1 ? '1er' : `${n}e`);
 function rankHTML() {
   const seg = state.rankSeg === 'level' ? 'level' : state.rankSeg === 'chores' ? 'chores' : 'dollars';
   const board = BOARDS.find((b) => b.key === seg);
-  return `<div class="seg" style="margin-bottom:12px">${[['dollars', '🪙 Colocoins'], ['level', '⭐ Niveau'], ['chores', '🧼 Savons']].map(([k, l]) =>
+  return `<div class="seg" style="margin-bottom:12px">${[['dollars', '🪙 Colocoins'], ['level', 'Niveau'], ['chores', '🧼 Savons']].map(([k, l]) =>
     `<button class="${seg === k ? 'on' : ''}" data-action="rseg" data-v="${k}">${l}</button>`).join('')}</div>
     <p class="summary" style="margin-top:0">${{ dollars: 'Le nombre de colocoins que chacun possède en ce moment.', level: 'Le niveau (puis l\'XP) de chaque coloc et copain.', chores: 'Les savons gagnés grâce aux tâches ménagères.' }[seg]}</p>
     ${boardListHTML(board)}`;
@@ -1300,7 +1336,7 @@ function wheelSheetHTML(s) {
     const a0 = (i / n) * 2 * Math.PI - Math.PI / 2, a1 = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2, am = (a0 + a1) / 2;
     const p = (a, r) => `${(110 + Math.cos(a) * r).toFixed(1)},${(110 + Math.sin(a) * r).toFixed(1)}`;
     return `<path d="M110,110 L${p(a0, R)} A${R},${R} 0 0 1 ${p(a1, R)}Z" fill="${c}" stroke="#fff" stroke-width="2"/>
-      <text x="${110 + Math.cos(am) * 66}" y="${110 + Math.sin(am) * 66 + 6}" text-anchor="middle" font-size="18">⭐</text>`;
+      <text x="${110 + Math.cos(am) * 66}" y="${110 + Math.sin(am) * 66 + 6}" text-anchor="middle" font-size="18">✦</text>`;
   }).join('');
   const deg = Math.round((s.turns ?? 0) * 360);
   const style = s.spinning ? `--end:${deg}deg;transform:rotate(${deg}deg)` : '';
@@ -1340,7 +1376,9 @@ document.addEventListener('click', (e) => {
     case 'heads': state.heads = !state.heads; render(); if (state.heads) questStep(6); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
-    case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'frame' }; render(); break;
+    case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
+    case 'exchange': state.heads = false; state.sheet = { type: 'exchange' }; render(); break;
+    case 'exchange-do': exchangeNow(Number(id)); break;
     case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
@@ -1402,18 +1440,40 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !state.g
 render();
 init();
 
-/* ---------- Colocoin : la pièce 🪙 du texte devient une pièce jaune trouée (SVG) ---------- */
-function coinify(root) {
-  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => (n.nodeValue.includes('🪙') && !/^(SCRIPT|STYLE|TEXTAREA)$/.test(n.parentNode?.nodeName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT) });
+/* ---------- Monnaies : chacune a son image SVG et sa couleur ----------
+   🪙 colocoin : pièce jaune trouée, mot « colocoins » en jaune (police arrondie)
+   🧼 savon    : savon bleu, mot « savons » en bleu (autre police)
+   XP         : pastille « EXP » jaune-orangé ; plus aucune étoile */
+const EXP_SVG = '<svg viewBox="0 0 46 20" width="2.5em" height="1.1em" aria-label="EXP" role="img" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="expg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff8c1a"/></linearGradient></defs><rect x="1" y="1" width="44" height="18" rx="9" fill="url(#expg)" stroke="#c2570c" stroke-width="1.4"/><text x="23" y="14.2" text-anchor="middle" font-size="12.5" font-weight="800" font-family="Lilita One,Arial Rounded MT Bold,system-ui,sans-serif" fill="#fff" stroke="#8a3d05" stroke-width=".5" paint-order="stroke" letter-spacing=".6">EXP</text></svg>';
+const CUR_RE = /(🪙|🧼|⭐|\b[Cc]olocoins?\b|\b[Ss]avons?\b|\bXP\b)/g;
+const SKIP = /^(SCRIPT|STYLE|TEXTAREA|OPTION|SELECT|TITLE|TEXT|TSPAN|INPUT)$/i;
+function decorate(root) {
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: (n) => {
+    const par = n.parentElement;
+    if (!par || SKIP.test(par.nodeName) || par.closest('.dc,svg')) return NodeFilter.FILTER_REJECT;
+    CUR_RE.lastIndex = 0;
+    return CUR_RE.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+  } });
   const list = []; while (w.nextNode()) list.push(w.currentNode);
   for (const n of list) {
     const frag = document.createDocumentFragment();
-    n.nodeValue.split('🪙').forEach((part, i) => { if (i) { const c = document.createElement('i'); c.className = 'cc'; c.setAttribute('role', 'img'); c.setAttribute('aria-label', 'colocoin'); frag.appendChild(c); } if (part) frag.appendChild(document.createTextNode(part)); });
+    n.nodeValue.split(CUR_RE).forEach((part, i) => {
+      if (i % 2 === 0) { if (part) frag.appendChild(document.createTextNode(part)); return; }
+      const e = document.createElement(/^[A-Za-z]/.test(part) && part !== 'XP' ? 'b' : 'i');
+      e.classList.add('dc');
+      if (part === '🪙') { e.className = 'dc cc'; e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'colocoin'); }
+      else if (part === '🧼') { e.className = 'dc cs'; e.setAttribute('role', 'img'); e.setAttribute('aria-label', 'savon'); }
+      else if (part === '⭐') { return; }
+      else if (part === 'XP') { e.className = 'dc cxp'; e.innerHTML = EXP_SVG; }
+      else if (/^[Cc]olocoin/.test(part)) { e.className = 'dc w-cc'; e.textContent = part; }
+      else { e.className = 'dc w-soap'; e.textContent = part; }
+      frag.appendChild(e);
+    });
     n.parentNode.replaceChild(frag, n);
   }
 }
 try {
-  coinify(document.body);
-  new MutationObserver((muts) => { for (const m of muts) m.addedNodes.forEach((n) => { if (n.nodeType === 1) coinify(n); else if (n.nodeType === 3 && n.parentNode) coinify(n.parentNode); }); })
+  decorate(document.body);
+  new MutationObserver((muts) => { for (const m of muts) m.addedNodes.forEach((n) => { if (n.nodeType === 1) decorate(n); else if (n.nodeType === 3 && n.parentNode) decorate(n.parentNode); }); })
     .observe(document.body, { childList: true, subtree: true });
-} catch {}
+} catch { /* rien */ }

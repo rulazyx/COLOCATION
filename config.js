@@ -50,12 +50,21 @@ export const HAIR_COLORS = [
 // hidesHair / hidesSkin : la tenue cache cheveux / peau. nameF : nom au féminin (facultatif)
 export const OUTFITS = {
   none:         { name: 'Tenue de base' },
-  singe:        { name: 'Singe',        level: 3,  hidesHair: true, hidesSkin: true },
-  pirate:       { name: 'Pirate',       level: 5 },
-  ninja:        { name: 'Ninja',        level: 8,  hidesHair: true },
-  astronaute:   { name: 'Astronaute',   level: 10 },
+  // — au niveau (5, 10, 20, 30) —
+  singe:        { name: 'Singe',        level: 5,  hidesHair: true, hidesSkin: true },
+  tortue:       { name: 'Tortue',       level: 10, hidesHair: true, hidesSkin: true },
+  lion:         { name: 'Lion',         nameF: 'Lionne', level: 20, hidesHair: true, hidesSkin: true },
+  dino:         { name: 'Dino',         level: 30, hidesHair: true, hidesSkin: true },
+  // — dans la boutique (colocoins) —
+  pirate:       { name: 'Pirate',       price: 400 },
+  ninja:        { name: 'Ninja',        price: 500, hidesHair: true },
+  astronaute:   { name: 'Astronaute',   price: 800 },
+  fee:          { name: 'Fée',          price: 600 },
+  creole:       { name: 'Créole',       price: 500 },
+  docteur:      { name: 'Docteur',      nameF: 'Docteure', price: 600 },
+  chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', price: 1000, hidesHair: true },
+  // — par défi —
   zippo:        { name: 'Zippo',        challenge: 'noob', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
-  chevalier:    { name: 'Chevalier',    nameF: 'Chevalière', challenge: 'pilier',            hidesHair: true },
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'dollars_1000' },
   poussin:      { name: 'Poussin',      challenge: 'maitre_poussin', hidesHair: true, hidesSkin: true },
@@ -171,5 +180,10 @@ export const SHOP = {
     { key: 'arcenciel', name: 'Arc-en-ciel',  price: 1000, body: '#ef4444', belly: '#fff', wing: '#8b5cf6', rainbow: true },
   ],
 };
-export const SHOP_SLOTS = [['frame', 'Cadres'], ['namefx', 'Pseudo'], ['bird', 'Oiseau']];
+// Apparences vendues (voir OUTFITS : price). Stockées dans purchases.item sous le nom simple (ex. 'pirate')
+SHOP.outfit = Object.entries(OUTFITS).filter(([, o]) => o.price).map(([key, o]) => ({ key, name: o.name, price: o.price }));
+export const SHOP_SLOTS = [['outfit', 'Apparence'], ['frame', 'Cadres'], ['namefx', 'Pseudo'], ['bird', 'Oiseau']];
 export const shopItem = (slot, key) => SHOP[slot]?.find((i) => i.key === key) ?? null;
+
+// Échange de savons contre des colocoins (offres fixes)
+export const SOAP_EXCHANGE = [{ soap: 1, coins: 100 }, { soap: 10, coins: 1200 }];

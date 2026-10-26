@@ -156,3 +156,16 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 - Trophées supprimés de l'interface et des gains (à repenser). Défis prince/roi/dieu retirés ; les tenues Roi et Zeus se débloquent avec « Gros joueur » et « Roi du casino ».
 - Onglets illustrés (TÂCHES, QUÊTES, JEUX, CLASSEMENT, PERSO). Perso : Garde-robe / Titres / Badges / Cadres / Réglages.
 - Mise à jour : exécuter `supabase/migration-v8.sql`, redéployer `notify`.
+
+## v15
+- Barre d'onglets sombre : icônes blanches, jaunes sur l'onglet actif.
+- Boutique : nouvel onglet Apparence (pirate, ninja, astronaute, fée, créole, docteur, chevalier). Singe/tortue/lion/dino : niveaux 5/10/20/30. Nouveaux dessins : fée, créole, docteur, tortue, lion, dino.
+- Profil : Réglages = bouton engrenage en haut à gauche.
+- Plateau animé : dé qui roule, pion qui avance de case en case, décor animé, cadre en bois.
+- Monnaies : colocoins (pièce + mot jaune), savons (savon + mot bleu), EXP (pastille jaune-orangé) ; niveau coloré par palier. Plus d'étoile.
+- Remise à zéro totale (clé `reset_v15`, une seule fois) : niveaux, XP, pièces, savons, records, achats, tâches, messages.
+- Mise à jour : exécuter `supabase/migration-v8.sql`, redéployer `notify`.
+
+## v15b
+- Échange : toucher les colocoins du header → 1 savon = 100 colocoins, 10 savons = 1 200 colocoins (`exchange_soap`, table `soap_exchanges`).
+- Icône Jeux (oiseau) redessinée ; étoile du podium retirée.

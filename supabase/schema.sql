@@ -1251,6 +1251,14 @@ alter table members add column if not exists frame text;    -- cadre de profil �
 alter table members add column if not exists namefx text;   -- effet de pseudo équipé (boutique)
 alter table members add column if not exists bird text;     -- look de l'oiseau de Jumpy Cardinal (boutique)
 
+-- ---------- Apparences débloquées au niveau (singe 5, tortue 10, lion 20, dino 30) ----------
+delete from skin_levels;
+insert into skin_levels (item, level) values
+  ('singe', 5),
+  ('tortue', 10),
+  ('lion', 20),
+  ('dino', 30);
+
 -- ---------- Boutique : cadres, effets de pseudo, looks de l'oiseau (payés en colocoins) ----------
 create table if not exists shop_items (item text primary key, slot text not null, price int not null check (price >= 0));
 delete from shop_items;
@@ -1280,21 +1288,29 @@ insert into shop_items (item, slot, price) values
   ('bird:lunettes', 'bird', 250),
   ('bird:ninja', 'bird', 300),
   ('bird:or', 'bird', 700),
-  ('bird:arcenciel', 'bird', 1000);
+  ('bird:arcenciel', 'bird', 1000),
+  ('outfit:pirate', 'outfit', 400),
+  ('outfit:ninja', 'outfit', 500),
+  ('outfit:astronaute', 'outfit', 800),
+  ('outfit:fee', 'outfit', 600),
+  ('outfit:creole', 'outfit', 500),
+  ('outfit:docteur', 'outfit', 600),
+  ('outfit:chevalier', 'outfit', 1000);
 alter table shop_items enable row level security;
 drop policy if exists "shop lecture" on shop_items; create policy "shop lecture" on shop_items for select using (true);
 
 create or replace function buy_shop(p_member int, p_item text) returns json
 language plpgsql security definer set search_path = public as $$
-declare v_price int;
+declare v_price int; v_store text;
 begin
   perform pg_advisory_xact_lock(hashtext('shop:' || p_member));
   select price into v_price from shop_items where item = p_item;
   if v_price is null then raise exception 'Article inconnu.'; end if;
-  if exists (select 1 from purchases where member_id = p_member and item = p_item) then raise exception 'Tu possèdes déjà cet article.'; end if;
+  v_store := case when p_item like 'outfit:%' then substr(p_item, 8) else p_item end;      -- les apparences sont stockées sous leur nom simple
+  if exists (select 1 from purchases where member_id = p_member and item = v_store) then raise exception 'Tu possèdes déjà cet article.'; end if;
   if chips_of(p_member) < v_price then raise exception 'Il te faut % colocoins.', v_price; end if;
   insert into chip_ledger (member_id, amount, reason) values (p_member, -v_price, 'shop');
-  insert into purchases (member_id, item, price) values (p_member, p_item, 0);
+  insert into purchases (member_id, item, price) values (p_member, v_store, 0);
   return json_build_object('item', p_item, 'price', v_price);
 end $$;
 grant execute on function buy_shop(int, text) to anon, authenticated;
@@ -1420,16 +1436,47 @@ create table if not exists dice_rolls (
 );
 create index if not exists dice_rolls_week on dice_rolls (week, member_id);
 
+-- Échanges savons → colocoins
+create table if not exists soap_exchanges (
+  id bigint generated always as identity primary key,
+  member_id int not null references members(id) on delete cascade,
+  soap int not null check (soap > 0),
+  coins int not null check (coins > 0),
+  created_at timestamptz not null default now()
+);
+alter table soap_exchanges enable row level security;
+drop policy if exists "exch lecture" on soap_exchanges; create policy "exch lecture" on soap_exchanges for select using (true);
+do $$ begin
+  begin alter publication supabase_realtime add table soap_exchanges; exception when duplicate_object then null; end;
+end $$;
+
 create or replace view soap_spent as
-  select member_id, sum(cost)::int as spent from dice_rolls group by member_id;
+  select m.id as member_id,
+    (coalesce((select sum(cost) from dice_rolls where member_id = m.id), 0) + coalesce((select sum(soap) from soap_exchanges where member_id = m.id), 0))::int as spent
+  from members m;
 grant select on soap_spent to anon, authenticated;
 
 -- Savons disponibles = gagnés (tâches validées) − dépensés
 create or replace function soap_of(p_member int) returns int
 language sql stable security definer set search_path = public as $$
   select (coalesce((select sum(soap) from task_logs where doer_id = p_member and status = 'validated'), 0)
-        - coalesce((select sum(cost) from dice_rolls where member_id = p_member), 0))::int
+        - coalesce((select sum(cost) from dice_rolls where member_id = p_member), 0)
+        - coalesce((select sum(soap) from soap_exchanges where member_id = p_member), 0))::int
 $$;
+
+create or replace function exchange_soap(p_member int, p_soap int) returns json
+language plpgsql security definer set search_path = public as $$
+declare v_coins int;
+begin
+  perform pg_advisory_xact_lock(hashtext('shop:' || p_member));
+  v_coins := case p_soap when 1 then 100 when 10 then 1200 end;
+  if v_coins is null then raise exception 'Échange invalide.'; end if;
+  if soap_of(p_member) < p_soap then raise exception 'Il te faut % savons.', p_soap; end if;
+  insert into soap_exchanges (member_id, soap, coins) values (p_member, p_soap, v_coins);
+  insert into chip_ledger (member_id, amount, reason) values (p_member, v_coins, 'echange');
+  return json_build_object('soap', p_soap, 'coins', v_coins);
+end $$;
+grant execute on function exchange_soap(int, int) to anon, authenticated;
 
 -- Récompenses immatérielles d'arrivée (une par joueur et par semaine) + confirmations des colocs
 create table if not exists perks (
@@ -1635,7 +1682,7 @@ insert into challenges (key, coins, skin, xp) values
   ('clochard', 0, 'clochard', 100),
   ('petit_nouveau', 0, null, 100),
   ('maitre_rh', 0, null, 1000),
-  ('pilier', 0, 'chevalier', 800),
+  ('pilier', 0, null, 800),
   ('dollars_500', 0, null, 300),
   ('dollars_1000', 0, 'roi', 800),
   ('dollars_10000', 0, 'zeus', 3000),
@@ -1663,6 +1710,30 @@ do $$ begin
     update member_stats s set quest_mask = q.quest_mask from _qm q where q.member_id = s.member_id;   -- l'introduction déjà vue n'est pas rejouée
     update members set outfit = 'none', title = null, badge = null;
     insert into app_meta (key, value) values ('reset_v11b', 'done');
+  end if;
+end $$;
+
+-- ---------- REMISE À ZÉRO TOTALE v15 (une seule fois) : niveaux, XP, pièces, records, achats, tout ----------
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_v15') then
+    delete from xp_log;
+    delete from coin_ledger;
+    delete from chip_ledger;
+    delete from duel_secrets;
+    delete from duels;
+    delete from unlocks;
+    delete from purchases;
+    delete from profile_views;
+    delete from task_logs;
+    delete from dice_rolls;
+    delete from perks;
+    delete from perk_confirms;
+    delete from soap_exchanges;
+    delete from messages;
+    delete from member_stats;
+    insert into member_stats (member_id) select id from members;
+    update members set outfit = 'none', title = null, badge = null, frame = null, namefx = null, bird = null;
+    insert into app_meta (key, value) values ('reset_v15', 'done');
   end if;
 end $$;
 

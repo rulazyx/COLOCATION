@@ -25,11 +25,15 @@ export function birdSVG(key, size = 64) {
 // Icônes d'onglets : traits fins (couleur du texte), fonds blancs, un seul accent jaune
 const NI = (inner) => `<svg class="nico" viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 const cleaner = NI(`
-  <path d="M34 8L25 33"/><path d="M29 5h9" stroke-width="3"/>
-  <path d="M15 35c-3-10 1-16 9-15 7 1 9 8 7 15z" class="f"/>
-  <rect x="5" y="35" width="38" height="9" rx="3.5" class="f"/>
-  <path d="M9 40.5h30" class="ys" stroke-width="3"/>
-  <path d="M21 27h5" stroke-width="1.6"/>`);
+  <g transform="rotate(-14 24 31)">
+    <rect x="6" y="21" width="36" height="20" rx="8" class="f"/>
+    <path d="M14 26.5h20" stroke-width="1.6"/>
+    <rect x="9" y="23.5" width="30" height="4.5" rx="2.2" class="y" stroke="none"/>
+    <rect x="6" y="21" width="36" height="20" rx="8" fill="none"/>
+    <path d="M13 34h12" stroke-width="1.6"/>
+  </g>
+  <circle cx="14" cy="11" r="5" class="f"/><circle cx="27" cy="7" r="3.2" class="f"/><circle cx="36" cy="13" r="4.2" class="f"/>
+  <path d="M12.2 9.5a2.6 2.6 0 0 1 1.8-1.2M35 11.6a2 2 0 0 1 1.2-.8" stroke-width="1.2"/>`);
 const book = NI(`
   <path d="M5 11c6-3 13-3 19 1v28c-6-4-13-4-19-1z" class="f"/>
   <path d="M43 11c-6-3-13-3-19 1v28c6-4 13-4 19-1z" class="f"/>
@@ -37,18 +41,15 @@ const book = NI(`
   <path d="M33 5v17l4-3.4 4 3.4V8" class="y"/>
   <path d="M29 20h6M29 26h10" stroke-width="1.5"/>`);
 const navBird = NI(`
-  <path d="M9 24c-4-3-5-8-3-12 4 1 8 4 10 8" class="f"/>
-  <circle cx="25" cy="26" r="15" class="f"/>
-  <path d="M15 28c2 6 9 8 14 4" />
-  <path d="M14 26c4-4 10-3 11 2-4 3-9 3-11-2z" class="y"/>
-  <circle cx="31" cy="21" r="4.2" class="f"/><circle cx="32" cy="21" r="1.8" class="k"/>
-  <path d="M39 24l8 3-8 4z" class="y"/>
-  <path d="M16 12c1-3 3-4 5-4M21 9c1-2 3-3 5-3" stroke-width="1.5"/>`);
+  <path d="M14 14h20c6 0 9 4 11 12l2 9c1 5-3 8-7 6-3-1-5-4-7-6H15c-2 2-4 5-7 6-4 2-8-1-7-6l2-9c2-8 5-12 11-12z" class="f"/>
+  <path d="M15 21v8M11 25h8" stroke-width="2.4"/>
+  <circle cx="33" cy="22" r="2.2" class="y"/><circle cx="38" cy="27" r="2.2" class="y"/>
+  <path d="M22 24h4" stroke-width="2"/>
+  <path d="M20 14v-3h8v3" />`);
 const podium = NI(`
   <rect x="4" y="26" width="12" height="16" rx="1.5" class="f"/>
   <rect x="18" y="16" width="12" height="26" rx="1.5" class="y"/>
   <rect x="32" y="31" width="12" height="11" rx="1.5" class="f"/>
-  <path d="M24 3.5l2 4.2 4.6.6-3.4 3.2.9 4.5-4.1-2.3-4.1 2.3.9-4.5-3.4-3.2 4.6-.6z" class="f" stroke-width="1.6"/>
   <g stroke="none" fill="currentColor" font-family="system-ui,sans-serif" font-weight="800" font-size="10" text-anchor="middle"><text x="10" y="38">2</text><text x="24" y="31">1</text><text x="38" y="40">3</text></g>`);
 const persoSVG = () => NI(`
   <circle cx="24" cy="17" r="9" class="f"/>
@@ -61,3 +62,7 @@ export const NAV_ICONS = {
 export const CART_SVG = `<svg viewBox="0 0 40 40" width="26" height="26" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <path d="M3 6h6l4 18h18l4-13H11" fill="#fde68a" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
   <circle cx="16" cy="32" r="3.2" fill="#475569"/><circle cx="29" cy="32" r="3.2" fill="#475569"/><path d="M15 15h16M16 20h14" stroke="#f59e0b" stroke-width="2"/></svg>`;
+
+export const GEAR_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="16" cy="16" r="4.2"/>
+  <path d="M13.4 3.5h5.2l.8 3.3 2.3 1 2.9-1.8 3.7 3.7-1.8 2.9 1 2.3 3.3.8v5.2l-3.3.8-1 2.3 1.8 2.9-3.7 3.7-2.9-1.8-2.3 1-.8 3.3h-5.2l-.8-3.3-2.3-1-2.9 1.8-3.7-3.7 1.8-2.9-1-2.3-3.3-.8v-5.2l3.3-.8 1-2.3-1.8-2.9 3.7-3.7 2.9 1.8 2.3-1z" transform="scale(.82) translate(3.5 3.5)"/></svg>`;

@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -58,6 +58,7 @@ export async function makeCloudApi() {
     async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
     async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
     async chips() { return check(await sb.from('chip_balances').select('*')); },
+    async exchangeSoap(member, soap) { return check(await sb.rpc('exchange_soap', { p_member: member, p_soap: soap })); },
     async buyShop(member, item) { return check(await sb.rpc('buy_shop', { p_member: member, p_item: item })); },
     async ledger(member) { return check(await sb.from('coin_ledger').select('*').eq('member_id', member).neq('amount', 0).order('id', { ascending: false }).limit(100)); },
     async perks() { return check(await sb.from('perks').select('*').order('id', { ascending: false }).limit(100)); },
@@ -108,7 +109,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       let ch = sb.channel('coloc');
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges']) {
         ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
       }
       ch.subscribe();
@@ -313,7 +314,7 @@ export function makeDemoApi() {
       return Object.entries(acc).map(([k, trophies]) => { const [id, week] = k.split('|'); return { member_id: Number(id), week, trophies }; });
     },
     // --- v8 : plateau, messages, blackjack (mêmes règles que migration-v8.sql) ---
-    async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) })); },
+    async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) + (db.exch ?? []).filter((r) => r.member_id === m.id).reduce((a, r) => a + r.soap, 0) })); },
     async diceRolls() { return [...db.dice].sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
     async rollDice(member) {
       if (!isColoc(member)) fail('Seuls les colocataires jouent au plateau.');
@@ -348,13 +349,23 @@ export function makeDemoApi() {
       return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
     async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id) })); },
+    async exchangeSoap(member, soap) {
+      const o = SOAP_EXCHANGE.find((x) => x.soap === soap);
+      if (!o) fail('Échange invalide.');
+      const earned = db.logs.filter((l) => l.doer_id === member && l.status === 'validated').reduce((a, l) => a + l.soap, 0);
+      const spent = db.dice.filter((r) => r.member_id === member).reduce((a, r) => a + r.cost, 0) + (db.exch ??= []).filter((r) => r.member_id === member).reduce((a, r) => a + r.soap, 0);
+      if (earned - spent < soap) fail(`Il te faut ${soap} savons.`);
+      db.exch.push({ member_id: member, soap, coins: o.coins }); addChips(member, o.coins, 'echange'); save();
+      return { soap, coins: o.coins };
+    },
     async buyShop(member, item) {
       const [slot, key] = item.split(':'), it = SHOP[slot]?.find((i) => i.key === key);
       if (!it) fail('Article inconnu.');
-      if (db.purchases.some((p) => p.member_id === member && p.item === item)) fail('Tu possèdes déjà cet article.');
+      const store = slot === 'outfit' ? key : item;
+      if (db.purchases.some((p) => p.member_id === member && p.item === store)) fail('Tu possèdes déjà cet article.');
       if (chipsOf(member) < it.price) fail(`Il te faut ${it.price} colocoins.`);
       addChips(member, -it.price, 'shop');
-      db.purchases.push({ id: db.purchases.length + 1, member_id: member, item, price: 0 }); save();
+      db.purchases.push({ id: db.purchases.length + 1, member_id: member, item: store, price: 0 }); save();
       return { item, price: it.price };
     },
     async ledger(member) { return db.ledger.filter((l) => l.member_id === member && l.amount).map((l) => ({ ...l, created_at: l.at })).reverse(); },

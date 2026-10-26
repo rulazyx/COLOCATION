@@ -653,11 +653,45 @@ nav.tabs button .tl{font-size:9.5px;font-weight:800;letter-spacing:.4px;margin-t
 .nfx-feu{background:linear-gradient(0deg,#ff3d00,#ffd54f);-webkit-background-clip:text;background-clip:text;color:transparent;text-shadow:0 0 6px rgba(255,100,0,.5)}
 @keyframes nfxmove{to{background-position:200% 0}}
 .seg.five button{white-space:nowrap;font-size:11px;padding:8px 1px}
-/* v14b : icônes d'onglets sobres (noir / blanc / jaune) */
-nav.tabs button .ico{color:var(--text)}
-nav.tabs button.active .ico{color:var(--text)}
+
+
+/* ---------- v15 : barre d'onglets sombre, icônes blanches → jaunes, monnaies, plateau animé ---------- */
+nav.tabs{background:#16181c;border-top:1px solid #000}
+nav.tabs button{color:#fff}
+nav.tabs button .ico{color:#fff}
+nav.tabs button.active,nav.tabs button.active .ico{color:var(--accent)}
+nav.tabs button .tl{font-weight:800;letter-spacing:.8px;font-size:9.5px}
 nav.tabs button .ico svg{filter:none;max-height:40px}
-nav.tabs button:not(.active) .ico{opacity:.55}
-.nico .f{fill:var(--card)}.nico .y{fill:var(--accent)}.nico .k{fill:currentColor;stroke:none}
-nav.tabs button .tl{font-weight:800;letter-spacing:.8px}
-.nico .ys{stroke:var(--accent)}
+.nico .f{fill:none}.nico .y{fill:currentColor;fill-opacity:.22}.nico .k{fill:currentColor;stroke:none}.nico .ys{stroke:currentColor}
+nav.tabs button.pulse{background:rgba(255,201,40,.25)}
+.cs{display:inline-block;width:1.1em;height:1.1em;vertical-align:-.2em;background:no-repeat center/contain url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><g transform='rotate(-14 16 20)'><rect x='3' y='12' width='26' height='16' rx='7' fill='%232b7de9' stroke='%231a56b8' stroke-width='1.6'/><rect x='6.5' y='14.5' width='19' height='4' rx='2' fill='%2389c0ff'/><path d='M8 23h9' stroke='%23cfe5ff' stroke-width='1.6' stroke-linecap='round'/></g><circle cx='9' cy='7' r='3.6' fill='%23dbeafe' stroke='%232b7de9' stroke-width='1.3'/><circle cx='19' cy='4.6' r='2.4' fill='%23dbeafe' stroke='%232b7de9' stroke-width='1.2'/><circle cx='26' cy='9' r='3' fill='%23dbeafe' stroke='%232b7de9' stroke-width='1.2'/></svg>")}
+.w-cc{color:#eaa800;font-family:'Lilita One','Arial Rounded MT Bold',system-ui,sans-serif;font-weight:400;letter-spacing:.3px;-webkit-text-stroke:.5px rgba(150,95,0,.45)}
+.w-soap{color:#2b7de9;font-family:'Fredoka','Arial Rounded MT Bold',ui-rounded,system-ui,sans-serif;font-weight:600;letter-spacing:.2px}
+.cxp{display:inline-block;vertical-align:-.22em;line-height:0}.cxp svg{display:block}
+.hchip.cur-cc{color:#d99a00;font-family:'Lilita One',system-ui,sans-serif;font-weight:400;font-size:16px;letter-spacing:.3px}
+.hchip.cur-soap{color:#2b7de9;font-family:'Fredoka',system-ui,sans-serif;font-weight:600}
+.lvlcircle{background:var(--lc,#ffd23f)!important}
+.seg.four button{font-size:12px;white-space:nowrap;padding:8px 2px}
+.gearbtn{position:absolute;left:14px;top:12px;z-index:3;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#16181c;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.gearbtn.on{color:var(--accent)}
+/* plateau animé façon jeu de société */
+.beach{border:7px solid #8b5a2b;border-radius:20px;box-shadow:inset 0 0 0 2px #c58a4a,0 8px 16px rgba(0,0,0,.3);background:linear-gradient(#f4dd9d,#efc873)}
+.beach .gc{box-shadow:0 3px 0 #d3a950,0 5px 6px rgba(0,0,0,.18);transition:transform .2s,background .2s}
+.beach .gc.on{transform:translateY(-3px) scale(1.06);background:#fff6c4!important;box-shadow:0 0 0 3px var(--accent),0 6px 10px rgba(0,0,0,.3);z-index:3}
+.pawn.mv{transform:scale(1.5);z-index:4;box-shadow:0 0 0 2px var(--accent),0 4px 8px rgba(0,0,0,.4);animation:pawnhop .4s ease-out}
+@keyframes pawnhop{0%{transform:translateY(-14px) scale(1.5)}60%{transform:translateY(2px) scale(1.5)}100%{transform:scale(1.5)}}
+.beach .dieover{position:absolute;left:50%;top:44px;transform:translateX(-50%);z-index:6;pointer-events:none}
+.beach .dieover .die{box-shadow:0 8px 18px rgba(0,0,0,.4)}
+.die.tumble{animation:dietumble .75s ease-in-out}
+@keyframes dietumble{0%{transform:translateY(-40px) rotate(0)}30%{transform:translateY(0) rotate(200deg)}55%{transform:translateY(-18px) rotate(320deg)}80%{transform:translateY(0) rotate(430deg)}100%{transform:rotate(360deg)}}
+.bscene .boat{animation:bob 3s ease-in-out infinite}.bscene .waves{animation:wavemove 5s linear infinite}.bscene .sunhalo{transform-origin:300px 36px;animation:frpulse 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translateY(3px) rotate(2deg)}}
+@keyframes wavemove{from{transform:translateX(0)}to{transform:translateX(-20px)}}
+.beach .palm svg{transform-origin:50% 100%;animation:sway 4.5s ease-in-out infinite}.beach .palm.r svg{animation-delay:-2s}
+@keyframes sway{50%{transform:rotate(3deg)}}
+main.nohdr{position:relative}
+.mehead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.mehead .pname{flex:1;text-align:center}
+.mehead .gearbtn{position:static}.mehead .gsp{width:40px;height:40px}
+.beach .dieover .die{width:62px;height:62px;padding:7px}.beach .dieover .die i{width:10px;height:10px}
+.w-cc,.w-soap{display:inline!important}.txt b.w-cc,.txt b.w-soap{display:inline!important;font-size:inherit}
