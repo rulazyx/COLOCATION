@@ -111,11 +111,10 @@ export async function makeCloudApi() {
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
-      let ch = sb.channel('coloc');
+      // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
       for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges']) {
-        ch = ch.on('postgres_changes', { event: '*', schema: 'public', table }, cb);
+        sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, cb).subscribe();
       }
-      ch.subscribe();
     },
     async saveSub(memberId, sub) {
       const row = { endpoint: sub.endpoint, member_id: memberId, sub };

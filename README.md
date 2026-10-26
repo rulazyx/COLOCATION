@@ -182,3 +182,6 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 - La pastille 🧼 ouvre le plateau.
 - Plateau en anneau (30 cases, la 30 rejoint la 1) ; classement des tours de la semaine ; `settle_plateau()` verse 500 🪙 au(x) meilleur(s) de la semaine passée (au moins 1 tour).
 - Textes, onglets du bas et segments plus petits.
+
+## v17b
+- Synchro robuste : une requête en échec ne bloque plus les autres ; bandeau rouge « Données non à jour » + bouton Réessayer ; un canal temps réel par table.

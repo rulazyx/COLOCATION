@@ -139,13 +139,17 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  [state.members, state.scores, state.balances, state.products, state.purchases, state.duels,
-    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs, state.spent, state.dice, state.perks, state.pconf, state.chips, state.pweeks] = await Promise.all([
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks'];
+  const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
     state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(),
   ]);
-  state.msgs = state.me ? await state.api.messages(state.me.id) : [];
+  const failed = [];
+  res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
+  state.syncErr = failed.length ? failed[0] : null; if (!failed.length) state.syncAt = new Date();
+  if (failed.length && !state.members?.length) throw new Error(failed[0]);
+  try { state.msgs = state.me ? await state.api.messages(state.me.id) : []; } catch (e) { state.msgs = state.msgs ?? []; state.syncErr ??= `messages: ${e.message}`; }
   if (state.me) state.me = memberById(state.me.id) ?? null;
   state.initials = computeInitials(state.members);
   checkNewResults();
@@ -618,7 +622,7 @@ function render() {
           <span>Active les notifications pour recevoir les rappels, les alertes de rupture, les défis et les messages.</span>
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
-      ${confirmBannerHTML(tab)}
+      ${syncBarHTML()}${confirmBannerHTML(tab)}
       ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
@@ -634,6 +638,10 @@ function render() {
 }
 
 // Tâches faites par un autre coloc : on peut les confirmer depuis n'importe quel onglet
+function syncBarHTML() {
+  if (!state.syncErr) return '';
+  return `<div class="syncerr"><span>⚠️ Données non à jour : ${esc(state.syncErr)}</span><button class="mini" data-action="sync">↻ Réessayer</button></div>`;
+}
 function confirmBannerHTML(tab) {
   const list = toConfirm();
   if (!list.length || (tab === 'tasks' && state.tasksSeg === 'tasks')) return '';   // dans la liste des tâches, la section « À confirmer » suffit
@@ -1424,6 +1432,7 @@ document.addEventListener('click', (e) => {
     case 'push': enablePush(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
+    case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
     // --- Toi : personnage et boutique ---
     case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
     case 'bg': saveProfile({ bg: v }); break;
