@@ -242,3 +242,10 @@ Reglages > Compteur FPS (Jumpy Cardinal). Le titre apparait sous le nom dans les
 ## v30 — Jumpy Cardinal : mouvement au temps réel (plus de micro-saccades)
 
 ## v31 — Jumpy Cardinal : appli masquée pendant la partie, compteur dans le canvas
+
+## v32 — iPhone : le jeu occupe tout l ecran (barre detat translucide)
+Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la rajouter.
+
+## v33
+- Écran de chargement : « KOMAN IL É ».
+- Jumpy Cardinal : bouton « Caisse mystère · 150 » sur l'écran « Touche pour voler » (révélation + Équiper), sons synthétisés (battement d'ailes, point, choc, explosion) avec bouton muet, et le point est compté pile quand l'oiseau atteint le milieu de la colonne.

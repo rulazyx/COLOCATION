@@ -867,3 +867,18 @@ button.np.grow:not(:disabled){background:#e0f2fe;border-color:#7dd3fc}
 .fpshud{position:absolute;left:8px;top:calc(52px + env(safe-area-inset-top));z-index:6;margin:0;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.6);color:#9dffb0;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:none;white-space:pre}
 
 body.ingame #app{display:none}
+
+/* iPhone (appli installée) : le contenu passe sous la barre d'état. Hors jeu, une bande sombre la remplace ; en jeu, le jeu prend tout l'écran. */
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top);background:#16181c;z-index:45;pointer-events:none}
+body.ingame::before{display:none}
+
+/* Jumpy Cardinal : son, caisse sur l'écran de départ */
+.gmute{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;z-index:5;width:38px;height:38px;border-radius:50%;border:0;background:rgba(0,0,0,.35);color:#fff;display:grid;place-items:center}
+.gcratebtn{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);z-index:5;border:0;border-radius:999px;padding:11px 18px;background:#ffc928;color:#3b2a00;font-weight:800;font-size:.95rem;box-shadow:0 3px 0 #b8860b;white-space:nowrap}
+.gcratebtn.poor{opacity:.55}
+.gcrate{position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.7);display:grid;place-items:center}
+.gcrate[hidden],.gcratebtn[hidden]{display:none}
+.gcr-card{background:#fff;border-radius:18px;padding:18px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:220px;color:#222}
+.gcr-rar{font-weight:800;font-size:.8rem;padding:2px 10px;border-radius:99px;background:#eee}
+.gbtn{border:0;border-radius:12px;padding:10px 20px;font-weight:800;background:#ffc928;color:#3b2a00;width:100%}
+.gbtn.ghost{background:#eee;color:#444}

@@ -1,6 +1,7 @@
 // « Coucou » : un oiseau rouge qui bat des ailes entre des colonnes jaunes (mécanique classique, dessin original).
 // Le score = nombre de colonnes passées. Toucher l'écran / espace / ↑ = battre des ailes.
-import { SHOP } from '../config.js';
+import { SHOP, BIRD_CRATE, birdRarity } from '../config.js';
+import { birdSVG, CRATE_SVG } from '../shopart.js';
 export const W = 288, H = 480, GROUND = 64;
 const GRAVITY = 0.42, FLAP = -6.9, MAX_FALL = 9;
 const PIPE_W = 54, GAP = 128, SPEED = 2.3, SPACING = 176, BIRD_X = 78, BIRD_R = 12;
@@ -9,14 +10,14 @@ export const GROW_F = 26, DEAD_F = 100; // images : gonflement, puis fin de l'an
 // Logique pure (testable sans navigateur)
 export function createGame(rng = Math.random) {
   const g = {
-    y: H / 2 - 40, vy: 0, pipes: [], score: 0, dead: false, exploded: false, deathT: 0, parts: [], started: false, t: 0, nextX: W + 60, tilt: 0,
-    flap() { if (g.dead) return; g.started = true; g.vy = FLAP; },
+    y: H / 2 - 40, vy: 0, pipes: [], score: 0, sfx: [], dead: false, exploded: false, deathT: 0, parts: [], started: false, t: 0, nextX: W + 60, tilt: 0,
+    flap() { if (g.dead) return; g.started = true; g.vy = FLAP; g.sfx.push('flap'); },
     step(k = 1) {   // k = durée de l'image en « images à 60 Hz » (1 = 16,7 ms) : le mouvement suit le temps réel, quelle que soit la fréquence de l'écran
       g.t += k;
       if (!g.started) { g.y = H / 2 - 40 + Math.sin(g.t / 9) * 6; return; }
       if (g.dead) {   // l'oiseau gonfle sur place, puis explose en plumes
         g.deathT += k;
-        if (!g.exploded && g.deathT >= GROW_F) g.exploded = true, g.parts = Array.from({ length: 30 }, (_, i) => {
+        if (!g.exploded && g.deathT >= GROW_F) g.exploded = true, g.sfx.push('boom'), g.parts = Array.from({ length: 30 }, (_, i) => {
           const a = (i / 30) * Math.PI * 2 + rng() * 0.5, v = 2 + rng() * 5.5;
           return { x: BIRD_X, y: g.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5, r: rng() * 6, vr: (rng() - 0.5) * 0.5, c: i % 3, life: 1, sz: 7 + rng() * 7 };
         });
@@ -33,11 +34,11 @@ export function createGame(rng = Math.random) {
       }
       while (g.pipes.length && g.pipes[0].x <= -PIPE_W - 4) g.pipes.shift();
       for (const p of g.pipes) {
-        if (!p.passed && p.x + PIPE_W < BIRD_X - BIRD_R) { p.passed = true; g.score++; }
+        if (!p.passed && p.x + PIPE_W / 2 <= BIRD_X) { p.passed = true; g.score++; g.sfx.push('score'); }   // le point tombe quand l'oiseau est pile au milieu de la colonne
         const inX = BIRD_X + BIRD_R - 3 > p.x && BIRD_X - BIRD_R + 3 < p.x + PIPE_W;
-        if (inX && (g.y - BIRD_R + 3 < p.top || g.y + BIRD_R - 3 > p.top + GAP)) g.dead = true;
+        if (inX && (g.y - BIRD_R + 3 < p.top || g.y + BIRD_R - 3 > p.top + GAP) && !g.dead) { g.dead = true; g.sfx.push('hit'); }
       }
-      if (g.y + BIRD_R >= H - GROUND) { g.y = H - GROUND - BIRD_R; g.dead = true; }
+      if (g.y + BIRD_R >= H - GROUND) { g.y = H - GROUND - BIRD_R; if (!g.dead) g.sfx.push('hit'); g.dead = true; }
       if (g.y - BIRD_R < -30) g.y = -30 + BIRD_R;
     },
   };
@@ -207,10 +208,56 @@ export function draw(ctx, g, frame, skin = BASE) {
   }
 }
 
-export function mount(root, { onEnd, bird, fps }) {
-  const skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
+
+// Sons synthétisés (aucun fichier) : battement d'ailes, point, choc, explosion
+function makeAudio() {
+  let ac = null, muted = false, noise = null;
+  try { muted = localStorage.getItem('coloc-mute') === '1'; } catch { /* rien */ }
+  const ensure = () => {
+    try {
+      if (!ac) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return false; ac = new C(); }
+      if (ac.state === 'suspended') ac.resume();
+      return true;
+    } catch { return false; }
+  };
+  const tone = (f0, f1, dur, type = 'sine', vol = 0.14, delay = 0) => {
+    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(f1, 1), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  };
+  const burst = (dur, vol, cutoff) => {
+    if (!noise) { noise = ac.createBuffer(1, ac.sampleRate * 0.6, ac.sampleRate); const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const t = ac.currentTime, src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noise; f.type = 'lowpass'; f.frequency.setValueAtTime(cutoff, t); f.frequency.exponentialRampToValueAtTime(120, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f); f.connect(g); g.connect(ac.destination); src.start(t); src.stop(t + dur + 0.02);
+  };
+  return {
+    unlock: ensure,
+    get muted() { return muted; },
+    toggle() { muted = !muted; try { localStorage.setItem('coloc-mute', muted ? '1' : '0'); } catch { /* rien */ } if (!muted) ensure(); return muted; },
+    play(kind) {
+      if (muted || !ensure()) return;
+      if (kind === 'flap') tone(340, 640, 0.09, 'triangle', 0.13);
+      else if (kind === 'score') { tone(880, 880, 0.09, 'sine', 0.13); tone(1320, 1320, 0.14, 'sine', 0.12, 0.07); }
+      else if (kind === 'hit') { tone(220, 70, 0.22, 'square', 0.1); burst(0.12, 0.25, 2500); }
+      else if (kind === 'boom') { burst(0.5, 0.45, 1800); tone(120, 40, 0.4, 'sine', 0.25); }
+    },
+  };
+}
+const SPK_ON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>';
+const SPK_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>';
+const COIN = '<svg viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-3px"><circle cx="10" cy="10" r="9" fill="#f6b91d" stroke="#9a6209" stroke-width="1.6"/><circle cx="10" cy="10" r="5.4" fill="none" stroke="#fde68a" stroke-width="1.5"/></svg>';
+
+export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
+  let skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
+  const snd = makeAudio();
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
-    <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>`;
+    <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>
+    <button class="gmute" data-act="mute" aria-label="Son">${snd.muted ? SPK_OFF : SPK_ON}</button>
+    ${crate ? `<button class="gcratebtn" data-act="crate" hidden>${COIN} <b>${BIRD_CRATE.price}</b> · Caisse mystère</button>` : ''}
+    <div class="gcrate" hidden></div>`;
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
   // Compteur de performances (Réglages > Compteur FPS) : images par seconde, pires images, temps de calcul du jeu
   let hud = null, deltas = [], work = [], hudAt = 0, worstAll = 0, jankAll = 0, framesAll = 0;
@@ -235,10 +282,36 @@ export function mount(root, { onEnd, bird, fps }) {
   let g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
   const flap = () => { if (!g.dead) g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
-  const onDown = (e) => { e.preventDefault(); flap(); };
+  const crateBtn = root.querySelector('.gcratebtn'), muteBtn = root.querySelector('.gmute'), crateBox = root.querySelector('.gcrate');
+  let crating = false;
+  const syncCrate = () => {
+    if (!crateBtn) return;
+    const show = !g.started && !g.dead && !crating;
+    crateBtn.hidden = !show;
+    if (show) { const ok = (balance?.() ?? 0) >= BIRD_CRATE.price; crateBtn.disabled = !ok; crateBtn.classList.toggle('poor', !ok); }
+  };
+  const onDown = (e) => { snd.unlock(); e.preventDefault(); flap(); };
   cv.addEventListener('pointerdown', onDown);
   window.addEventListener('keydown', onKey);
   root.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-act]')?.dataset.act;
+    if (a === 'mute') { muteBtn.innerHTML = snd.toggle() ? SPK_OFF : SPK_ON; return; }
+    if (a === 'crate' && !crating) {
+      crating = true; crateBtn.hidden = true; snd.unlock();
+      crate().then((key) => {
+        const b = SHOP.bird.find((x) => x.key === key);
+        crateBox.innerHTML = `<div class="gcr-card"><div class="gcr-rar rar-${({ Commun: 'c', Rare: 'r', Épique: 'e', Légendaire: 'l' })[birdRarity(b?.w ?? 12)]}">${birdRarity(b?.w ?? 12)}</div>${birdSVG(key, 96)}<b>${b?.name ?? key}</b>
+          <button class="gbtn" data-act="cr-equip" data-key="${key}">Équiper</button><button class="gbtn ghost" data-act="cr-close">Continuer</button></div>`;
+        crateBox.hidden = false; snd.play('score');
+      }).catch((err) => { crating = false; crateBox.innerHTML = `<div class="gcr-card"><b>${(err && err.message) || 'Ouverture impossible.'}</b><button class="gbtn ghost" data-act="cr-close">OK</button></div>`; crateBox.hidden = false; });
+      return;
+    }
+    if (a === 'cr-equip') {
+      const key = e.target.closest('[data-act]').dataset.key;
+      Promise.resolve(equipBird?.(key)).catch(() => {});
+      skin = { ...BASE, ...(SHOP.bird.find((x) => x.key === key) ?? {}) };
+    }
+    if (a === 'cr-equip' || a === 'cr-close') { crateBox.hidden = true; crating = false; return; }
     if (e.target.dataset.act === 'again') { g = createGame(); reported = false; over.hidden = true; cv.classList.remove('gray'); }
   });
   function loop(ts) {
@@ -247,6 +320,8 @@ export function mount(root, { onEnd, bird, fps }) {
     const dt = Math.min(ts - (last || ts), 50); last = ts;
     let k = dt / (1000 / 60);                          // temps réel écoulé, en images à 60 Hz
     while (k > 0.001) { const kk = Math.min(k, 1.2); g.step(kk); k -= kk; frame += kk; }   // pas de 1,2 max : les collisions restent fiables après un à-coup
+    for (const x of g.sfx.splice(0)) snd.play(x);
+    syncCrate();
     draw(ctx, g, frame, skin);
     if (hudTxt.length) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(4, 40, 262, 70); ctx.fillStyle = '#9dffb0'; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'; hudTxt.forEach((t, i) => ctx.fillText(t, 8, 54 + i * 13)); }
     if (g.dead && g.deathT >= GROW_F + 38) cv.classList.add('gray');

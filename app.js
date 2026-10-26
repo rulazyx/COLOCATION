@@ -537,7 +537,9 @@ async function openGame(id) {
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1', ...(id === 'ferme' ? farmCtx() : {}),
+      balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
+      crate: async () => { const key = await state.api.openBirdCrate(state.me.id); await refresh(true); return key; },
+      equipBird: (key) => saveProfile({ bird: key }), ...(id === 'ferme' ? farmCtx() : {}),
       async onEnd(r) {
         try {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
