@@ -84,6 +84,16 @@ export async function makeCloudApi() {
       return id;
     },
     async readMessages(member) { check(await sb.rpc('read_messages', { p_member: member })); },
+    async events() { return check(await sb.from('events').select('*').order('starts_at').limit(200)); },
+    async eventVotes() { return check(await sb.from('event_votes').select('*')); },
+    async createEvent(m, title, place, startsAt) { return check(await sb.rpc('create_event', { p_member: m, p_title: title, p_place: place || null, p_starts: startsAt })); },
+    async voteEvent(m, ev, vote) { check(await sb.rpc('vote_event', { p_member: m, p_event: ev, p_vote: vote })); },
+    async deleteEvent(m, ev) { check(await sb.rpc('delete_event', { p_member: m, p_event: ev })); },
+    async sendSuggestion(member, body) {
+      const id = check(await sb.rpc('send_suggestion', { p_member: member, p_body: body }));
+      sb.functions.invoke('suggest', { body: {} }).then((r) => { if (r.error) console.warn('suggest:', r.error); });
+      return id;
+    },
     async reportBlackjack(id, bet, net, hands, wins, blackjack) {
       let r = check(await sb.rpc('report_blackjack', { p_member: id, p_bet: bet, p_net: net, p_hands: hands, p_wins: wins, p_blackjack: !!blackjack }));
       if (Array.isArray(r)) r = r[0];
@@ -123,7 +133,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, cb).subscribe();
       }
     },
@@ -395,8 +405,6 @@ export function makeDemoApi() {
       if (levelOf(db.xp.filter((x) => x.member_id === m).reduce((a, x) => a + x.amount, 0)) < c.level) fail(`Cette culture se débloque au niveau ${c.level}.`);
       const o = db.farm.find((p) => p.member_id === m && p.slot === slot);
       if (o) { if (Date.parse(o.ready_at) + FARM.witherH * HOUR_MS < Date.now()) db.farm = db.farm.filter((p) => p !== o); else fail('Cette parcelle est occupée.'); }
-      if (chipsOf(m) < c.cost) fail(`Il te faut ${c.cost} colocoins pour ces graines.`);
-      addChips(m, -c.cost, 'ferme:semis');
       db.farm.push({ member_id: m, slot, crop, planted_at: now(), ready_at: new Date(Date.now() + c.hours * HOUR_MS * (hasItem(m, 'puits') ? 1 - FARM.perks.wellCut : 1)).toISOString(), watered_by: [] }); save();
     },
     async farmHarvest(m, slot) {
@@ -504,6 +512,37 @@ export function makeDemoApi() {
       if (t.length > MESSAGE_MAX) fail(`Message trop long (${MESSAGE_MAX} caractères maximum).`);
       if (from === to) fail("Tu ne peux pas t'écrire à toi-même.");
       db.msgs.push({ id: db.nextMsg++, from_id: from, to_id: to, body: t, created_at: now(), read_at: null }); save(); return db.nextMsg - 1;
+    },
+    async events() { return (db.events ?? []).slice().sort((a, b) => a.starts_at.localeCompare(b.starts_at)).map((e) => ({ ...e })); },
+    async eventVotes() { return (db.evvotes ?? []).map((v) => ({ ...v })); },
+    async createEvent(m, title, place, startsAt) {
+      const t = String(title ?? '').trim();
+      if (t.length < 2) fail("Donne un titre à l'activité.");
+      if (t.length > 60) fail('Titre trop long (60 caractères maximum).');
+      const d = new Date(startsAt); if (isNaN(d) || d.getTime() < Date.now() - 864e5) fail('Date invalide.');
+      db.events ??= []; db.evvotes ??= []; db.nextEv ??= 1;
+      const id = db.nextEv++;
+      db.events.push({ id, creator_id: m, title: t, place: String(place ?? '').trim().slice(0, 60) || null, starts_at: d.toISOString(), created_at: now() });
+      db.evvotes.push({ event_id: id, member_id: m, vote: 'yes', updated_at: now() }); save(); return id;
+    },
+    async voteEvent(m, ev, vote) {
+      if (!['yes', 'no', 'maybe'].includes(vote)) fail('Réponse invalide.');
+      if (!(db.events ?? []).some((e) => e.id === ev)) fail('Activité introuvable.');
+      db.evvotes ??= [];
+      const v = db.evvotes.find((x) => x.event_id === ev && x.member_id === m);
+      if (v) { v.vote = vote; v.updated_at = now(); } else db.evvotes.push({ event_id: ev, member_id: m, vote, updated_at: now() });
+      save();
+    },
+    async deleteEvent(m, ev) {
+      const e = (db.events ?? []).find((x) => x.id === ev);
+      if (!e || e.creator_id !== m) fail("Seul l'organisateur peut supprimer cette activité.");
+      db.events = db.events.filter((x) => x !== e); db.evvotes = (db.evvotes ?? []).filter((v) => v.event_id !== ev); save();
+    },
+    async sendSuggestion(member, body) {
+      const t = String(body ?? '').trim();
+      if (t.length < 3) fail('Écris ta suggestion.');
+      if (t.length > 1000) fail('Suggestion trop longue (1000 caractères maximum).');
+      db.sugg ??= []; db.sugg.push({ id: db.sugg.length + 1, member_id: member, body: t, created_at: now() }); save(); return db.sugg.length;
     },
     async readMessages(member) { db.msgs.forEach((m) => { if (m.to_id === member && !m.read_at) m.read_at = now(); }); save(); },
     async reportBlackjack(id, bet, net, hands, wins, blackjack) {

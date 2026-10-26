@@ -1827,14 +1827,14 @@ create table if not exists farm_crops (key text primary key, hours int not null,
 alter table farm_crops add column if not exists level int not null default 1;
 alter table farm_crops add column if not exists sell int not null default 1;
 insert into farm_crops (key, hours, cost, gain, level, sell) values
-  ('curcuma', 1, 5, 9, 1, 3),
-  ('tomate', 2, 9, 18, 3, 6),
-  ('letchi', 4, 14, 27, 6, 9),
-  ('passion', 6, 20, 39, 9, 13),
-  ('papaye', 8, 27, 54, 12, 18),
-  ('ananas', 12, 35, 69, 15, 23),
-  ('avocat', 16, 42, 84, 18, 28),
-  ('vanille', 24, 50, 99, 21, 33)
+  ('curcuma', 1, 0, 9, 1, 3),
+  ('tomate', 2, 0, 18, 3, 6),
+  ('letchi', 4, 0, 27, 6, 9),
+  ('passion', 6, 0, 39, 9, 13),
+  ('papaye', 8, 0, 54, 12, 18),
+  ('ananas', 12, 0, 69, 15, 23),
+  ('avocat', 16, 0, 84, 18, 28),
+  ('vanille', 24, 0, 99, 21, 33)
 on conflict (key) do update set hours = excluded.hours, cost = excluded.cost, gain = excluded.gain, level = excluded.level, sell = excluded.sell;
 alter table member_stats add column if not exists farm_harvests int not null default 0;
 alter table member_stats add column if not exists farm_coins    int not null default 0;
@@ -1867,21 +1867,20 @@ do $$ begin
 end $$;
 
 create table if not exists farm_stock (member_id int not null references members(id) on delete cascade, crop text not null references farm_crops(key), qty int not null default 0 check (qty >= 0), primary key (member_id, crop));
+-- v24 : les décorations n'existent plus
+do $$ begin
+  if to_regclass('farm_items') is not null then
+    delete from farm_builds where item in (select key from farm_items where kind = 'd');
+    delete from farm_items where kind = 'd';
+  end if;
+end $$;
 create table if not exists farm_items (key text primary key, kind text not null, cost jsonb not null);
 insert into farm_items (key, kind, cost) values
   ('puits', 'b', '{"curcuma":6,"tomate":4}'::jsonb),
   ('etal', 'b', '{"letchi":6,"passion":4}'::jsonb),
   ('serre', 'b', '{"papaye":6,"ananas":5}'::jsonb),
   ('silo', 'b', '{"avocat":6,"ananas":6}'::jsonb),
-  ('poulailler', 'b', '{"tomate":8,"letchi":4}'::jsonb),
-  ('fleurs', 'd', '{"curcuma":3}'::jsonb),
-  ('epouvantail', 'd', '{"curcuma":5,"tomate":3}'::jsonb),
-  ('arbre', 'd', '{"letchi":4}'::jsonb),
-  ('banc', 'd', '{"tomate":5}'::jsonb),
-  ('fontaine', 'd', '{"passion":6,"papaye":3}'::jsonb),
-  ('mare', 'd', '{"papaye":4}'::jsonb),
-  ('lanterne', 'd', '{"passion":4}'::jsonb),
-  ('foin', 'd', '{"curcuma":8}'::jsonb)
+  ('poulailler', 'b', '{"tomate":8,"letchi":4}'::jsonb)
 on conflict (key) do update set kind = excluded.kind, cost = excluded.cost;
 create table if not exists farm_builds (member_id int not null references members(id) on delete cascade, spot text not null, item text not null references farm_items(key), built_at timestamptz not null default now(), primary key (member_id, spot));
 alter table farm_stock enable row level security; alter table farm_items enable row level security; alter table farm_builds enable row level security;
@@ -1912,8 +1911,6 @@ begin
     if o.ready_at + make_interval(hours => 24) < now() then delete from farm_plots where member_id = p_member and slot = p_slot;
     else raise exception 'Cette parcelle est occupée.'; end if;
   end if;
-  if chips_of(p_member) < c.cost then raise exception 'Il te faut % colocoins pour ces graines.', c.cost; end if;
-  insert into chip_ledger (member_id, amount, reason) values (p_member, -c.cost, 'ferme:semis');
   insert into farm_plots (member_id, slot, crop, ready_at) values (p_member, p_slot, p_crop,
     now() + make_interval(secs => (c.hours * 3600 * (case when exists (select 1 from farm_builds where member_id = p_member and item = 'puits') then 1 - 0.1 else 1 end))::int));
 end $$;
@@ -1971,7 +1968,7 @@ begin
   if not found then raise exception 'Construction inconnue.'; end if;
   if left(p_spot, 1) <> it.kind or p_spot !~ '^[bd][0-9]+$' then raise exception 'Mauvais emplacement.'; end if;
   v_idx := substr(p_spot, 2)::int;
-  if v_idx >= (case when it.kind = 'b' then 5 else 8 end) then raise exception 'Emplacement inconnu.'; end if;
+  if v_idx >= (case when it.kind = 'b' then 5 else 0 end) then raise exception 'Emplacement inconnu.'; end if;
   perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
   if exists (select 1 from farm_builds where member_id = p_member and (spot = p_spot or item = p_item)) then raise exception 'Déjà construit.'; end if;
   for k, v in select key, value::int from jsonb_each_text(it.cost) loop
@@ -2107,4 +2104,89 @@ do $$ begin
     update members set outfit = 'none', title = null, badge = null, frame = null, namefx = null, bird = null;
     insert into app_meta (key, value) values ('reset_v20', 'done');
   end if;
+end $$;
+
+-- ===== v24 : suggestions (envoyées vers SUGGESTIONS.md sur GitHub par la fonction "suggest") =====
+create table if not exists suggestions (
+  id         bigserial primary key,
+  member_id  int not null references members(id) on delete cascade,
+  body       text not null,
+  created_at timestamptz not null default now(),
+  synced_at  timestamptz
+);
+create or replace function send_suggestion(p_member int, p_body text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint; v_body text := trim(p_body);
+begin
+  if v_body is null or char_length(v_body) < 3 then raise exception 'Écris ta suggestion.'; end if;
+  if char_length(v_body) > 1000 then raise exception 'Suggestion trop longue (1000 caractères maximum).'; end if;
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  if (select count(*) from suggestions where member_id = p_member and created_at > now() - interval '1 day') >= 10 then
+    raise exception 'Déjà 10 suggestions aujourd''hui, reviens demain !';
+  end if;
+  insert into suggestions (member_id, body) values (p_member, v_body) returning id into v_id;
+  return v_id;
+end $$;
+grant execute on function send_suggestion(int, text) to anon, authenticated;
+alter table suggestions enable row level security; -- aucune policy : lecture réservée à la fonction (service role)
+
+
+-- ===== v24 : calendrier d'activités + sondage de présence =====
+create table if not exists events (
+  id         bigserial primary key,
+  creator_id int not null references members(id) on delete cascade,
+  title      text not null,
+  place      text,
+  starts_at  timestamptz not null,
+  created_at timestamptz not null default now()
+);
+create table if not exists event_votes (
+  event_id   bigint not null references events(id) on delete cascade,
+  member_id  int not null references members(id) on delete cascade,
+  vote       text not null check (vote in ('yes', 'no', 'maybe')),
+  updated_at timestamptz not null default now(),
+  primary key (event_id, member_id)
+);
+create index if not exists events_start on events (starts_at);
+create or replace function create_event(p_member int, p_title text, p_place text, p_starts timestamptz) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint; v_title text := trim(p_title); v_place text := nullif(trim(coalesce(p_place, '')), '');
+begin
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  if v_title is null or char_length(v_title) < 2 then raise exception 'Donne un titre à l''activité.'; end if;
+  if char_length(v_title) > 60 then raise exception 'Titre trop long (60 caractères maximum).'; end if;
+  if v_place is not null and char_length(v_place) > 60 then raise exception 'Lieu trop long (60 caractères maximum).'; end if;
+  if p_starts is null or p_starts < now() - interval '1 day' or p_starts > now() + interval '1 year' then raise exception 'Date invalide.'; end if;
+  if (select count(*) from events where creator_id = p_member and created_at > now() - interval '1 day') >= 10 then
+    raise exception 'Déjà 10 activités proposées aujourd''hui.';
+  end if;
+  insert into events (creator_id, title, place, starts_at) values (p_member, v_title, v_place, p_starts) returning id into v_id;
+  insert into event_votes (event_id, member_id, vote) values (v_id, p_member, 'yes');
+  return v_id;
+end $$;
+create or replace function vote_event(p_member int, p_event bigint, p_vote text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_vote not in ('yes', 'no', 'maybe') then raise exception 'Réponse invalide.'; end if;
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  if not exists (select 1 from events where id = p_event) then raise exception 'Activité introuvable.'; end if;
+  insert into event_votes (event_id, member_id, vote) values (p_event, p_member, p_vote)
+    on conflict (event_id, member_id) do update set vote = excluded.vote, updated_at = now();
+end $$;
+create or replace function delete_event(p_member int, p_event bigint) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from events where id = p_event and creator_id = p_member;
+  if not found then raise exception 'Seul l''organisateur peut supprimer cette activité.'; end if;
+end $$;
+grant execute on function create_event(int, text, text, timestamptz) to anon, authenticated;
+grant execute on function vote_event(int, bigint, text)              to anon, authenticated;
+grant execute on function delete_event(int, bigint)                  to anon, authenticated;
+alter table events enable row level security; alter table event_votes enable row level security;
+drop policy if exists "events lecture" on events; create policy "events lecture" on events for select using (true);
+drop policy if exists "event_votes lecture" on event_votes; create policy "event_votes lecture" on event_votes for select using (true);
+grant select on events, event_votes to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table events; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table event_votes; exception when duplicate_object then null; end;
 end $$;

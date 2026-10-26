@@ -228,14 +228,14 @@ export const SOAP_EXCHANGE = [{ soap: 1, coins: 100 }, { soap: 10, coins: 1200 }
 export const FARM = {
   // level = niveau requis (une nouvelle culture tous les 3 niveaux) · sell = prix de vente d'une unité à la grange
   crops: [
-    { key: 'curcuma', name: 'Curcuma',         emoji: '🥕', hours: 1,  cost: 5,  sell: 3,  level: 1 },
-    { key: 'tomate',  name: 'Tomate',          emoji: '🍅', hours: 2,  cost: 9,  sell: 6,  level: 3 },
-    { key: 'letchi',  name: 'Letchi',          emoji: '🍒', hours: 4,  cost: 14, sell: 9,  level: 6 },
-    { key: 'passion', name: 'Fruit de la passion', emoji: '🟣', hours: 6, cost: 20, sell: 13, level: 9 },
-    { key: 'papaye',  name: 'Papaye',          emoji: '🥭', hours: 8,  cost: 27, sell: 18, level: 12 },
-    { key: 'ananas',  name: 'Ananas Victoria', emoji: '🍍', hours: 12, cost: 35, sell: 23, level: 15 },
-    { key: 'avocat',  name: 'Avocat',          emoji: '🥑', hours: 16, cost: 42, sell: 28, level: 18 },
-    { key: 'vanille', name: 'Vanille',         emoji: '🌿', hours: 24, cost: 50, sell: 33, level: 21 },
+    { key: 'curcuma', name: 'Curcuma',         hours: 1,  cost: 0,  sell: 3,  level: 1 },
+    { key: 'tomate',  name: 'Tomate',          hours: 2,  cost: 0,  sell: 6,  level: 3 },
+    { key: 'letchi',  name: 'Letchi',          hours: 4,  cost: 0, sell: 9,  level: 6 },
+    { key: 'passion', name: 'Fruit de la passion', hours: 6,  cost: 0, sell: 13, level: 9 },
+    { key: 'papaye',  name: 'Papaye',          hours: 8,  cost: 0, sell: 18, level: 12 },
+    { key: 'ananas',  name: 'Ananas Victoria', hours: 12,  cost: 0, sell: 23, level: 15 },
+    { key: 'avocat',  name: 'Avocat',          hours: 16,  cost: 0, sell: 28, level: 18 },
+    { key: 'vanille', name: 'Vanille',         hours: 24,  cost: 0, sell: 33, level: 21 },
   ],
   yield: 3,                               // unités récoltées par parcelle
   baseSlots: 1,
@@ -246,22 +246,14 @@ export const FARM = {
   waterReward: 5, waterRewardMaxPerDay: 4, // 5 🪙 par arrosage, 4 fois par jour au maximum
   taskBoost: 0.5,                         // une tâche ménagère validée : -50 % du temps restant sur tes cultures
   // Domaine : au début, seule la grange existe. On construit avec des fruits et légumes (cost = unités de récolte).
-  spots: { b: 5, d: 8 },                  // emplacements de bâtiments (b0…) et de décorations (d0…)
+  spots: { b: 5, d: 0 },                  // emplacements de bâtiments (b0…)
   perks: { wellCut: 0.10, stallBonus: 0.15, siloCap: 50, greenhouseUnits: 1 },
   items: [
-    { key: 'puits',       kind: 'b', name: 'Puits',          emoji: '⛲', cost: { curcuma: 6, tomate: 4 },    perk: 'Les cultures poussent 10 % plus vite' },
-    { key: 'etal',        kind: 'b', name: 'Étal de marché', emoji: '🏪', cost: { letchi: 6, passion: 4 },    perk: 'Tes ventes rapportent 15 % de plus' },
-    { key: 'serre',       kind: 'b', name: 'Serre',          emoji: '🏡', cost: { papaye: 6, ananas: 5 },     perk: '+1 unité à chaque récolte' },
-    { key: 'silo',        kind: 'b', name: 'Silo',           emoji: '🌾', cost: { avocat: 6, ananas: 6 },     perk: '+50 🪙 de plafond de vente par jour' },
-    { key: 'poulailler',  kind: 'b', name: 'Poulailler',     emoji: '🐔', cost: { tomate: 8, letchi: 4 },     perk: 'Des poules se promènent dans ta ferme' },
-    { key: 'fleurs',      kind: 'd', name: 'Massif de fleurs', emoji: '🌺', cost: { curcuma: 3 } },
-    { key: 'epouvantail', kind: 'd', name: 'Épouvantail',    emoji: '🧑‍🌾', cost: { curcuma: 5, tomate: 3 } },
-    { key: 'arbre',       kind: 'd', name: 'Arbre',          emoji: '🌳', cost: { letchi: 4 } },
-    { key: 'banc',        kind: 'd', name: 'Banc',           emoji: '🪑', cost: { tomate: 5 } },
-    { key: 'fontaine',    kind: 'd', name: 'Fontaine',       emoji: '⛲', cost: { passion: 6, papaye: 3 } },
-    { key: 'mare',        kind: 'd', name: 'Mare aux canards', emoji: '🦆', cost: { papaye: 4 } },
-    { key: 'lanterne',    kind: 'd', name: 'Lanterne',       emoji: '🏮', cost: { passion: 4 } },
-    { key: 'foin',        kind: 'd', name: 'Botte de foin',  emoji: '🌾', cost: { curcuma: 8 } },
+    { key: 'puits',       kind: 'b', name: 'Puits',          cost: { curcuma: 6, tomate: 4 },    perk: 'Les cultures poussent 10 % plus vite' },
+    { key: 'etal',        kind: 'b', name: 'Étal de marché', cost: { letchi: 6, passion: 4 },    perk: 'Tes ventes rapportent 15 % de plus' },
+    { key: 'serre',       kind: 'b', name: 'Serre',          cost: { papaye: 6, ananas: 5 },     perk: '+1 unité à chaque récolte' },
+    { key: 'silo',        kind: 'b', name: 'Silo',           cost: { avocat: 6, ananas: 6 },     perk: '+50 pièces de plafond de vente par jour' },
+    { key: 'poulailler',  kind: 'b', name: 'Poulailler',     cost: { tomate: 8, letchi: 4 },     perk: 'Des poules se promènent dans ta ferme' },
   ],
 };
 

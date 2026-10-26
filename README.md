@@ -214,3 +214,19 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 - Récolter donne des unités (3 par parcelle) rangées dans la grange ; on les vend (plafond 200 🪙/jour) ou on les garde pour construire.
 - Bonus : puits −10 % de pousse, étal +15 % de vente, serre +1 unité, silo +50 de plafond.
 - Nouveaux défis : Premier chantier, Grand bâtisseur.
+
+
+## v24 — Suggestions
+- Perso : bouton ampoule en haut à droite → formulaire de suggestion (tout le monde, colocs et copains).
+- Supabase : table `suggestions` + `send_suggestion` (max 1000 caractères, 10 par jour et par personne). Exécuter `migration-v8.sql`.
+- Fonction `suggest` (supabase/functions/suggest) : ajoute les suggestions dans `SUGGESTIONS.md` du dépôt GitHub. Secrets : `GITHUB_TOKEN` (fine-grained, ce dépôt seulement, Contents = Read and write) et `GITHUB_REPO` (ex. `pseudo/coloc`).
+
+## v25 — Mort de Jumpy Cardinal
+L oiseau gonfle, explose en plumes, écran grisé « Vous êtes mort » avec Rejouer ? / Quitter.
+
+## v26 — Colo-Ferme refaite + Calendrier
+- Ferme entièrement dessinée (aucun emoji), sans décorations, onglets intégrés transparents/jaunes, plantation gratuite.
+- Calendrier dans le header : activités proposées + sondage Présent / Peut-être / Absent (tables events, event_votes). Exécuter migration-v8.sql.
+
+## v27 — Décors de Jumpy Cardinal par paliers
+50 : soir · 100 : crépuscule · 150 : nuit · 200 : monde délabré · 250 : enfers.

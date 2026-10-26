@@ -2,7 +2,7 @@ import {
   CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE,
 } from './config.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
@@ -75,7 +75,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -139,11 +139,11 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds'];
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes'];
   const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(),
   ]);
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
@@ -625,6 +625,7 @@ function render() {
     ${tab === 'me' ? '' : tab === 'tasks' ? weekHeaderHTML() : `<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
+      <button class="hcart ${upcomingEvents().length ? 'dot' : ''}" data-action="calendar" aria-label="Calendrier" title="Calendrier">${CAL_SVG}</button>
       <span class="grow"></span>
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
       <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
@@ -657,7 +658,7 @@ function weekHeaderHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   return `<header class="top wkhdr">
-    <div class="wkt"><b>🧼 Savons cette semaine</b>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
+    <div class="wkt"><b>🧼 Savons cette semaine</b><button class="hcart calbtn ${upcomingEvents().length ? 'dot' : ''}" data-action="calendar" aria-label="Calendrier" title="Calendrier">${CAL_SVG}</button>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>
   </header>`;
 }
@@ -946,6 +947,8 @@ function sheetHTML() {
     case 'ginfo': return gameInfoHTML(s);
     case 'shop': return shopHTML(s);
     case 'exchange': return exchangeHTML();
+    case 'cal': return calendarHTML();
+    case 'cal-new': return calNewHTML();
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'task-do': return taskConfirmHTML(s);
@@ -1092,7 +1095,7 @@ function farmArt() {
     <path d="M0 78 Q70 40 140 74 T290 70 T400 62 V150 H0Z" fill="#4c9a5b"/><path d="M0 92 Q100 64 200 90 T400 84 V150 H0Z" fill="#6cbc6a"/>
     <path d="M0 110 H400 V150 H0Z" fill="#8a5a2c"/>
     <g stroke="#6b4420" stroke-width="3"><path d="M0 122 H400 M0 136 H400"/></g>
-    <g font-size="20"><text x="30" y="118">🥕</text><text x="90" y="118">🍅</text><text x="150" y="118">🍍</text><text x="210" y="118">🥑</text><text x="270" y="118">🍒</text><text x="330" y="118">🥭</text></g>
+    <g stroke="#3a2412" stroke-width="1.6"><circle cx="40" cy="112" r="8" fill="#e4891c"/><circle cx="100" cy="112" r="8" fill="#e63b2e"/><circle cx="160" cy="112" r="8" fill="#f3b51d"/><circle cx="220" cy="112" r="8" fill="#35602a"/><circle cx="280" cy="112" r="8" fill="#d02a4c"/><circle cx="340" cy="112" r="8" fill="#f2a52b"/></g>
     <g fill="#c0392b"><rect x="40" y="38" width="46" height="34"/><path d="M34 40 L63 18 L92 40Z" fill="#8a2b20"/></g><rect x="56" y="52" width="14" height="20" fill="#f5e6c8"/>
   </svg>`;
 }
@@ -1161,14 +1164,14 @@ function meHTML() {
   const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres']];
   return `
     <div class="mehead"><button class="gearbtn ${seg === 'regl' ? 'on' : ''}" data-action="seg" data-seg="${seg === 'regl' ? 'robe' : 'regl'}" aria-label="Réglages" title="Réglages">${GEAR_SVG}</button>
-    <div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div><span class="gsp"></span></div>
+    <div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div><button class="gearbtn ${seg === 'sugg' ? 'on' : ''}" data-action="seg" data-seg="${seg === 'sugg' ? 'robe' : 'sugg'}" aria-label="Suggestions" title="Suggestions">${SUGGEST_SVG}</button></div>
     <div class="center-av">${av(me, 150)}</div>
     <div class="lvlline"><b>Niveau ${lp.level}</b> · ${xpOf(me.id)} XP · encore ${lp.need - lp.into} pour le niveau ${lp.level + 1}
       <div class="bar sm lvlbar"><i style="width:${lp.pct}%"></i></div></div>
     ${unread && seg !== 'regl' ? `<button class="btn" style="margin:10px 0" data-action="seg" data-seg="regl">✉️ ${unread} nouveau${unread > 1 ? 'x' : ''} message${unread > 1 ? 's' : ''}</button>` : ''}
     <div class="seg four">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
     ${seg === 'regl' ? '' : ''}
-    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : robeHTML()}`;
+    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : seg === 'sugg' ? suggestHTML() : robeHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
@@ -1277,6 +1280,13 @@ function cadresHTML() {
     <button class="btn primary" style="margin-top:14px" data-action="shop" data-slot="frame">🛒 Acheter des cadres</button>`;
 }
 
+function suggestHTML() {
+  return `<h3 class="sec" style="margin-top:14px">💡 Suggestions</h3>
+    <p class="muted" style="margin:0 0 8px">Une idée, un bug, une envie de jeu ou de défi ? Écris-la ici, elle part directement vers le développeur.</p>
+    <textarea id="suggtxt" class="suggtxt" maxlength="1000" rows="6" placeholder="Ma suggestion…"></textarea>
+    <button class="btn primary" style="width:100%;margin-top:8px" data-action="suggest-send">Envoyer</button>`;
+}
+
 function reglagesHTML() {
   const me = state.me;
   const head = '<h3 class="sec" style="margin-top:14px">⚙️ Réglages</h3>';
@@ -1336,6 +1346,42 @@ function shopHTML(s) {
     <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
     <div class="det">${{ outfit: 'Des personnages à acheter. Singe, tortue, lion et dino se débloquent aux niveaux 5, 10, 20 et 30.', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.', bird: "Un nouveau look pour l'oiseau de Jumpy Cardinal." }[slot]}</div>`, 'var(--gold)');
 }
+/* ---------- Calendrier : activités proposées + sondage de présence ---------- */
+const upcomingEvents = () => state.events.filter((e) => Date.parse(e.starts_at) >= Date.now() - 3 * 3600000);
+const fmtEv = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
+function eventCardHTML(e, past) {
+  const me = state.me, votes = state.evVotes.filter((v) => v.event_id === e.id), mine = votes.find((v) => v.member_id === me.id)?.vote;
+  const by = (k) => votes.filter((v) => v.vote === k), everyone = state.members.length, answered = votes.length;
+  const btn = (k, l) => `<button class="evb ${k} ${mine === k ? 'on' : ''}" data-action="cal-vote" data-id="${e.id}" data-v="${k}" aria-pressed="${mine === k}">${l} <b>${by(k).length}</b></button>`;
+  return `<div class="evcard ${past ? 'past' : ''}">
+    <div class="evtop"><div><b>${esc(e.title)}</b><small>${fmtEv(e.starts_at)}${e.place ? ` · ${esc(e.place)}` : ''}</small><small>Proposé par ${esc(nameOf(e.creator_id))}</small></div>
+      ${e.creator_id === me.id ? `<button class="evdel" data-action="cal-del" data-id="${e.id}" aria-label="Supprimer l'activité">✕</button>` : ''}</div>
+    <div class="evvotes">${btn('yes', 'Présent')}${btn('maybe', 'Peut-être')}${btn('no', 'Absent')}</div>
+    <div class="evwho">${by('yes').map((v) => `<span title="${esc(nameOf(v.member_id))}">${av(memberById(v.member_id), 24)}</span>`).join('')}${everyone > answered ? `<small>${everyone - answered} sans réponse</small>` : ''}</div>
+  </div>`;
+}
+function calendarHTML() {
+  const up = upcomingEvents(), past = state.events.filter((e) => !up.includes(e)).slice(-5).reverse();
+  return sheetWrap(`
+    <div class="sh"><div><h2>Calendrier</h2><div class="when">Propose une activité, chacun répond</div></div>${closeBtn}</div>
+    <button class="btn primary" style="width:100%;margin:4px 0 10px" data-action="cal-new">Proposer une activité</button>
+    ${up.length ? up.map((e) => eventCardHTML(e, false)).join('') : '<div class="det">Aucune activité prévue pour le moment.</div>'}
+    ${past.length ? `<h3 class="sec">Passées</h3>${past.map((e) => eventCardHTML(e, true)).join('')}` : ''}`, 'var(--accent)');
+}
+function calNewHTML() {
+  const d = new Date(Date.now() + 86400000), pad = (n) => String(n).padStart(2, '0'), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return sheetWrap(`
+    <div class="sh"><div><h2>Nouvelle activité</h2><div class="when">Tout le monde pourra répondre</div></div>${closeBtn}</div>
+    <label class="evl">Quoi ?<input id="evtitle" class="evin" maxlength="60" placeholder="Ex. Soirée jeux de société"></label>
+    <label class="evl">Où ? <small>(facultatif)</small><input id="evplace" class="evin" maxlength="60" placeholder="Ex. Au salon"></label>
+    <div class="evrow"><label class="evl">Jour<input id="evday" class="evin" type="date" value="${day}"></label><label class="evl">Heure<input id="evtime" class="evin" type="time" value="20:00"></label></div>
+    <button class="btn primary" style="width:100%;margin-top:10px" data-action="cal-create">Proposer</button>
+    <button class="btn" style="width:100%;margin-top:6px" data-action="calendar">Retour</button>`, 'var(--accent)');
+}
+async function calAct(fn, ok) {
+  try { await fn(); await refresh(true); if (ok) ok(); } catch (e) { toast(e.message || 'Action impossible.'); refresh(true).catch(() => {}); }
+}
+
 function exchangeHTML() {
   const me = state.me, have = soapOf(me.id), coloc = me.kind === 'coloc';
   return sheetWrap(`
@@ -1489,6 +1535,17 @@ document.addEventListener('click', (e) => {
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
+    case 'calendar': state.heads = false; state.sheet = { type: 'cal' }; render(); break;
+    case 'cal-new': state.sheet = { type: 'cal-new' }; render(); break;
+    case 'cal-create': {
+      const title = document.getElementById('evtitle')?.value ?? '', place = document.getElementById('evplace')?.value ?? '';
+      const when = new Date(`${document.getElementById('evday')?.value}T${document.getElementById('evtime')?.value || '20:00'}`);
+      if (isNaN(when)) { toast('Choisis un jour et une heure.'); break; }
+      calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString()), () => { state.sheet = { type: 'cal' }; toast('Activité proposée !'); render(); });
+      break;
+    }
+    case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;
+    case 'cal-del': calAct(() => state.api.deleteEvent(state.me.id, Number(id))); break;
     case 'exchange': state.heads = false; state.sheet = { type: 'exchange' }; render(); break;
     case 'exchange-do': exchangeNow(Number(id)); break;
     case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
@@ -1525,6 +1582,13 @@ document.addEventListener('click', (e) => {
     case 'wheel': state.sheet = { type: 'wheel' }; render(); break;
     case 'spin': spinNow(); break;
     case 'game': openGame(id); break;
+    case 'suggest-send': {
+      const ta = document.getElementById('suggtxt'), txt = ta?.value ?? '';
+      state.api.sendSuggestion(state.me.id, txt)
+        .then(() => { toast('Merci ! Suggestion envoyée 💡'); state.meSeg = 'robe'; render(); })
+        .catch((e) => toast(e.message || 'Envoi impossible.'));
+      break;
+    }
     case 'gender': saveProfile({ gender: v }); break;
     case 'skin': saveProfile({ skin: v }); break;
     case 'hair': saveProfile({ hair: v }); break;

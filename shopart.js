@@ -68,3 +68,9 @@ export const CART_SVG = `<svg viewBox="0 0 40 40" width="26" height="26" aria-hi
 export const GEAR_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <circle cx="16" cy="16" r="4.2"/>
   <path d="M13.4 3.5h5.2l.8 3.3 2.3 1 2.9-1.8 3.7 3.7-1.8 2.9 1 2.3 3.3.8v5.2l-3.3.8-1 2.3 1.8 2.9-3.7 3.7-2.9-1.8-2.3 1-.8 3.3h-5.2l-.8-3.3-2.3-1-2.9 1.8-3.7-3.7 1.8-2.9-1-2.3-3.3-.8v-5.2l3.3-.8 1-2.3-1.8-2.9 3.7-3.7 2.9 1.8 2.3-1z" transform="scale(.82) translate(3.5 3.5)"/></svg>`;
+
+export const SUGGEST_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <path d="M16 3.5a8.5 8.5 0 0 0-4.6 15.7c.8.6 1.1 1.3 1.1 2.3v1h7v-1c0-1 .3-1.7 1.1-2.3A8.5 8.5 0 0 0 16 3.5z"/><path d="M12.5 26h7M13.8 29h4.4"/></svg>`;
+
+export const CAL_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <rect x="4.5" y="6" width="23" height="21" rx="4"/><path d="M4.5 12.5h23M10.5 3.5v5M21.5 3.5v5"/><path d="M10 18h2.5M15 18h2.5M20 18h2.5M10 22.5h2.5M15 22.5h2.5"/></svg>`;
