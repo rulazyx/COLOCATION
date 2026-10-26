@@ -230,3 +230,8 @@ L oiseau gonfle, explose en plumes, écran grisé « Vous êtes mort » avec Rej
 
 ## v27 — Décors de Jumpy Cardinal par paliers
 50 : soir · 100 : crépuscule · 150 : nuit · 200 : monde délabré · 250 : enfers.
+
+## v28 — Jumpy Cardinal : perf, caisses d oiseaux
+- Optimisation FPS (ciel et oiseau pré-dessinés, plus de calque plein écran).
+- Oiseaux uniquement via caisses (150 pièces), 4 nouveaux skins (pigeon, canard, clodo, ptérodactyl). Oiseau visible sur les profils.
+- Singe, tortue, lion : 100 pièces ; dino : 200 pièces (plus de déblocage par niveau).

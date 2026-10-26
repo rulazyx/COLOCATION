@@ -51,11 +51,11 @@ export const HAIR_COLORS = [
 // hidesHair / hidesSkin : la tenue cache cheveux / peau. nameF : nom au féminin (facultatif)
 export const OUTFITS = {
   none:         { name: 'Tenue de base' },
-  // — au niveau (5, 10, 20, 30) —
-  singe:        { name: 'Singe',        level: 5,  hidesHair: true, hidesSkin: true },
-  tortue:       { name: 'Tortue',       level: 10, hidesHair: true, hidesSkin: true },
-  lion:         { name: 'Lion',         nameF: 'Lionne', level: 20, hidesHair: true, hidesSkin: true },
-  dino:         { name: 'Dino',         level: 30, hidesHair: true, hidesSkin: true },
+  // — à la boutique : 100 colocoins (dino 200) —
+  singe:        { name: 'Singe',        price: 100, hidesHair: true, hidesSkin: true },
+  tortue:       { name: 'Tortue',       price: 100, hidesHair: true, hidesSkin: true },
+  lion:         { name: 'Lion',         nameF: 'Lionne', price: 100, hidesHair: true, hidesSkin: true },
+  dino:         { name: 'Dino',         price: 200, hidesHair: true, hidesSkin: true },
   // — dans la boutique (colocoins) —
   pirate:       { name: 'Pirate',       price: 400 },
   ninja:        { name: 'Ninja',        price: 500, hidesHair: true },
@@ -202,19 +202,26 @@ export const SHOP = {
     { key: 'arcenciel', name: 'Arc-en-ciel',  price: 500 },
     { key: 'feu',      name: 'Feu',           price: 600 },
   ],
+  // Oiseaux : plus d'achat direct. On les gagne dans les caisses (BIRD_CRATE) ; w = poids de tirage (plus c'est grand, plus c'est fréquent)
   bird: [
-    { key: 'bleu',     name: 'Oiseau bleu',   price: 120, body: '#3b82f6', belly: '#bfdbfe', wing: '#1d4ed8' },
-    { key: 'vert',     name: 'Perroquet',     price: 120, body: '#22c55e', belly: '#bbf7d0', wing: '#15803d' },
-    { key: 'rose',     name: 'Flamant',       price: 150, body: '#f472b6', belly: '#fbcfe8', wing: '#db2777' },
-    { key: 'jaune',    name: 'Canari',        price: 150, body: '#facc15', belly: '#fef9c3', wing: '#ca8a04' },
-    { key: 'lunettes', name: 'Cool',          price: 250, body: '#ef4444', belly: '#fecaca', wing: '#b91c1c', acc: 'shades' },
-    { key: 'ninja',    name: 'Ninja',         price: 300, body: '#1f2937', belly: '#6b7280', wing: '#111827', acc: 'band' },
-    { key: 'or',       name: 'Oiseau doré',   price: 700, body: '#fbbf24', belly: '#fef3c7', wing: '#b45309', acc: 'crown' },
-    { key: 'arcenciel', name: 'Arc-en-ciel',  price: 1000, body: '#ef4444', belly: '#fff', wing: '#8b5cf6', rainbow: true },
-    { key: 'chevalier', name: 'Oiseau chevalier', price: 500, body: '#8f99a4', belly: '#d7dde3', wing: '#5b6470', acc: 'knight' },
-    { key: 'tenebres', name: 'Oiseau des ténèbres', price: 900, body: '#15121c', belly: '#2c2638', wing: '#0b0910', eye: '#ef1d1d', eyeBg: '#1a0000', acc: 'dark' },
+    { key: 'bleu',     name: 'Oiseau bleu',   w: 20,  body: '#3b82f6', belly: '#bfdbfe', wing: '#1d4ed8' },
+    { key: 'vert',     name: 'Perroquet',     w: 20,  body: '#22c55e', belly: '#bbf7d0', wing: '#15803d' },
+    { key: 'rose',     name: 'Flamant',       w: 20,  body: '#f472b6', belly: '#fbcfe8', wing: '#db2777' },
+    { key: 'jaune',    name: 'Canari',        w: 20,  body: '#facc15', belly: '#fef9c3', wing: '#ca8a04' },
+    { key: 'pigeon',   name: 'Pigeon',        w: 12,  body: '#9aa3ad', belly: '#c8ced5', wing: '#6b7480', acc: 'pigeon' },
+    { key: 'canard',   name: 'Canard',        w: 12,  body: '#ffd23f', belly: '#fff1b0', wing: '#e0a800', acc: 'duck' },
+    { key: 'lunettes', name: 'Cool',          w: 8,   body: '#ef4444', belly: '#fecaca', wing: '#b91c1c', acc: 'shades' },
+    { key: 'clodo',    name: 'Oiseau clodo',  w: 8,   body: '#8a8478', belly: '#b9b2a3', wing: '#5f5a50', acc: 'clodo' },
+    { key: 'ptero',    name: 'Ptérodactyl',   w: 5,   body: '#6f8a4a', belly: '#c9d39a', wing: '#4a5f2f', acc: 'ptero' },
+    { key: 'ninja',    name: 'Ninja',         w: 2,   body: '#1f2937', belly: '#6b7280', wing: '#111827', acc: 'band' },
+    { key: 'chevalier', name: 'Oiseau chevalier', w: 1.5, body: '#8f99a4', belly: '#d7dde3', wing: '#5b6470', acc: 'knight' },
+    { key: 'or',       name: 'Oiseau doré',   w: 1,   body: '#fbbf24', belly: '#fef3c7', wing: '#b45309', acc: 'crown' },
+    { key: 'arcenciel', name: 'Arc-en-ciel',  w: 1,   body: '#ef4444', belly: '#fff', wing: '#8b5cf6', rainbow: true },
+    { key: 'tenebres', name: 'Oiseau des ténèbres', w: 1, body: '#15121c', belly: '#2c2638', wing: '#0b0910', eye: '#ef1d1d', eyeBg: '#1a0000', acc: 'dark' },
   ],
 };
+export const BIRD_CRATE = { price: 150 };
+export const birdRarity = (w) => (w >= 12 ? 'Commun' : w >= 5 ? 'Rare' : w >= 2 ? 'Épique' : 'Légendaire');
 // Apparences vendues (voir OUTFITS : price). Stockées dans purchases.item sous le nom simple (ex. 'pirate')
 SHOP.outfit = Object.entries(OUTFITS).filter(([, o]) => o.price).map(([key, o]) => ({ key, name: o.name, price: o.price }));
 export const SHOP_SLOTS = [['outfit', 'Apparence'], ['frame', 'Cadres'], ['namefx', 'Pseudo'], ['bird', 'Oiseau']];

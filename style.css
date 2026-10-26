@@ -848,3 +848,18 @@ button.np.grow:not(:disabled){background:#e0f2fe;border-color:#7dd3fc}
 .evl{display:block;font-size:12px;font-weight:700;margin-top:8px}.evl small{font-weight:500;color:var(--muted)}
 .evin{display:block;width:100%;box-sizing:border-box;margin-top:4px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:inherit;font:inherit}
 .evrow{display:flex;gap:8px}.evrow .evl{flex:1}
+
+/* ---------- v28 : caisses d'oiseaux, boutique ---------- */
+.shoph{display:flex;align-items:center;gap:8px;margin:0}.shoph svg{width:26px;height:26px}
+.cratebox{display:flex;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:8px}
+.cratetxt{display:flex;flex-direction:column;gap:4px;align-items:flex-start}.cratetxt small{color:var(--muted);font-size:11.5px}
+.odds{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.rar{display:inline-block;font-size:10.5px;font-weight:800;border-radius:10px;padding:2px 8px}
+.rar.rar-c{background:#e2e8f0;color:#334155}.rar.rar-r{background:#dbeafe;color:#1d4ed8}.rar.rar-e{background:#ede9fe;color:#6d28d9}.rar.rar-l{background:#fef3c7;color:#b45309}
+.item.locked b{color:var(--muted)}.lockbird{display:inline-block;filter:brightness(0) opacity(.28)}
+.cratereveal{text-align:center;padding:8px 0 4px}.crateshake{display:inline-block;animation:cshake .5s ease-in-out infinite}
+@keyframes cshake{0%,100%{transform:rotate(0)}20%{transform:rotate(-8deg) scale(1.04)}40%{transform:rotate(8deg) scale(1.08)}60%{transform:rotate(-6deg) scale(1.06)}80%{transform:rotate(6deg)}}
+.cratereveal.pop .bigbird{animation:cpop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes cpop{0%{transform:scale(.2) rotate(-20deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+.cratereveal h2{margin:6px 0 2px}
+.pbird{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}.pbird span{display:flex;flex-direction:column;text-align:left}.pbird small{color:var(--muted);font-size:11px}

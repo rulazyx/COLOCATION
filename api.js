@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -73,6 +73,7 @@ export async function makeCloudApi() {
     async settlePlateau() { const { error } = await sb.rpc('settle_plateau'); if (error) console.warn(error.message); },
     async exchangeSoap(member, soap) { return check(await sb.rpc('exchange_soap', { p_member: member, p_soap: soap })); },
     async buyShop(member, item) { return check(await sb.rpc('buy_shop', { p_member: member, p_item: item })); },
+    async openBirdCrate(member) { return check(await sb.rpc('open_bird_crate', { p_member: member })); },
     async ledger(member) { return check(await sb.from('coin_ledger').select('*').eq('member_id', member).neq('amount', 0).order('id', { ascending: false }).limit(100)); },
     async perks() { return check(await sb.from('perks').select('*').order('id', { ascending: false }).limit(100)); },
     async perkConfirms() { return check(await sb.from('perk_confirms').select('*')); },
@@ -486,8 +487,19 @@ export function makeDemoApi() {
       db.exch.push({ member_id: member, soap, coins: o.coins }); addChips(member, o.coins, 'echange'); save();
       return { soap, coins: o.coins };
     },
+    async openBirdCrate(member) {
+      const have = new Set(db.purchases.filter((p) => p.member_id === member).map((p) => p.item));
+      const pool = SHOP.bird.filter((b) => !have.has('bird:' + b.key));
+      if (!pool.length) fail('Tu as déjà tous les oiseaux !');
+      if (chipsOf(member) < BIRD_CRATE.price) fail(`Il te faut ${BIRD_CRATE.price} colocoins pour une caisse.`);
+      let r = Math.random() * pool.reduce((a, b) => a + b.w, 0), pick = pool[pool.length - 1];
+      for (const b of pool) { r -= b.w; if (r <= 0) { pick = b; break; } }
+      addChips(member, -BIRD_CRATE.price, 'caisse');
+      db.purchases.push({ id: db.purchases.length + 1, member_id: member, item: 'bird:' + pick.key, price: 0 }); save();
+      return pick.key;
+    },
     async buyShop(member, item) {
-      const [slot, key] = item.split(':'), it = SHOP[slot]?.find((i) => i.key === key);
+      const [slot, key] = item.split(':'), it = slot === 'bird' ? null : SHOP[slot]?.find((i) => i.key === key);
       if (!it) fail('Article inconnu.');
       const store = slot === 'outfit' ? key : item;
       if (db.purchases.some((p) => p.member_id === member && p.item === store)) fail('Tu possèdes déjà cet article.');

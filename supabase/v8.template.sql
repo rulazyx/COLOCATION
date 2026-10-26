@@ -64,10 +64,8 @@ alter table members add column if not exists frame text;    -- cadre de profil �
 alter table members add column if not exists namefx text;   -- effet de pseudo équipé (boutique)
 alter table members add column if not exists bird text;     -- look de l'oiseau de Jumpy Cardinal (boutique)
 
--- ---------- Apparences débloquées au niveau (singe 5, tortue 10, lion 20, dino 30) ----------
+-- ---------- Plus aucune apparence ne se débloque au niveau : tout s'achète à la boutique ----------
 delete from skin_levels;
-insert into skin_levels (item, level) values
-__SKINS__
 
 -- ---------- Boutique : cadres, effets de pseudo, looks de l'oiseau (payés en colocoins) ----------
 create table if not exists shop_items (item text primary key, slot text not null, price int not null check (price >= 0));
@@ -862,3 +860,31 @@ do $$ begin
   begin alter publication supabase_realtime add table events; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table event_votes; exception when duplicate_object then null; end;
 end $$;
+
+
+-- ===== v26 : caisses d'oiseaux (les oiseaux ne s'achètent plus à l'unité) =====
+create table if not exists bird_odds (key text primary key, w numeric not null check (w > 0));
+delete from bird_odds;
+insert into bird_odds (key, w) values
+__BIRD_ODDS__;
+alter table bird_odds enable row level security;
+drop policy if exists "bird_odds lecture" on bird_odds; create policy "bird_odds lecture" on bird_odds for select using (true);
+create or replace function open_bird_crate(p_member int) returns text
+language plpgsql security definer set search_path = public as $$
+declare v_key text; v_tot numeric; v_r numeric;
+begin
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  perform pg_advisory_xact_lock(hashtext('shop:' || p_member));
+  select coalesce(sum(w), 0) into v_tot from bird_odds o where not exists (select 1 from purchases where member_id = p_member and item = 'bird:' || o.key);
+  if v_tot = 0 then raise exception 'Tu as déjà tous les oiseaux !'; end if;
+  if chips_of(p_member) < __CRATE_PRICE__ then raise exception 'Il te faut __CRATE_PRICE__ colocoins pour une caisse.'; end if;
+  v_r := random() * v_tot;
+  select key into v_key from (
+    select o.key, sum(o.w) over (order by o.key) as cum from bird_odds o
+    where not exists (select 1 from purchases where member_id = p_member and item = 'bird:' || o.key)
+  ) t where cum >= v_r order by cum limit 1;
+  insert into chip_ledger (member_id, amount, reason) values (p_member, -__CRATE_PRICE__, 'caisse');
+  insert into purchases (member_id, item, price) values (p_member, 'bird:' || v_key, 0);
+  return v_key;
+end $$;
+grant execute on function open_bird_crate(int) to anon, authenticated;

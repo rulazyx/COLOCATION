@@ -31,7 +31,7 @@ export function createGame(rng = Math.random) {
         const top = 70 + rng() * (H - GROUND - GAP - 140);
         g.pipes.push({ x: Math.max(W + 40, g.nextX), top, passed: false });
       }
-      g.pipes = g.pipes.filter((p) => p.x > -PIPE_W - 4);
+      while (g.pipes.length && g.pipes[0].x <= -PIPE_W - 4) g.pipes.shift();
       for (const p of g.pipes) {
         if (!p.passed && p.x + PIPE_W < BIRD_X - BIRD_R) { p.passed = true; g.score++; }
         const inX = BIRD_X + BIRD_R - 3 > p.x && BIRD_X - BIRD_R + 3 < p.x + PIPE_W;
@@ -55,25 +55,88 @@ const STAGES = [
 ];
 const hex2 = (h) => { const v = parseInt(h.slice(1, 7), 16), a = h.length > 7 ? parseInt(h.slice(7, 9), 16) : 255; return [v >> 16 & 255, v >> 8 & 255, v & 255, a]; };
 const mixC = (a, b, f) => { const x = hex2(a), y = hex2(b); return `rgba(${Math.round(x[0] + (y[0] - x[0]) * f)},${Math.round(x[1] + (y[1] - x[1]) * f)},${Math.round(x[2] + (y[2] - x[2]) * f)},${((x[3] + (y[3] - x[3]) * f) / 255).toFixed(3)})`; };
-export function themeAt(score) {   // transition douce pendant les 10 colonnes qui précèdent chaque palier
+let thMemo = { k: -1, v: null };
+export function themeAt(score) {   // transition douce pendant les 10 colonnes qui précèdent chaque palier (mémorisé : calculé une fois par colonne)
+  if (thMemo.k === score) return thMemo.v;
   let j = 0; for (let i = 1; i < STAGES.length; i++) if (score >= STAGES[i].at - 10) j = i;
-  if (j === 0) return STAGES[0];
-  const A = STAGES[j - 1], B = STAGES[j], f = Math.min(1, Math.max(0, (score - (B.at - 10)) / 10)), th = {};
+  const B = STAGES[j], A = STAGES[Math.max(0, j - 1)], f = j === 0 ? 1 : Math.min(1, Math.max(0, (score - (B.at - 10)) / 10)), th = {};
   for (const k of Object.keys(B)) th[k] = k === 'at' ? B.at : typeof B[k] === 'string' ? mixC(A[k], B[k], f) : A[k] + (B[k] - A[k]) * f;
+  for (const k of ['hill', 'cloud', 'p1', 'p2', 'p3', 'p4', 'p5', 'gnd', 'grass', 'dash']) if (th.dark > 0.01) th[k] = mixC(rgbaToHex(th[k]), '#000014', th.dark * 0.45);   // la nuit assombrit tout, sans calque plein écran
+  thMemo = { k: score, v: th };
   return th;
+}
+const rgbaToHex = (c) => { if (c[0] === '#') return c; const m = c.match(/[\d.]+/g).map(Number); return '#' + [m[0], m[1], m[2]].map((v) => Math.round(v).toString(16).padStart(2, '0')).join('') + Math.round((m[3] ?? 1) * 255).toString(16).padStart(2, '0'); };
+
+// Ciel (dégradé, étoiles, lune, lueur de lave) : dessiné une seule fois par colonne dans un calque, puis recopié à chaque image
+let skyMemo = { k: -1, cv: null };
+function skyFor(th, score) {
+  if (skyMemo.k === score) return skyMemo.cv;
+  const cv = skyMemo.cv ?? document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'), hg = H - GROUND;
+  const gr = c.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, th.sT); gr.addColorStop(1, th.sB); c.fillStyle = gr; c.fillRect(0, 0, W, H);
+  if (th.star > 0.01) {
+    c.fillStyle = '#fff'; for (let k = 0; k < 40; k++) { c.globalAlpha = th.star * (0.5 + 0.5 * ((k * 7) % 5) / 4); c.fillRect((k * 83) % W, (k * 47) % 330, k % 3 ? 1.6 : 2.6, k % 3 ? 1.6 : 2.6); } c.globalAlpha = 1;
+    c.fillStyle = `rgba(250,246,225,${th.star})`; c.beginPath(); c.arc(236, 86, 18, 0, 7); c.fill(); c.fillStyle = `rgba(7,11,36,${th.star * 0.35})`; c.beginPath(); c.arc(243, 81, 15, 0, 7); c.fill();
+  }
+  if (th.hell > 0.01) { const lg = c.createLinearGradient(0, hg - 160, 0, hg); lg.addColorStop(0, 'rgba(255,90,20,0)'); lg.addColorStop(1, `rgba(255,110,30,${0.55 * th.hell})`); c.fillStyle = lg; c.fillRect(0, hg - 160, W, 160); }
+  skyMemo = { k: score, cv };
+  return cv;
 }
 
 const BASE = { body: '#ef4444', belly: '#fecaca', wing: '#b91c1c' };
+// L'oiseau est dessiné une seule fois (16 images : aile haut/bas × 8 phases d'accessoire) puis recopié : plus de dégradés ni d'ombres à chaque image
+const BS = 60, SS = 3;
+function birdSprite(skin, frame) {
+  const wf = Math.floor(frame / 5) % 2, ph = Math.floor(frame / 6) % 8, key = wf * 8 + ph;
+  skin._spr ??= {};
+  if (!skin._spr[key]) {
+    const cv = document.createElement('canvas'); cv.width = cv.height = BS * SS;
+    const c = cv.getContext('2d'); c.scale(SS, SS); c.translate(BS / 2, BS / 2);
+    paintBird(c, ph * 10 + wf * 5, skin);
+    skin._spr[key] = cv;
+  }
+  return skin._spr[key];
+}
+function paintBird(ctx, frame, skin) {
+  let body = skin.body;
+  if (skin.rainbow) { const gr = ctx.createLinearGradient(-14, -14, 14, 14); ['#ef4444', '#facc15', '#22c55e', '#3b82f6'].forEach((c, i) => gr.addColorStop(i / 3, c)); body = gr; }
+  ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.wing; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.eyeBg ?? '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
+  if (skin.eye) { ctx.shadowColor = skin.eye; ctx.shadowBlur = 8; }
+  ctx.fillStyle = skin.eye ?? '#111'; ctx.beginPath(); ctx.arc(7.4, -4, skin.eye ? 3 : 2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
+  PAINT_ACC[skin.acc]?.(ctx, skin, frame);
+  if (skin.acc === 'shades') { ctx.fillStyle = '#111'; ctx.fillRect(2, -8, 12, 6); ctx.fillRect(-2, -6, 5, 2); }
+  if (skin.acc === 'band') { ctx.fillStyle = '#dc2626'; ctx.fillRect(-12, -10, 24, 4); ctx.beginPath(); ctx.moveTo(-12, -9); ctx.lineTo(-22, -4 + Math.sin(frame / 4) * 3); ctx.lineTo(-12, -6); ctx.fill(); }
+  if (skin.acc === 'crown') { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(-6, -11); ctx.lineTo(-7, -21); ctx.lineTo(-2, -16); ctx.lineTo(2, -22); ctx.lineTo(6, -16); ctx.lineTo(10, -21); ctx.lineTo(9, -11); ctx.closePath(); ctx.fill(); }
+  if (skin.acc === 'knight') {
+    ctx.fillStyle = '#aab3bd'; ctx.beginPath(); ctx.arc(0, -3, 13, Math.PI, 0); ctx.lineTo(13, -3); ctx.lineTo(-13, -3); ctx.fill();
+    ctx.fillStyle = '#2b2f36'; ctx.fillRect(1, -8, 12, 3.5);
+    ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.moveTo(-2, -15); ctx.quadraticCurveTo(-10 - Math.sin(frame / 5) * 2, -26, -16, -14 + Math.sin(frame / 4) * 2); ctx.quadraticCurveTo(-8, -17, -2, -12); ctx.fill();
+  }
+  if (skin.acc === 'dark') { ctx.fillStyle = '#0b0910'; ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(-4, -22); ctx.lineTo(0, -14); ctx.lineTo(4, -22); ctx.lineTo(6, -12); ctx.fill(); }
+}
+
+const PAINT_ACC = {
+  duck(c) { c.fillStyle = '#f59e0b'; c.strokeStyle = '#b86a06'; c.lineWidth = 1; c.beginPath(); c.moveTo(9, -2); c.quadraticCurveTo(25, -4, 25, 3); c.quadraticCurveTo(25, 8, 9, 7); c.closePath(); c.fill(); c.stroke(); c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(-1, -13, 2.6, 0, 7); c.arc(-4, -12, 2.2, 0, 7); c.fill(); },
+  pigeon(c) { c.fillStyle = 'rgba(47,158,138,.9)'; c.beginPath(); c.ellipse(3, 8, 10, 5, 0.25, 0, 7); c.fill(); c.fillStyle = 'rgba(138,95,176,.8)'; c.beginPath(); c.ellipse(5, 10, 6, 3, 0.25, 0, 7); c.fill(); c.fillStyle = '#f97316'; c.beginPath(); c.arc(6, -4, 4.6, 0, 7); c.fill(); c.fillStyle = '#111'; c.beginPath(); c.arc(7, -4, 2.2, 0, 7); c.fill(); },
+  clodo(c) {
+    c.fillStyle = '#6b4e3d'; c.beginPath(); c.moveTo(-12, -4); c.quadraticCurveTo(-11, -20, 2, -20); c.quadraticCurveTo(14, -20, 13, -4); c.closePath(); c.fill(); c.fillStyle = '#4a362b'; c.fillRect(-13, -8, 27, 5); c.beginPath(); c.arc(1, -21, 3.2, 0, 7); c.fill();
+    c.fillStyle = '#b4895a'; c.strokeStyle = '#6b4e3d'; c.lineWidth = 1; c.setLineDash([2, 2]); c.fillRect(-6, 5, 7, 6); c.strokeRect(-6, 5, 7, 6); c.setLineDash([]);
+    c.fillStyle = 'rgba(40,30,20,.55)'; for (const [x, y] of [[7, 5], [10, 7], [5, 8], [9, 10]]) c.fillRect(x, y, 1.2, 1.2);
+  },
+  ptero(c) {
+    c.fillStyle = '#4a5f2f'; c.strokeStyle = '#2f3d1c'; c.lineWidth = 1; c.beginPath(); c.moveTo(-6, -10); c.lineTo(-22, -19); c.lineTo(-13, -5); c.closePath(); c.fill(); c.stroke();
+    c.fillStyle = '#c9a24a'; c.beginPath(); c.moveTo(9, -3); c.lineTo(27, 2); c.lineTo(9, 6); c.closePath(); c.fill(); c.strokeStyle = '#7a5e1a'; c.stroke();
+    c.fillStyle = '#4a5f2f'; c.beginPath(); c.moveTo(-8, 4); c.lineTo(-20, 12); c.lineTo(-10, 9); c.lineTo(-17, 18); c.lineTo(-4, 11); c.closePath(); c.fill();
+  },
+};
+
 export function draw(ctx, g, frame, skin = BASE) {
   const th = themeAt(g.score), hg = H - GROUND;
-  const gr = ctx.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, th.sT); gr.addColorStop(1, th.sB); ctx.fillStyle = gr; ctx.fillRect(0, 0, W, H);
-  if (th.star > 0.01) {   // étoiles et lune
-    ctx.fillStyle = `rgba(255,255,255,${th.star})`; for (let k = 0; k < 40; k++) { const sx = (k * 83) % W, sy = (k * 47) % 330, tw = 0.6 + 0.4 * Math.sin(frame / 20 + k); ctx.globalAlpha = th.star * tw; ctx.fillRect(sx, sy, k % 3 ? 1.6 : 2.6, k % 3 ? 1.6 : 2.6); } ctx.globalAlpha = 1;
-    ctx.fillStyle = `rgba(250,246,225,${th.star})`; ctx.beginPath(); ctx.arc(268, 96, 20, 0, 7); ctx.fill(); ctx.fillStyle = `rgba(7,11,36,${th.star * 0.35})`; ctx.beginPath(); ctx.arc(276, 90, 17, 0, 7); ctx.fill();
-  }
-  if (th.hell > 0.01) {   // lueur de lave au loin
-    const lg = ctx.createLinearGradient(0, hg - 160, 0, hg); lg.addColorStop(0, 'rgba(255,90,20,0)'); lg.addColorStop(1, `rgba(255,110,30,${0.55 * th.hell})`); ctx.fillStyle = lg; ctx.fillRect(0, hg - 160, W, 160);
-  }
+  ctx.drawImage(skyFor(th, g.score), 0, 0);
   // nuages
   ctx.fillStyle = th.cloud;
   for (const [cx, cy, r] of [[50 - (frame * 0.2) % 340 + 340, 90, 18], [190 - (frame * 0.2) % 340 + 340, 140, 14], [120 - (frame * 0.2) % 340 + 340, 60, 12]]) {
@@ -117,7 +180,6 @@ export function draw(ctx, g, frame, skin = BASE) {
   if (th.hell > 0.01) {   // braises qui montent
     for (let k = 0; k < 22; k++) { const ex = (k * 53 + frame * 0.3) % W, ey = H - GROUND - ((frame * (0.6 + (k % 4) * 0.25) + k * 61) % 420); ctx.fillStyle = `rgba(255,${120 + (k % 3) * 40},40,${th.hell * 0.75})`; ctx.fillRect(ex, ey, 2.4, 2.4); }
   }
-  if (th.dark > 0.01) { ctx.fillStyle = `rgba(0,0,20,${th.dark * (th.star > 0.9 ? 0.3 : 0.4)})`; ctx.fillRect(0, 0, W, H); }
   // oiseau (rond, bleu, bec rouge)
   if (g.dead && g.deathT >= GROW_F) {   // explosion : plumes
     for (const q of g.parts) {
@@ -133,24 +195,8 @@ export function draw(ctx, g, frame, skin = BASE) {
   ctx.save(); ctx.translate(BIRD_X, g.y);
   if (g.dead) { const k = g.deathT / GROW_F; ctx.translate(Math.sin(g.deathT * 2.2) * k * 3, Math.cos(g.deathT * 2.7) * k * 2); ctx.scale(1 + k * 1.8, 1 + k * 1.8); }
   ctx.rotate(g.dead ? 0 : g.tilt);
-  let body = skin.body;
-  if (skin.rainbow) { const gr = ctx.createLinearGradient(-14, -14, 14, 14); ['#ef4444', '#facc15', '#22c55e', '#3b82f6'].forEach((c, i) => gr.addColorStop(i / 3, c)); body = gr; }
-  ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
-  ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = skin.wing; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
-  ctx.fillStyle = skin.eyeBg ?? '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
-  if (skin.eye) { ctx.shadowColor = skin.eye; ctx.shadowBlur = 8; }
-  ctx.fillStyle = skin.eye ?? '#111'; ctx.beginPath(); ctx.arc(7.4, -4, skin.eye ? 3 : 2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-  ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
-  if (skin.acc === 'shades') { ctx.fillStyle = '#111'; ctx.fillRect(2, -8, 12, 6); ctx.fillRect(-2, -6, 5, 2); }
-  if (skin.acc === 'band') { ctx.fillStyle = '#dc2626'; ctx.fillRect(-12, -10, 24, 4); ctx.beginPath(); ctx.moveTo(-12, -9); ctx.lineTo(-22, -4 + Math.sin(frame / 4) * 3); ctx.lineTo(-12, -6); ctx.fill(); }
-  if (skin.acc === 'crown') { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(-6, -11); ctx.lineTo(-7, -21); ctx.lineTo(-2, -16); ctx.lineTo(2, -22); ctx.lineTo(6, -16); ctx.lineTo(10, -21); ctx.lineTo(9, -11); ctx.closePath(); ctx.fill(); }
-  if (skin.acc === 'knight') {
-    ctx.fillStyle = '#aab3bd'; ctx.beginPath(); ctx.arc(0, -3, 13, Math.PI, 0); ctx.lineTo(13, -3); ctx.lineTo(-13, -3); ctx.fill();
-    ctx.fillStyle = '#2b2f36'; ctx.fillRect(1, -8, 12, 3.5);
-    ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.moveTo(-2, -15); ctx.quadraticCurveTo(-10 - Math.sin(frame / 5) * 2, -26, -16, -14 + Math.sin(frame / 4) * 2); ctx.quadraticCurveTo(-8, -17, -2, -12); ctx.fill();
-  }
-  if (skin.acc === 'dark') { ctx.fillStyle = '#0b0910'; ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(-4, -22); ctx.lineTo(0, -14); ctx.lineTo(4, -22); ctx.lineTo(6, -12); ctx.fill(); }
+  const spr = birdSprite(skin, frame);
+  ctx.drawImage(spr, -BS / 2, -BS / 2, BS, BS);
   ctx.restore();
   // score
   ctx.textAlign = 'center'; ctx.font = '800 44px system-ui, sans-serif';
@@ -177,8 +223,9 @@ export function mount(root, { onEnd, bird }) {
   function loop(ts) {
     if (destroyed) return;
     acc += Math.min(ts - (last || ts), 100); last = ts;
-    while (acc >= 1000 / 60) { g.step(); acc -= 1000 / 60; frame++; }
-    draw(ctx, g, frame, skin);
+    let stepped = false;
+    while (acc >= 1000 / 60) { g.step(); acc -= 1000 / 60; frame++; stepped = true; }
+    if (stepped || frame === 0) draw(ctx, g, frame, skin);
     if (g.dead && g.deathT >= GROW_F + 38) cv.classList.add('gray');
     if (g.dead && !reported && g.deathT >= DEAD_F) {
       reported = true;

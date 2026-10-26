@@ -1,8 +1,8 @@
 import {
   CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity,
 } from './config.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
@@ -947,6 +947,7 @@ function sheetHTML() {
     case 'ginfo': return gameInfoHTML(s);
     case 'shop': return shopHTML(s);
     case 'exchange': return exchangeHTML();
+    case 'crate': return crateHTML(s);
     case 'cal': return calendarHTML();
     case 'cal-new': return calNewHTML();
     case 'soaphist': return soapHistHTML();
@@ -1326,6 +1327,38 @@ function robeHTML() {
 }
 
 // ---------- Boutique (caddie) : cadres, effets de pseudo, looks de l'oiseau ----------
+const RAR_CLS = { 'Commun': 'rar-c', 'Rare': 'rar-r', 'Épique': 'rar-e', 'Légendaire': 'rar-l' };
+function birdTabHTML(me, owned, bal, cur) {
+  const has = (k) => owned.has(`bird:${k}`), pool = SHOP.bird.filter((b) => !has(b.key)), tot = pool.reduce((a, b) => a + b.w, 0);
+  const odds = ['Commun', 'Rare', 'Épique', 'Légendaire'].map((r) => [r, pool.filter((b) => birdRarity(b.w) === r).reduce((a, b) => a + b.w, 0)]).filter(([, w]) => w > 0)
+    .map(([r, w]) => `<span class="rar ${RAR_CLS[r]}">${r} ${(w / tot * 100 < 10 ? (w / tot * 100).toFixed(1) : Math.round(w / tot * 100))} %</span>`).join('');
+  const tileB = (b) => {
+    const mine = has(b.key), eq = cur === b.key;
+    return `<div class="item ${eq ? 'eq' : ''} ${mine ? '' : 'locked'}">${mine ? birdSVG(b.key, 70) : `<span class="lockbird">${birdSVG(b.key, 70)}</span>`}<b>${mine ? esc(b.name) : '???'}</b>
+      ${mine ? `<button class="mini ${eq ? 'ok' : ''}" data-action="shop-equip" data-slot="bird" data-id="${b.key}">${eq ? 'Équipé' : 'Équiper'}</button>` : `<span class="rar ${RAR_CLS[birdRarity(b.w)]}">${birdRarity(b.w)}</span>`}</div>`;
+  };
+  return `<div class="cratebox">${CRATE_SVG(78)}<div class="cratetxt"><b>Caisse mystère</b><small>Un oiseau au hasard parmi ceux que tu n'as pas encore. Les oiseaux de couleur sont les plus fréquents.</small>
+      <button class="mini ok" data-action="crate-open" ${pool.length && bal >= BIRD_CRATE.price ? '' : 'disabled'}>${pool.length ? `Ouvrir · ${BIRD_CRATE.price} 🪙` : 'Tous débloqués !'}</button></div></div>
+    ${pool.length ? `<div class="odds">${odds}</div>` : ''}
+    <div class="shop shopgrid"><div class="item ${!cur ? 'eq' : ''}">${birdSVG(null, 70)}<b>Oiseau classique</b><button class="mini ${!cur ? 'ok' : ''}" data-action="shop-equip" data-slot="bird" data-id="">${!cur ? 'Équipé' : 'Équiper'}</button></div>${SHOP.bird.map(tileB).join('')}</div>
+    <div class="det">Les oiseaux ne s'achètent plus à l'unité : ils se gagnent dans les caisses.</div>`;
+}
+function crateHTML(s) {
+  const b = SHOP.bird.find((x) => x.key === s.key);
+  if (s.phase === 0) return sheetWrap(`<div class="cratereveal"><div class="crateshake">${CRATE_SVG(150)}</div><div class="when">Ouverture…</div></div>`, 'var(--gold)');
+  const r = birdRarity(b.w);
+  return sheetWrap(`<div class="cratereveal pop"><span class="rar ${RAR_CLS[r]}">${r}</span><div class="bigbird">${birdSVG(b.key, 150)}</div><h2>${esc(b.name)}</h2><div class="when">Nouvel oiseau débloqué !</div>
+    <div class="sact two"><button class="btn primary" data-action="crate-equip" data-id="${b.key}">Équiper</button><button class="btn" data-action="crate-again">Fermer</button></div></div>`, 'var(--gold)');
+}
+async function crateOpen() {
+  try {
+    const key = await state.api.openBirdCrate(state.me.id);
+    await refresh(true);
+    state.sheet = { type: 'crate', key, phase: 0 }; render();
+    setTimeout(() => { if (state.sheet?.type === 'crate' && state.sheet.key === key) { state.sheet.phase = 1; render(); } }, 1300);
+  } catch (e) { toast(e.message || 'Ouverture impossible.'); refresh(true).catch(() => {}); }
+}
+
 function shopHTML(s) {
   const me = state.me, slot = s.slot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
   const none = { outfit: 'Tenue de base', frame: 'Sans cadre', namefx: 'Pseudo normal', bird: 'Oiseau classique' }[slot];
@@ -1340,11 +1373,12 @@ function shopHTML(s) {
       ${has ? `<button class="mini ${eq ? 'ok' : ''}" data-action="shop-equip" data-slot="${slot}" data-id="${key ?? ''}">${eq ? 'Équipé' : 'Équiper'}</button>`
         : `<button class="mini ok" data-action="shop-buy" data-slot="${slot}" data-id="${key}" ${bal >= price ? '' : 'disabled'}>${price} 🪙</button>`}</div>`;
   };
-  return sheetWrap(`
-    <div class="sh"><div><h2>🛒 Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>${closeBtn}</div>
-    <div class="seg five" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>
+  const head = `<div class="sh"><div><h2 class="shoph">${CART_SVG} Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>${closeBtn}</div>
+    <div class="seg five" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (slot === 'bird') return sheetWrap(head + birdTabHTML(me, owned, bal, cur), 'var(--gold)');
+  return sheetWrap(`${head}
     <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
-    <div class="det">${{ outfit: 'Des personnages à acheter. Singe, tortue, lion et dino se débloquent aux niveaux 5, 10, 20 et 30.', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.', bird: "Un nouveau look pour l'oiseau de Jumpy Cardinal." }[slot]}</div>`, 'var(--gold)');
+    <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div>`, 'var(--gold)');
 }
 /* ---------- Calendrier : activités proposées + sondage de présence ---------- */
 const upcomingEvents = () => state.events.filter((e) => Date.parse(e.starts_at) >= Date.now() - 3 * 3600000);
@@ -1442,6 +1476,7 @@ function profileSheetHTML(s) {
     <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
     <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${nameHTML(m)}</b></div>
+    <div class="pbird">${birdSVG(m.bird, 54)}<span><small>Oiseau de Jumpy Cardinal</small><b>${esc(SHOP.bird.find((b) => b.key === m.bird)?.name ?? 'Oiseau classique')}</b></span></div>
     ${featuredBadgeHTML(m)}
     <details class="allbadges"><summary>${m.badge ? 'Voir tous les badges' : 'Badges'}</summary>${statGrid(m)}</details>
     ${activePerksOf(m.id).map((pk) => perkCardHTML(pk, mine)).join('')}
@@ -1550,6 +1585,9 @@ document.addEventListener('click', (e) => {
     case 'exchange-do': exchangeNow(Number(id)); break;
     case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
+    case 'crate-open': crateOpen(); break;
+    case 'crate-equip': saveProfile({ bird: id }); state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
+    case 'crate-again': state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
     case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); window.scrollTo(0, 0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;

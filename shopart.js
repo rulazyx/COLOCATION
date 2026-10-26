@@ -13,6 +13,10 @@ export function birdSVG(key, size = 64) {
     : b.acc === 'band' ? '<path d="M18 30Q40 18 62 28v6Q40 26 18 36z" fill="#dc2626"/><path d="M18 33l-8 6 10 0z" fill="#dc2626"/>'
     : b.acc === 'knight' ? '<path d="M26 40C26 20 38 14 46 14s20 6 20 26z" fill="#aab3bd"/><rect x="42" y="26" width="24" height="7" rx="3" fill="#2b2f36"/><path d="M34 16C30 4 14 6 10 16 20 12 28 14 36 22z" fill="#e5484d"/>'
     : b.acc === 'dark' ? '<path d="M30 16l4-10 5 8 5-10 5 10 4-8 3 10z" fill="#0b0910"/>'
+    : b.acc === 'duck' ? '<path d="M58 34Q80 32 80 40Q80 47 58 46z" fill="#f59e0b" stroke="#b86a06" stroke-width="1.5"/><circle cx="36" cy="12" r="4" fill="#ffd23f"/><circle cx="31" cy="14" r="3.4" fill="#ffd23f"/>'
+    : b.acc === 'pigeon' ? '<ellipse cx="44" cy="54" rx="17" ry="8" transform="rotate(14 44 54)" fill="#2f9e8a" opacity=".9"/><ellipse cx="48" cy="58" rx="10" ry="5" transform="rotate(14 48 58)" fill="#8a5fb0" opacity=".8"/><circle cx="52.5" cy="28" r="6.6" fill="#f97316"/><circle cx="53.5" cy="28" r="3" fill="#111"/>'
+    : b.acc === 'clodo' ? '<path d="M26 22C26 2 58 0 62 22z" fill="#6b4e3d"/><rect x="24" y="20" width="40" height="7" rx="3" fill="#4a362b"/><circle cx="43" cy="3" r="5" fill="#4a362b"/><rect x="26" y="50" width="12" height="10" fill="#b4895a" stroke="#6b4e3d" stroke-dasharray="2 2"/><g fill="#40301f" opacity=".6"><circle cx="58" cy="46" r="1"/><circle cx="62" cy="50" r="1"/><circle cx="54" cy="52" r="1"/><circle cx="60" cy="55" r="1"/></g>'
+    : b.acc === 'ptero' ? '<path d="M36 14L10 0L22 24z" fill="#4a5f2f" stroke="#2f3d1c" stroke-width="1.5"/><path d="M60 31L80 38L60 45z" fill="#c9a24a" stroke="#7a5e1a" stroke-width="1.5"/><path d="M18 44L2 56L14 54L6 66L26 54z" fill="#4a5f2f"/>'
     : b.acc === 'crown' ? '<path d="M28 20l4-12 7 8 6-10 6 10 7-8 3 12z" fill="#facc15" stroke="#b45309" stroke-width="1.5"/>' : '';
   return `<svg viewBox="0 0 80 70" width="${size}" height="${Math.round(size * 0.875)}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     ${b.rainbow ? `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ef4444"/><stop offset=".33" stop-color="#facc15"/><stop offset=".66" stop-color="#22c55e"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>` : ''}
@@ -74,3 +78,12 @@ export const SUGGEST_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill
 
 export const CAL_SVG = `<svg viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <rect x="4.5" y="6" width="23" height="21" rx="4"/><path d="M4.5 12.5h23M10.5 3.5v5M21.5 3.5v5"/><path d="M10 18h2.5M15 18h2.5M20 18h2.5M10 22.5h2.5M15 22.5h2.5"/></svg>`;
+
+export const CRATE_SVG = (size = 96) => `<svg viewBox="0 0 96 90" width="${size}" height="${Math.round(size * 0.94)}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="48" cy="84" rx="38" ry="5" fill="rgba(0,0,0,.18)"/>
+  <rect x="10" y="26" width="76" height="56" rx="5" fill="#c98a4b" stroke="#4a2c12" stroke-width="3"/>
+  <path d="M10 44h76M10 62h76" stroke="#4a2c12" stroke-width="2" opacity=".5"/>
+  <rect x="6" y="16" width="84" height="16" rx="4" fill="#e2a35c" stroke="#4a2c12" stroke-width="3"/>
+  <path d="M30 26v56M66 26v56" stroke="#4a2c12" stroke-width="2.5" opacity=".6"/>
+  <circle cx="48" cy="56" r="15" fill="#ffd23f" stroke="#4a2c12" stroke-width="3"/>
+  <path d="M43 51a5.5 5.5 0 1 1 8 5c-2 1.4-3 2.4-3 4.5M48 66.5v.5" fill="none" stroke="#4a2c12" stroke-width="3.4" stroke-linecap="round"/></svg>`;
