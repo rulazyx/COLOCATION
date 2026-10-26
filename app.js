@@ -1,6 +1,6 @@
 import {
-  CONFIG, TASK_KINDS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, shopItem, SOAP_EXCHANGE,
+  CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE,
 } from './config.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
@@ -75,7 +75,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -139,11 +139,11 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks'];
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay'];
   const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(),
   ]);
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
@@ -212,6 +212,7 @@ async function init() {
       if (document.hidden || state.game || state.sheet || !state.me || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
       refresh().catch(() => {});
     }, 15000);
+    setInterval(() => { if (state.me && state.tab === 'games' && state.gamesSeg === 'ferme' && !state.sheet && !state.game) render(); }, 30000);
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
@@ -499,9 +500,8 @@ async function openProfile(id) {
 const GAMES = {
   chifoumi: { name: 'Chifoumi', cls: 'chif', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
   flappy: { name: 'Jumpy Cardinal', cls: 'flap', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
-  raid: { name: 'Le Grand Raid', cls: 'raid', board: 'raid', mod: './games/raid.js', blurb: 'Une course sans fin sur la plage : saute les obstacles et grimpe le plus haut possible. Atteins 3 070 m pour le sommet du Piton.' },
-  sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
   blackjack: { name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null;
 async function openGame(id) {
@@ -801,8 +801,6 @@ function taskListHTML() {
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
   const confirm = toConfirm();
   const mine = pendingLogs().filter((l) => l.doer_id === me.id);
-  const kinds = Object.entries(TASK_KINDS).map(([k, K]) => ({ k, K, ...kindStatus(k) }))
-    .sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1));
   const done = state.logs.filter((l) => l.status === 'validated').slice(0, 20);
   const row = (l, actions) => {
     const K = TASK_KINDS[l.kind], doer = memberById(l.doer_id);
@@ -819,15 +817,17 @@ function taskListHTML() {
     <h3 class="sec" ${confirm.length || mine.length ? '' : 'style="margin-top:0"'}>Tâches à faire</h3>
     ${isColoc ? '<p class="summary" style="margin-top:0">Fais une tâche quand tu veux : touche-la, confirme, puis un autre coloc validera.</p>'
       : '<p class="summary" style="margin-top:0">Les tâches ménagères sont réservées aux colocataires.</p>'}
-    <div class="klist">${kinds.map(({ k, K, st, log, left }) => {
-      const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, en attente de confirmation`
-        : st === 'cooldown' ? `✅ Faite par ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · de nouveau dispo dans ${fmtWait(left)}`
-        : esc(K.detail);
-      return `<button class="kcard ${st}" style="--c:${K.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
-        <span class="kemo">${K.emoji}</span>
-        <span class="ktxt"><b>${esc(K.label)}</b><small>${sub}</small></span>
-        <span class="ksoap">+${K.soap} 🧼</span></button>`;
-    }).join('')}</div>
+    ${TASK_GROUPS.map((G) => `<h4 class="tgrp" style="--c:${G.color}"><span>${G.emoji}</span>${esc(G.label)}</h4>
+      <div class="klist">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
+        const { st, log, left } = kindStatus(k);
+        const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
+          : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}`
+          : esc(K.detail);
+        return `<button class="kcard ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
+          <span class="kemo">${K.emoji}</span>
+          <span class="ktxt"><b>${esc(K.room)}</b><small>${sub}</small></span>
+          <span class="ksoap">+${K.soap} 🧼</span></button>`;
+      }).join('')}</div>`).join('')}
     ${done.length ? `<h3 class="sec">Dernières tâches</h3>${done.map((l) => {
       const K = TASK_KINDS[l.kind];
       return `<div class="up hist"><div class="mini-av">${av(memberById(l.doer_id), 38)}</div>
@@ -903,6 +903,7 @@ function sheetHTML() {
     case 'dice': return diceSheetHTML(s);
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
+    case 'farm-pick': return farmPickHTML(s);
     case 'shop': return shopHTML(s);
     case 'exchange': return exchangeHTML();
     case 'soaphist': return soapHistHTML();
@@ -990,6 +991,10 @@ function stockHTML() {
 
 /* ---------- Onglet 3 : jeux ---------- */
 function gamesHTML() {
+  if (state.gamesSeg === 'ferme') return `<button class="mini" style="margin-bottom:10px" data-action="gseg" data-v="games">‹ Jeux</button>` + fermeHTML();
+  return gamesListHTML();
+}
+function gamesListHTML() {
   const me = state.me;
   const received = pendingForMe();
   const sent = state.duels.filter((d) => d.status === 'pending' && d.challenger_id === me.id);
@@ -1003,6 +1008,7 @@ function gamesHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
+    <button class="gfarm" data-action="gseg" data-v="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).map(([id, g]) => `
       <button class="gtile g-${g.cls}" data-action="ginfo" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? '<span class="paidbadge" title="Payant (colocoins)">🪙</span>' : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
@@ -1020,6 +1026,89 @@ function gamesHTML() {
         <div class="txt"><b>${esc(ch?.name)} ${moveEmoji(d.challenger_move)} vs ${moveEmoji(d.opponent_move)} ${esc(op?.name)}</b>
         <small>${w ? `${esc(w)} gagne` : 'Égalité'}</small></div></div>`;
     }).join('') : '<div class="empty-msg" style="padding:16px 0">Aucun duel pour l\'instant. Lance le premier !</div>'}`;
+}
+
+
+/* ---------- Colo-Ferme ---------- */
+const farmOf = (id) => state.farm.filter((p) => p.member_id === id);
+const farmSlots = (id) => state.farmSt.find((x) => x.member_id === id)?.slots ?? FARM.baseSlots;
+const cropOf = (k) => FARM.crops.find((c) => c.key === k);
+function farmStatus(p) {
+  const t = Date.parse(p.ready_at), n = Date.now();
+  if (t > n) return 'grow';
+  return n > t + FARM.witherH * 3600000 ? 'dead' : 'ready';
+}
+function fmtLeft(ms) {
+  const m = Math.max(1, Math.ceil(ms / 60000));
+  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`;
+}
+function farmReadyBadge() {
+  const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
+  return n ? `<span class="gbadge">${n} à récolter</span>` : '';
+}
+function farmArt() {
+  return `<svg class="gart" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="fsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8f2"/><stop offset="1" stop-color="#d8f0ff"/></linearGradient></defs>
+    <rect width="400" height="150" fill="url(#fsky)"/><circle cx="335" cy="34" r="20" fill="#ffd84a"/>
+    <path d="M0 78 Q70 40 140 74 T290 70 T400 62 V150 H0Z" fill="#4c9a5b"/><path d="M0 92 Q100 64 200 90 T400 84 V150 H0Z" fill="#6cbc6a"/>
+    <path d="M0 110 H400 V150 H0Z" fill="#8a5a2c"/>
+    <g stroke="#6b4420" stroke-width="3"><path d="M0 122 H400 M0 136 H400"/></g>
+    <g font-size="20"><text x="30" y="118">🥕</text><text x="90" y="118">🍅</text><text x="150" y="118">🍍</text><text x="210" y="118">🥑</text><text x="270" y="118">🍒</text><text x="330" y="118">🥭</text></g>
+    <g fill="#c0392b"><rect x="40" y="38" width="46" height="34"/><path d="M34 40 L63 18 L92 40Z" fill="#8a2b20"/></g><rect x="56" y="52" width="14" height="20" fill="#f5e6c8"/>
+  </svg>`;
+}
+function fermeHTML() {
+  const me = state.me;
+  if (me.kind !== 'coloc') return '<div class="empty-msg">La Colo-Ferme est réservée aux colocataires. Tu peux quand même en profiter en regardant les cultures des autres !</div>' + neighborsHTML();
+  const slots = farmSlots(me.id), got = state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0, left = Math.max(FARM.capPerDay - got, 0);
+  const plots = Array.from({ length: FARM.slotCosts.length }, (_, i) => {
+    if (i >= slots) {
+      const next = i === slots;
+      return `<button class="fplot locked" ${next ? `data-action="farm-unlock"` : 'disabled'}><span class="fe">🔒</span><small>${next ? `Débloquer · ${FARM.slotCosts[i]} 🪙` : 'Verrouillée'}</small></button>`;
+    }
+    const p = farmOf(me.id).find((x) => x.slot === i);
+    if (!p) return `<button class="fplot empty" data-action="farm-pick" data-id="${i}"><span class="fe">➕</span><small>Planter</small></button>`;
+    const c = cropOf(p.crop), st = farmStatus(p);
+    if (st === 'ready') return `<button class="fplot ready" data-action="farm-harvest" data-id="${i}"><span class="fe">${c.emoji}</span><small>Récolter ✨ +${c.gain} 🪙</small></button>`;
+    if (st === 'dead') return `<button class="fplot dead" data-action="farm-harvest" data-id="${i}"><span class="fe">🥀</span><small>Fané · nettoyer</small></button>`;
+    const total = c.hours * 3600000, rest = Date.parse(p.ready_at) - Date.now(), pct = Math.min(100, Math.max(0, 100 - (rest / total) * 100));
+    return `<div class="fplot grow"><span class="fe">🌱</span><small>${esc(c.name)} · ${fmtLeft(rest)}</small><i class="fbar"><b style="width:${pct}%"></b></i>${p.watered_by?.length ? `<em>💧${p.watered_by.length}</em>` : ''}</div>`;
+  });
+  return `
+    <p class="summary" style="margin-top:0">Plante, patiente, récolte ! Chaque culture pousse en temps réel. Non récoltée <b>24 h</b> après maturité, elle fane. Les récoltes rapportent au maximum <b>${FARM.capPerDay} 🪙 par jour</b> (<b>${left}</b> restants aujourd'hui).</p>
+    <div class="fgrid">${plots.join('')}</div>
+    <div class="legend"><span>💧 Un autre coloc arrose : −${Math.round(FARM.waterCut * 100)} % de temps</span><span>🧼 Une tâche validée : −${Math.round(FARM.taskBoost * 100)} % sur toutes tes cultures</span></div>
+    <h3 class="sec">Chez les voisins</h3>
+    ${neighborsHTML()}`;
+}
+function neighborsHTML() {
+  const me = state.me;
+  const list = colocs().filter((m) => m.id !== me.id);
+  return list.map((m) => {
+    const ps = farmOf(m.id).sort((a, b) => a.slot - b.slot);
+    return `<div class="up"><div class="mini-av">${av(m, 38)}</div><div class="txt"><b>${esc(m.name)}</b>
+      <div class="nplots">${ps.length ? ps.map((p) => {
+        const c = cropOf(p.crop), st = farmStatus(p);
+        if (st !== 'grow') return `<span class="np ${st}">${st === 'dead' ? '🥀' : c.emoji + ' ✨'}</span>`;
+        const mine = p.watered_by?.includes(me.id), can = me.kind === 'coloc' && !mine;
+        return `<button class="np grow" data-action="farm-water" data-id="${m.id}:${p.slot}" ${can ? '' : 'disabled'}>${c.emoji} ${fmtLeft(Date.parse(p.ready_at) - Date.now())} ${mine ? '💧✓' : '💧'}</button>`;
+      }).join('') : '<small>Rien de planté</small>'}</div></div></div>`;
+  }).join('') + (me.kind === 'coloc' ? `<div class="det">Arroser la parcelle d'un voisin la fait pousser plus vite et te rapporte ${FARM.waterReward} 🪙 (${FARM.waterRewardMaxPerDay} fois par jour).</div>` : '');
+}
+function farmPickHTML(s) {
+  const have = chipsOf(state.me.id);
+  return sheetWrap(`
+    <div class="sh"><div><h2>Planter</h2><div class="when">Parcelle ${s.slot + 1} · tu as ${have} 🪙</div></div>${closeBtn}</div>
+    <div class="cropl">${FARM.crops.map((c) => {
+      const lv = lvlOf(state.me.id), locked = lv < c.level;
+      return `<button class="crop ${locked ? 'lk' : ''}" data-action="farm-plant" data-id="${s.slot}" data-v="${c.key}" ${!locked && have >= c.cost ? '' : 'disabled'}>
+        <span class="fe">${locked ? '🔒' : c.emoji}</span><span class="ct"><b>${esc(c.name)}</b><small>${locked ? `Se débloque au niveau ${c.level}` : `Pousse en ${c.hours} h · rapporte ${c.gain} 🪙`}</small></span><span class="cp">${locked ? `Niv. ${c.level}` : `−${c.cost} 🪙`}</span></button>`;
+    }).join('')}</div>`, 'var(--accent)');
+}
+async function farmDo(fn, okMsg) {
+  try { const r = await fn(); state.sheet = null; if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); }
+  catch (e) { state.sheet = null; toast(e.message || 'Action impossible.'); }
+  await refresh(true).catch(() => {});
 }
 
 // Décors des tuiles de jeux (dessins originaux en SVG, sans texte : le nom est ajouté par-dessus)
@@ -1061,7 +1150,7 @@ function gameInfoHTML(s) {
   const g = GAMES[s.id], me = state.me, st = statsOf(me.id);
   if (!g) return '';
   const wins = state.duelStats.find((d) => d.member_id === me.id)?.wins ?? 0;
-  const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`, raid: `Record : ${st.raid_best || 0} m`,
+  const rec = { chifoumi: `${wins} victoire${wins > 1 ? 's' : ''}`, flappy: `Record : ${st.flappy_best || 0}`,
     sudoku: st.sudoku_best ? `Record : ${fmtTime(st.sudoku_best)}` : 'Pas encore terminé', blackjack: `${chipsOf(me.id)} colocoins · ${st.blackjack_wins || 0} main${(st.blackjack_wins || 0) > 1 ? 's' : ''} gagnée${(st.blackjack_wins || 0) > 1 ? 's' : ''}` }[s.id];
   const others = state.members.filter((m) => m.id !== me.id);
   if (!others.some((m) => m.id === state.opp)) state.opp = others[0]?.id ?? null;
@@ -1100,7 +1189,6 @@ function badgeCells(m) {
     ['dollars', '🪙', 'Colocoins', chipsOf(m.id)],
     ['chifoumi', '✊', 'Victoires chifoumi', wins],
     ['flappy', '🐦', 'Jumpy Cardinal', st.flappy_best || 0],
-    ['raid', '🏃', 'Grand Raid', st.raid_best || 0, `${st.raid_best || 0} m`],
     ['blackjack', '🃏', 'Blackjack (mains gagnées)', st.blackjack_wins || 0],
   ];
 }
@@ -1432,6 +1520,12 @@ document.addEventListener('click', (e) => {
     case 'push': enablePush(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
+    case 'gseg': state.anim = state.gamesSeg !== v; state.gamesSeg = v; render(); window.scrollTo(0, 0); break;
+    case 'farm-pick': state.sheet = { type: 'farm-pick', slot: Number(id) }; render(); break;
+    case 'farm-plant': farmDo(() => state.api.farmPlant(state.me.id, Number(id), v), 'Planté ! 🌱'); break;
+    case 'farm-harvest': farmDo(() => state.api.farmHarvest(state.me.id, Number(id)), (r) => r.withered ? 'Parcelle nettoyée 🥀' : r.coins ? `Récolte : +${r.coins} 🪙${r.lost ? ` (plafond du jour atteint, ${r.lost} perdus)` : ''}` : 'Plafond du jour atteint : récolte perdue 😬'); break;
+    case 'farm-water': { const [o, sl] = id.split(':').map(Number); farmDo(() => state.api.farmWater(state.me.id, o, sl), (r) => r.reward ? `Arrosé 💧 +${r.reward} 🪙` : 'Arrosé 💧'); break; }
+    case 'farm-unlock': farmDo(() => state.api.farmUnlock(state.me.id), 'Nouvelle parcelle ! 🌾'); break;
     case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
     // --- Toi : personnage et boutique ---
     case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;

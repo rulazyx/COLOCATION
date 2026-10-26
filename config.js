@@ -70,7 +70,7 @@ export const OUTFITS = {
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'dollars_1000' },
   poussin:      { name: 'Poussin',      challenge: 'maitre_poussin', hidesHair: true, hidesSkin: true },
   detective:    { name: 'Détective',    nameF: 'Détective',  challenge: 'inspecteur' },
-  hugodeck:     { name: 'Hugo Deck',    challenge: 'diagonale', hidesHair: true },       // copie du chevalier : à redessiner dans avatar.js
+  fermier:      { name: 'Fermier',      nameF: 'Fermière',   challenge: 'maraicher' },
   zeus:         { name: 'Zeus',         nameF: 'Héra',       challenge: 'dollars_10000' },
   nickel:       { name: 'Monsieur Nickel', nameF: 'Madame Nickel', challenge: 'nickel' },
   pterodactyl:  { name: 'Ptérodactyle', challenge: 'sauteur_pro', hidesHair: true, hidesSkin: true },
@@ -101,20 +101,47 @@ export const MOVES = {
 // ---------- Les tâches ménagères ----------
 // Chacun peut faire une tâche quand il veut : il la choisit dans la liste, un autre coloc confirme.
 // soap : savons 🧼 gagnés (selon la pénibilité) · cooldownH : une fois faite, la tâche redevient disponible après ce délai (en heures)
-export const TASK_KINDS = {
-  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', soap: 4, cooldownH: 12,
+const LEGACY_KINDS = {  // anciennes tâches : cachées de la liste mais gardées pour l'historique
+  cuisine:   { label: 'Nettoyage cuisine',              short: 'Cuisine',    emoji: '🍳', color: '#f59e0b', soap: 4, cooldownH: 12, legacy: true,
                detail: 'Évier, plaques, micro-ondes (int./ext.), table et meubles' },
-  poubelles: { label: 'Sortir les poubelles',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', soap: 2, cooldownH: 12,
+  poubelles: { label: 'Sortir les poubelles',           short: 'Poubelles',  emoji: '🗑️', color: '#10b981', soap: 2, cooldownH: 12, legacy: true,
                detail: 'Tri sélectif, compost, ménagère + sacs propres' },
-  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', soap: 5, cooldownH: 72,
+  wc:        { label: 'Nettoyage WC',                   short: 'WC',         emoji: '🚽', color: '#3b82f6', soap: 5, cooldownH: 72, legacy: true,
                detail: 'Cuvette, lunette, balayette, papier' },
-  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', soap: 4, cooldownH: 24,
+  aspijour:  { label: 'Aspi & serpillière (zone jour)', short: 'Aspi jour',  emoji: '🧹', color: '#8b5cf6', soap: 4, cooldownH: 24, legacy: true,
                detail: 'Salon, salle à manger, cuisine, couloirs' },
-  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', soap: 6, cooldownH: 72,
+  sdb:       { label: 'Nettoyage salle de bain',        short: 'Salle de b.', emoji: '🛁', color: '#06b6d4', soap: 6, cooldownH: 72, legacy: true,
                detail: 'Douche/baignoire, lavabo, miroir, désinfection' },
-  aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', soap: 3, cooldownH: 24,
+  aspieau:   { label: 'Aspi & serpillière (zone eau)',  short: 'Aspi eau',   emoji: '🚿', color: '#ec4899', soap: 3, cooldownH: 24, legacy: true,
                detail: 'Sols de la salle de bain et des WC' },
 };
+// Tâches regroupées par catégorie. soap = savons gagnés · cooldownH = délai avant que la tâche redevienne disponible (en heures)
+export const TASK_GROUPS = [
+  { key: 'net',  label: 'Nettoyage',  emoji: '🧽', color: '#f59e0b' },
+  { key: 'asp',  label: 'Aspirateur', emoji: '🧹', color: '#8b5cf6' },
+  { key: 'ser',  label: 'Serpillère', emoji: '🪣', color: '#06b6d4' },
+  { key: 'poub', label: 'Poubelles',  emoji: '🗑️', color: '#10b981' },
+  { key: 'cuis', label: 'Cuisiner',   emoji: '🍳', color: '#ec4899' },
+];
+const ROOMS = [['cuisine', 'Cuisine', '🍳', 24, 48], ['salon', 'Salon', '🛋️', 48, 24], ['sdb', 'Salle de bain', '🛁', 72, 48], ['wc', 'WC', '🚽', 72, 48]];
+const roomKinds = (g, verb, details, cdFn, houseCd) => Object.fromEntries([
+  ...ROOMS.map(([r, name, emoji], i) => [`${g}_${r}`, { group: g, room: name, label: `${verb} · ${name}`, short: `${verb} ${name.toLowerCase()}`, emoji, soap: 2, cooldownH: cdFn(i), detail: details[i] }]),
+  [`${g}_maison`, { group: g, room: 'Toute la maison', label: `${verb} · Toute la maison`, short: `${verb} toute la maison`, emoji: '🏠', soap: 10, cooldownH: houseCd, detail: 'Toutes les pièces d\'un coup' }],
+]);
+export const TASK_KINDS = {
+  ...roomKinds('net', 'Nettoyage', ['Évier, plaques, micro-ondes, table', 'Meubles, table, rangement', 'Douche, lavabo, miroir', 'Cuvette, lunette, balayette'], (i) => [24, 48, 72, 72][i], 168),
+  ...roomKinds('asp', 'Aspirateur', ['Sol de la cuisine', 'Sol du salon', 'Sol de la salle de bain', 'Sol des WC'], (i) => [24, 24, 48, 48][i], 72),
+  ...roomKinds('ser', 'Serpillère', ['Sol de la cuisine', 'Sol du salon', 'Sol de la salle de bain', 'Sol des WC'], (i) => [48, 48, 72, 72][i], 168),
+  poub_verte:     { group: 'poub', room: 'Poubelle verte',  label: 'Jeter la poubelle verte',  short: 'Poubelle verte',  emoji: '🟢', soap: 1, cooldownH: 12, detail: 'La vider dans le bac' },
+  poub_jaune:     { group: 'poub', room: 'Poubelle jaune',  label: 'Jeter la poubelle jaune',  short: 'Poubelle jaune',  emoji: '🟡', soap: 1, cooldownH: 12, detail: 'Tri sélectif' },
+  poub_portail:   { group: 'poub', room: 'Devant le portail', label: 'Mettre la poubelle devant le portail', short: 'Poubelle au portail', emoji: '🚪', soap: 1, cooldownH: 12, detail: 'Pour le passage des éboueurs' },
+  poub_remplace:  { group: 'poub', room: 'Remplacer le sac', label: 'Remplacer la poubelle', short: 'Sac remplacé', emoji: '🛍️', soap: 1, cooldownH: 12, detail: 'Mettre un sac propre' },
+  cuis_patisserie: { group: 'cuis', room: 'Pâtisseries', label: 'Pâtisseries pour tout le monde', short: 'Pâtisseries', emoji: '🧁', soap: 4, cooldownH: 24, detail: 'Gâteau, cookies… pour toute la coloc' },
+  cuis_repas:      { group: 'cuis', room: 'Repas', label: 'Cuisiner pour tout le monde', short: 'Repas pour tous', emoji: '🍲', soap: 8, cooldownH: 24, detail: 'Un vrai repas pour toute la coloc' },
+  ...LEGACY_KINDS,
+};
+Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g.key === K.group)?.color; });
+
 
 // ---------- Plateau : jeu de l'oie (remis à zéro chaque lundi) ----------
 // Un lancer de dé coûte des savons : 1 le premier de la journée, puis +1 à chaque achat (le prix repart de 1 à minuit).
@@ -194,3 +221,26 @@ export const shopItem = (slot, key) => SHOP[slot]?.find((i) => i.key === key) ??
 
 // Échange de savons contre des colocoins (offres fixes)
 export const SOAP_EXCHANGE = [{ soap: 1, coins: 100 }, { soap: 10, coins: 1200 }];
+
+// ---------- Colo-Ferme : mini tycoon, les cultures poussent en temps réel ----------
+// Les récoltes sont plafonnées par jour (capPerDay) pour ne pas casser l'économie. Non récolté 24 h après maturité = fané.
+export const FARM = {
+  // level = niveau requis (une nouvelle culture tous les 3 niveaux)
+  crops: [
+    { key: 'curcuma', name: 'Curcuma',         emoji: '🥕', hours: 1,  cost: 5,  gain: 9,   level: 1 },
+    { key: 'tomate',  name: 'Tomate',          emoji: '🍅', hours: 2,  cost: 9,  gain: 18,  level: 3 },
+    { key: 'letchi',  name: 'Letchi',          emoji: '🍒', hours: 4,  cost: 14, gain: 28,  level: 6 },
+    { key: 'passion', name: 'Fruit de la passion', emoji: '🟣', hours: 6, cost: 20, gain: 40, level: 9 },
+    { key: 'papaye',  name: 'Papaye',          emoji: '🥭', hours: 8,  cost: 27, gain: 55,  level: 12 },
+    { key: 'ananas',  name: 'Ananas Victoria', emoji: '🍍', hours: 12, cost: 35, gain: 70,  level: 15 },
+    { key: 'avocat',  name: 'Avocat',          emoji: '🥑', hours: 16, cost: 42, gain: 85,  level: 18 },
+    { key: 'vanille', name: 'Vanille',         emoji: '🌿', hours: 24, cost: 50, gain: 100, level: 21 },
+  ],
+  baseSlots: 1,
+  slotCosts: [0, 100, 200, 400, 700, 1000],   // prix de chaque parcelle : on commence avec 1, les 5 autres s'achètent
+  capPerDay: 100,                         // colocoins de récolte maximum par jour
+  witherH: 24,
+  waterCut: 0.2,                          // arroser la parcelle d'un autre : -20 % du temps restant
+  waterReward: 5, waterRewardMaxPerDay: 4, // 5 🪙 par arrosage, 4 fois par jour au maximum
+  taskBoost: 0.5,                         // une tâche ménagère validée : -50 % du temps restant sur tes cultures
+};

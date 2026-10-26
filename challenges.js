@@ -16,7 +16,6 @@ export const BADGES = {
   chores:   { th: [10, 40, 120, 300] },   // savons
   chifoumi: { th: [3, 15, 40, 100] },
   flappy:   { th: [10, 40, 100, 300] },
-  raid:     { th: [1000, 3070, 6000, 10000] },
   dollars:   { th: [100, 500, 1000, 10000] },
   blackjack: { th: [5, 25, 75, 200] },
 };
@@ -55,7 +54,6 @@ export const BOARDS = [
   { key: 'chores',   emoji: '🧼', label: 'Savons',            unit: ' 🧼', low: false },
   { key: 'chifoumi', emoji: '✊', label: 'Victoires chifoumi', unit: '',    low: false },
   { key: 'flappy',   emoji: '🐦', label: 'Jumpy Cardinal',    unit: '',    low: false },
-  { key: 'raid',     emoji: '🏃', label: 'Le Grand Raid',     unit: ' m',  low: false },
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
   { key: 'blackjack', emoji: '🃏', label: 'Victoires Blackjack', unit: '', low: false },
 ];
@@ -71,7 +69,6 @@ export function boardValue(c, key, id) {
     case 'blackjack': return num(s.blackjack_wins);
     case 'chifoumi': return c.wins[id] ?? 0;
     case 'flappy': return num(s.flappy_best);
-    case 'raid': return num(s.raid_best);
     case 'sudoku': return s.sudoku_best ?? null;
     default: return null;
   }
@@ -129,9 +126,13 @@ export const CHALLENGES = [
   { key: 'sauteur_pro', cat: 'Jeux', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
   { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître poussin', emoji: '🐥', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 100) },
   { key: 'legende_airs', cat: 'Jeux', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
-  // — Le Grand Raid —
-  { key: 'mascareigne', cat: 'Jeux', xp: 300, title: 'Finisher de la Mascareigne', emoji: '🌴', desc: 'Faire 1000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 1000) },
-  { key: 'diagonale', cat: 'Jeux', xp: 1000, title: 'Finisher de la Diagonale des Fous', emoji: '🌋', desc: 'Faire 10 000 m au Grand Raid.', check: (c) => prog(num(st(c).raid_best), 10000) },
+  // — Colo-Ferme —
+  { key: 'premiere_recolte', cat: 'Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
+  { key: 'jardinier', cat: 'Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
+  { key: 'maraicher', cat: 'Ferme', xp: 1000, title: 'Maraîcher', emoji: '🚜', desc: 'Faire 100 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 100) },
+  { key: 'bon_voisin', cat: 'Ferme', xp: 300, title: 'Bon voisin', emoji: '💧', desc: 'Arroser 20 fois les parcelles des autres colocs.', check: (c) => prog(num(st(c).farm_waters), 20) },
+  { key: 'ferme_1000', cat: 'Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en récoltes au total.', check: (c) => prog(num(st(c).farm_coins), 1000) },
+  { key: 'grand_domaine', cat: 'Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Débloquer les 6 parcelles.', check: (c) => prog(num(st(c).farm_slots), 6) },
   // — Chifoumi —
   { key: 'roc', cat: 'Jeux', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
   { key: 'tailladeur', cat: 'Jeux', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },

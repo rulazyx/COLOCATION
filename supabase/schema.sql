@@ -1711,8 +1711,12 @@ insert into challenges (key, coins, skin, xp) values
   ('sauteur_pro', 0, 'pterodactyl', 1200),
   ('maitre_poussin', 0, 'poussin', 800),
   ('legende_airs', 0, 'papangue', 2000),
-  ('mascareigne', 0, null, 300),
-  ('diagonale', 0, 'hugodeck', 1000),
+  ('premiere_recolte', 0, null, 100),
+  ('jardinier', 0, null, 400),
+  ('maraicher', 0, 'fermier', 1000),
+  ('bon_voisin', 0, null, 300),
+  ('ferme_1000', 0, null, 600),
+  ('grand_domaine', 0, null, 500),
   ('roc', 0, null, 100),
   ('tailladeur', 0, null, 200),
   ('mentaliste', 0, 'sorcier', 600),
@@ -1807,3 +1811,183 @@ begin
   insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);
 end $$;
 grant execute on function settle_plateau() to anon, authenticated;
+
+-- ---------- Colo-Ferme ----------
+create table if not exists farm_crops (key text primary key, hours int not null, cost int not null, gain int not null);
+alter table farm_crops add column if not exists level int not null default 1;
+insert into farm_crops (key, hours, cost, gain, level) values
+  ('curcuma', 1, 5, 9, 1),
+  ('tomate', 2, 9, 18, 3),
+  ('letchi', 4, 14, 28, 6),
+  ('passion', 6, 20, 40, 9),
+  ('papaye', 8, 27, 55, 12),
+  ('ananas', 12, 35, 70, 15),
+  ('avocat', 16, 42, 85, 18),
+  ('vanille', 24, 50, 100, 21)
+on conflict (key) do update set hours = excluded.hours, cost = excluded.cost, gain = excluded.gain, level = excluded.level;
+alter table member_stats add column if not exists farm_harvests int not null default 0;
+alter table member_stats add column if not exists farm_coins    int not null default 0;
+alter table member_stats add column if not exists farm_waters   int not null default 0;
+alter table member_stats add column if not exists farm_slots    int not null default 1;
+update members set outfit = 'none' where outfit = 'hugodeck';
+create table if not exists farm_plots (
+  member_id  int  not null references members(id) on delete cascade,
+  slot       int  not null,
+  crop       text not null references farm_crops(key),
+  planted_at timestamptz not null default now(),
+  ready_at   timestamptz not null,
+  watered_by int[] not null default '{}',
+  primary key (member_id, slot)
+);
+create table if not exists farm_state (member_id int primary key references members(id) on delete cascade, slots int not null default 1);
+create or replace view farm_day as
+  select member_id, sum(amount)::int as got from chip_ledger
+  where reason = 'ferme:recolte' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date
+  group by member_id;
+alter table farm_crops enable row level security; alter table farm_plots enable row level security; alter table farm_state enable row level security;
+drop policy if exists "farm_crops lecture" on farm_crops; create policy "farm_crops lecture" on farm_crops for select using (true);
+drop policy if exists "farm_plots lecture" on farm_plots; create policy "farm_plots lecture" on farm_plots for select using (true);
+drop policy if exists "farm_state lecture" on farm_state; create policy "farm_state lecture" on farm_state for select using (true);
+grant select on farm_crops, farm_plots, farm_state, farm_day to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table farm_plots; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table farm_state; exception when duplicate_object then null; end;
+end $$;
+
+create or replace function farm_slots_of(p_member int) returns int
+language sql stable as $$ select coalesce((select slots from farm_state where member_id = p_member), 1) $$;
+
+create or replace function farm_plant(p_member int, p_slot int, p_crop text) returns void
+language plpgsql security definer set search_path = public as $$
+declare c farm_crops; o farm_plots;
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires ont une ferme.'; end if;
+  select * into c from farm_crops where key = p_crop;
+  if not found then raise exception 'Culture inconnue.'; end if;
+  if p_slot < 0 or p_slot >= farm_slots_of(p_member) then raise exception 'Parcelle verrouillée.'; end if;
+  if level_of(coalesce((select xp from member_xp where member_id = p_member), 0)) < c.level then raise exception 'Cette culture se débloque au niveau %.', c.level; end if;
+  perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
+  select * into o from farm_plots where member_id = p_member and slot = p_slot;
+  if found then
+    if o.ready_at + make_interval(hours => 24) < now() then delete from farm_plots where member_id = p_member and slot = p_slot;
+    else raise exception 'Cette parcelle est occupée.'; end if;
+  end if;
+  if chips_of(p_member) < c.cost then raise exception 'Il te faut % colocoins pour ces graines.', c.cost; end if;
+  insert into chip_ledger (member_id, amount, reason) values (p_member, -c.cost, 'ferme:semis');
+  insert into farm_plots (member_id, slot, crop, ready_at) values (p_member, p_slot, p_crop, now() + make_interval(hours => c.hours));
+end $$;
+
+create or replace function farm_harvest(p_member int, p_slot int) returns json
+language plpgsql security definer set search_path = public as $$
+declare p farm_plots; c farm_crops; v_got int; v_pay int;
+begin
+  perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
+  select * into p from farm_plots where member_id = p_member and slot = p_slot for update;
+  if not found then raise exception 'Rien à récolter ici.'; end if;
+  if p.ready_at > now() then raise exception 'Ce n''est pas encore mûr.'; end if;
+  delete from farm_plots where member_id = p_member and slot = p_slot;
+  if p.ready_at + make_interval(hours => 24) < now() then
+    return json_build_object('coins', 0, 'lost', 0, 'withered', true);
+  end if;
+  select * into c from farm_crops where key = p.crop;
+  select coalesce(got, 0) into v_got from farm_day where member_id = p_member;
+  v_got := coalesce(v_got, 0);
+  v_pay := least(c.gain, greatest(100 - v_got, 0));
+  if v_pay > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_pay, 'ferme:recolte'); end if;
+  insert into member_stats (member_id, farm_harvests, farm_coins) values (p_member, 1, v_pay)
+    on conflict (member_id) do update set farm_harvests = member_stats.farm_harvests + 1, farm_coins = member_stats.farm_coins + v_pay;
+  return json_build_object('coins', v_pay, 'lost', c.gain - v_pay, 'withered', false);
+end $$;
+
+create or replace function farm_water(p_waterer int, p_owner int, p_slot int) returns json
+language plpgsql security definer set search_path = public as $$
+declare p farm_plots; v_n int; v_reward int := 0;
+begin
+  if not exists (select 1 from members where id = p_waterer and kind = 'coloc') then raise exception 'Seuls les colocataires arrosent.'; end if;
+  if p_waterer = p_owner then raise exception 'Tu ne peux arroser que les parcelles des autres.'; end if;
+  select * into p from farm_plots where member_id = p_owner and slot = p_slot for update;
+  if not found then raise exception 'Rien à arroser ici.'; end if;
+  if p.ready_at <= now() then raise exception 'C''est déjà mûr.'; end if;
+  if p_waterer = any (p.watered_by) then raise exception 'Tu as déjà arrosé cette parcelle.'; end if;
+  update farm_plots set ready_at = now() + (ready_at - now()) * (1 - 0.2), watered_by = watered_by || p_waterer where member_id = p_owner and slot = p_slot;
+  insert into member_stats (member_id, farm_waters) values (p_waterer, 1)
+    on conflict (member_id) do update set farm_waters = member_stats.farm_waters + 1;
+  select count(*) into v_n from chip_ledger where member_id = p_waterer and reason = 'ferme:arrose'
+    and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+  if v_n < 4 then
+    insert into chip_ledger (member_id, amount, reason) values (p_waterer, 5, 'ferme:arrose'); v_reward := 5;
+  end if;
+  return json_build_object('reward', v_reward);
+end $$;
+
+create or replace function farm_unlock(p_member int) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_slots int; v_cost int;
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Seuls les colocataires ont une ferme.'; end if;
+  perform pg_advisory_xact_lock(hashtext('farm:' || p_member));
+  v_slots := farm_slots_of(p_member);
+  if v_slots >= 6 then raise exception 'Toutes les parcelles sont débloquées.'; end if;
+  v_cost := (array[0, 100, 200, 400, 700, 1000])[v_slots + 1];
+  if chips_of(p_member) < v_cost then raise exception 'Il te faut % colocoins pour cette parcelle.', v_cost; end if;
+  if v_cost > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, -v_cost, 'ferme:parcelle'); end if;
+  insert into farm_state (member_id, slots) values (p_member, v_slots + 1) on conflict (member_id) do update set slots = excluded.slots;
+  insert into member_stats (member_id, farm_slots) values (p_member, v_slots + 1)
+    on conflict (member_id) do update set farm_slots = excluded.farm_slots;
+end $$;
+grant execute on function farm_plant(int, int, text)  to anon, authenticated;
+grant execute on function farm_harvest(int, int)      to anon, authenticated;
+grant execute on function farm_water(int, int, int)   to anon, authenticated;
+grant execute on function farm_unlock(int)            to anon, authenticated;
+
+-- Une tâche ménagère validée accélère les cultures de celui qui l'a faite
+create or replace function answer_task(p_log bigint, p_member int, p_ok boolean) returns task_logs
+language plpgsql security definer set search_path = public as $$
+declare l task_logs;
+begin
+  select * into l from task_logs where id = p_log for update;
+  if not found or l.status <> 'pending' then raise exception 'Cette tâche n''est plus en attente.'; end if;
+  if p_member = l.doer_id then
+    if p_ok then raise exception 'Il faut qu''un autre coloc confirme ta tâche.'; end if;
+    update task_logs set status = 'cancelled', answered_at = now() where id = p_log returning * into l;
+    return l;
+  end if;
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then
+    raise exception 'Seuls les colocataires peuvent confirmer.';
+  end if;
+  if p_ok then
+    update task_logs set status = 'validated', validator_id = p_member, answered_at = now() where id = p_log returning * into l;
+    perform add_xp(l.doer_id, l.soap * 25, 'task');
+    perform add_xp(p_member, 10, 'validate');
+    update farm_plots set ready_at = now() + (ready_at - now()) * (1 - 0.5) where member_id = l.doer_id and ready_at > now();
+  else
+    update task_logs set status = 'rejected', validator_id = p_member, answered_at = now() where id = p_log returning * into l;
+  end if;
+  return l;
+end $$;
+grant execute on function answer_task(bigint, int, boolean) to anon, authenticated;
+
+-- ---------- Nouvelles tâches ménagères (par catégorie) ----------
+insert into task_kinds (kind, soap, cooldown_h) values
+  ('net_cuisine', 2, 24),
+  ('net_salon', 2, 48),
+  ('net_sdb', 2, 72),
+  ('net_wc', 2, 72),
+  ('net_maison', 10, 168),
+  ('asp_cuisine', 2, 24),
+  ('asp_salon', 2, 24),
+  ('asp_sdb', 2, 48),
+  ('asp_wc', 2, 48),
+  ('asp_maison', 10, 72),
+  ('ser_cuisine', 2, 48),
+  ('ser_salon', 2, 48),
+  ('ser_sdb', 2, 72),
+  ('ser_wc', 2, 72),
+  ('ser_maison', 10, 168),
+  ('poub_verte', 1, 12),
+  ('poub_jaune', 1, 12),
+  ('poub_portail', 1, 12),
+  ('poub_remplace', 1, 12),
+  ('cuis_patisserie', 4, 24),
+  ('cuis_repas', 8, 24)
+on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;

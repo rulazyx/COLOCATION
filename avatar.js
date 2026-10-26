@@ -242,7 +242,12 @@ OUTFIT_DRAW.pterodactyl = () => {
     `<path d="M32 30 Q40 25 48 32" stroke="${dk}" stroke-width="3" fill="none" stroke-linecap="round"/>` +
     `<circle cx="62" cy="52" r="1.2" fill="${dk}"/>`;
 };
-OUTFIT_DRAW.hugodeck = (p) => OUTFIT_DRAW.chevalier(p);
+// Fermier : chapeau de paille, salopette
+OUTFIT_DRAW.fermier = ({ skin, hair, gender }) =>
+  body('#3b6fb6', '<rect x="30" y="76" width="40" height="30" rx="6" fill="#2d5a9c"/><rect x="36" y="76" width="6" height="22" fill="#e7c84f"/><rect x="58" y="76" width="6" height="22" fill="#e7c84f"/><circle cx="39" cy="86" r="2.4" fill="#f4d76b"/><circle cx="61" cy="86" r="2.4" fill="#f4d76b"/>') +
+  hairBack(gender, hair) + neck(skin) + headBase(skin) + eyes() + lashes(gender) + mouth +
+  '<ellipse cx="50" cy="29" rx="40" ry="9" fill="#e4c070" stroke="#b8913d" stroke-width="2"/>' +
+  '<path d="M32 29 C32 12 68 12 68 29Z" fill="#edcd7e" stroke="#b8913d" stroke-width="2"/><rect x="32" y="23" width="36" height="5" fill="#c0392b"/>';
 OUTFIT_DRAW.zippo = () =>
   body('#F4F4F5', '') +
   // Oreilles noires

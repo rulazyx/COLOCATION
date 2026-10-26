@@ -185,3 +185,17 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 
 ## v17b
 - Synchro robuste : une requête en échec ne bloque plus les autres ; bandeau rouge « Données non à jour » + bouton Réessayer ; un canal temps réel par table.
+
+## v18 — Colo-Ferme
+- Jeux → onglet « Colo-Ferme » : 3 parcelles (jusqu'à 6), 4 cultures (curcuma 1 h, letchi 4 h, ananas 8 h, vanille 24 h), temps réel, fanent 24 h après maturité.
+- Plafond de récolte : 100 🪙/jour. Arroser un voisin : −20 % de temps et +5 🪙 (4×/jour). Une tâche validée : −50 % sur tes cultures.
+- Réglages dans `config.js` (FARM). SQL : tables farm_*, fonctions farm_plant/harvest/water/unlock, `answer_task` mis à jour.
+
+## v19
+- Colo-Ferme : 8 cultures (curcuma, tomate, letchi, fruit de la passion, papaye, ananas, avocat, vanille), une nouvelle tous les 3 niveaux ; 1 parcelle au départ, 5 à acheter (100/200/400/700/1000).
+- Suppression du Grand Raid et du skin Hugo Deck. Blackjack remplace la tuile Raid ; grande tuile Colo-Ferme au-dessus des jeux.
+- 6 défis « Ferme » ; « Maraîcher » donne le skin Fermier.
+
+## v20 — Tâches par catégorie
+- Nettoyage / Aspirateur / Serpillère (cuisine, salon, salle de bain, WC +2 🧼 ; toute la maison +10), Poubelles (4 × +1), Cuisiner (pâtisseries +4, repas +8). Délais de disponibilité réglables dans `config.js` (TASK_KINDS).
+- Les anciennes tâches restent en base pour l'historique mais ne s'affichent plus dans la liste.

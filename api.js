@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -58,6 +58,13 @@ export async function makeCloudApi() {
     async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
     async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
     async chips() { return check(await sb.from('chip_balances').select('*')); },
+    async farm() { return check(await sb.from('farm_plots').select('*')); },
+    async farmState() { return check(await sb.from('farm_state').select('*')); },
+    async farmDay() { return check(await sb.from('farm_day').select('*')); },
+    async farmPlant(m, slot, crop) { return check(await sb.rpc('farm_plant', { p_member: m, p_slot: slot, p_crop: crop })); },
+    async farmHarvest(m, slot) { return check(await sb.rpc('farm_harvest', { p_member: m, p_slot: slot })); },
+    async farmWater(w, o, slot) { return check(await sb.rpc('farm_water', { p_waterer: w, p_owner: o, p_slot: slot })); },
+    async farmUnlock(m) { return check(await sb.rpc('farm_unlock', { p_member: m })); },
     async plateauWeeks() { return check(await sb.from('plateau_weeks').select('*').order('week', { ascending: false }).limit(8)); },
     async settlePlateau() { const { error } = await sb.rpc('settle_plateau'); if (error) console.warn(error.message); },
     async exchangeSoap(member, soap) { return check(await sb.rpc('exchange_soap', { p_member: member, p_soap: soap })); },
@@ -112,7 +119,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, cb).subscribe();
       }
     },
@@ -134,9 +141,10 @@ export function makeDemoApi() {
   try { db = JSON.parse(store.get(KEY)); } catch { db = null; }
   if (!db) db = { products: PRODUCTS.map((name, i) => ({ id: i + 1, name, out_of_stock: false, updated_by: null })) };
   db.profiles ??= {}; db.purchases ??= []; db.duels ??= []; db.nextDuel ??= 1; db.logs ??= []; db.nextLog ??= 1; db.pins ??= {};
-  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= []; db.pweeks ??= [];
+  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= []; db.pweeks ??= []; db.farm ??= []; db.farmSt ??= {};
   const save = () => store.set(KEY, JSON.stringify(db));
   const now = () => new Date().toISOString();
+  const HOUR_MS = 3600000;
 
   // Mêmes règles de calcul que la base de données (voir migration-v7.sql)
   const addChips0 = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
@@ -153,7 +161,7 @@ export function makeDemoApi() {
   const addChips = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
   const chipsOf = (id) => db.chips.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
   const balance = (id) => db.ledger.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
-  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
+  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, farm_harvests: 0, farm_coins: 0, farm_waters: 0, farm_slots: FARM.baseSlots, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
     login_days: 0, streak: 0, last_login: null, wheel_ready: false, quest_mask: 0 });
   const statsOf = (id) => (db.stats[id] ??= emptyStats());
   const dayShift = (s, n) => { const [y, m, d] = s.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
@@ -204,7 +212,10 @@ export function makeDemoApi() {
       }
       if (!isColoc(member)) fail('Seuls les colocataires peuvent confirmer.');
       l.validator_id = member; l.answered_at = now();
-      if (ok) { l.status = 'validated'; addXp(l.doer_id, l.soap * X.taskPerSoap, 'task'); addXp(member, X.validate, 'validate'); }
+      if (ok) {
+        l.status = 'validated'; addXp(l.doer_id, l.soap * X.taskPerSoap, 'task'); addXp(member, X.validate, 'validate');
+        db.farm.filter((p) => p.member_id === l.doer_id && Date.parse(p.ready_at) > Date.now()).forEach((p) => { p.ready_at = new Date(Date.now() + (Date.parse(p.ready_at) - Date.now()) * (1 - FARM.taskBoost)).toISOString(); });
+      }
       else l.status = 'rejected';
       save(); return { ...l };
     },
@@ -365,6 +376,59 @@ export function makeDemoApi() {
       return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
     async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id) })); },
+    async farm() { return db.farm.map((p) => ({ ...p })); },
+    async farmState() { return Object.entries(db.farmSt).map(([id, slots]) => ({ member_id: Number(id), slots })); },
+    async farmDay() {
+      const day = iso(new Date()), out = {};
+      db.chips.filter((l) => l.reason === 'ferme:recolte' && l.at.slice(0, 10) === day).forEach((l) => { out[l.member_id] = (out[l.member_id] ?? 0) + l.amount; });
+      return Object.entries(out).map(([id, got]) => ({ member_id: Number(id), got }));
+    },
+    async farmPlant(m, slot, crop) {
+      if (!isColoc(m)) fail('Seuls les colocataires ont une ferme.');
+      const c = FARM.crops.find((x) => x.key === crop); if (!c) fail('Culture inconnue.');
+      if (slot < 0 || slot >= (db.farmSt[m] ?? FARM.baseSlots)) fail('Parcelle verrouillée.');
+      if (levelOf(db.xp.filter((x) => x.member_id === m).reduce((a, x) => a + x.amount, 0)) < c.level) fail(`Cette culture se débloque au niveau ${c.level}.`);
+      const o = db.farm.find((p) => p.member_id === m && p.slot === slot);
+      if (o) { if (Date.parse(o.ready_at) + FARM.witherH * HOUR_MS < Date.now()) db.farm = db.farm.filter((p) => p !== o); else fail('Cette parcelle est occupée.'); }
+      if (chipsOf(m) < c.cost) fail(`Il te faut ${c.cost} colocoins pour ces graines.`);
+      addChips(m, -c.cost, 'ferme:semis');
+      db.farm.push({ member_id: m, slot, crop, planted_at: now(), ready_at: new Date(Date.now() + c.hours * HOUR_MS).toISOString(), watered_by: [] }); save();
+    },
+    async farmHarvest(m, slot) {
+      const p = db.farm.find((x) => x.member_id === m && x.slot === slot);
+      if (!p) fail('Rien à récolter ici.');
+      if (Date.parse(p.ready_at) > Date.now()) fail("Ce n'est pas encore mûr.");
+      db.farm = db.farm.filter((x) => x !== p);
+      if (Date.parse(p.ready_at) + FARM.witherH * HOUR_MS < Date.now()) { save(); return { coins: 0, lost: 0, withered: true }; }
+      const c = FARM.crops.find((x) => x.key === p.crop);
+      const got = (await this.farmDay()).find((d) => d.member_id === m)?.got ?? 0;
+      const pay = Math.min(c.gain, Math.max(FARM.capPerDay - got, 0));
+      if (pay > 0) addChips(m, pay, 'ferme:recolte');
+      const sh = statsOf(m); sh.farm_harvests = (sh.farm_harvests ?? 0) + 1; sh.farm_coins = (sh.farm_coins ?? 0) + pay;
+      save(); return { coins: pay, lost: c.gain - pay, withered: false };
+    },
+    async farmWater(w, o, slot) {
+      if (!isColoc(w)) fail('Seuls les colocataires arrosent.');
+      if (w === o) fail('Tu ne peux arroser que les parcelles des autres.');
+      const p = db.farm.find((x) => x.member_id === o && x.slot === slot);
+      if (!p) fail('Rien à arroser ici.');
+      if (Date.parse(p.ready_at) <= Date.now()) fail("C'est déjà mûr.");
+      if (p.watered_by.includes(w)) fail('Tu as déjà arrosé cette parcelle.');
+      p.ready_at = new Date(Date.now() + (Date.parse(p.ready_at) - Date.now()) * (1 - FARM.waterCut)).toISOString(); p.watered_by.push(w);
+      const sw = statsOf(w); sw.farm_waters = (sw.farm_waters ?? 0) + 1;
+      const day = iso(new Date());
+      let reward = 0;
+      if (db.chips.filter((l) => l.member_id === w && l.reason === 'ferme:arrose' && l.at.slice(0, 10) === day).length < FARM.waterRewardMaxPerDay) { addChips(w, FARM.waterReward, 'ferme:arrose'); reward = FARM.waterReward; }
+      save(); return { reward };
+    },
+    async farmUnlock(m) {
+      const n = db.farmSt[m] ?? FARM.baseSlots;
+      if (n >= FARM.slotCosts.length) fail('Toutes les parcelles sont débloquées.');
+      const cost = FARM.slotCosts[n];
+      if (chipsOf(m) < cost) fail(`Il te faut ${cost} colocoins pour cette parcelle.`);
+      if (cost > 0) addChips(m, -cost, 'ferme:parcelle');
+      db.farmSt[m] = n + 1; statsOf(m).farm_slots = n + 1; save();
+    },
     async plateauWeeks() { return db.pweeks.map((w) => ({ ...w })).reverse(); },
     async settlePlateau() {
       const x = new Date(); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7) - 7);
