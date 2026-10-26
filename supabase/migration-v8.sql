@@ -7,20 +7,54 @@
 -- ---------- Niveaux : courbe 25 × L × (L − 1) ----------
 create or replace function level_of(p_xp int) returns int
 language sql immutable as $$
-  select floor((1 + sqrt(1 + greatest(p_xp, 0)::numeric * 4 / 25)) / 2)::int
+  select floor((1 + sqrt(1 + greatest(p_xp - 100, 0)::numeric * 4 / 25)) / 2)::int
 $$;
+
+-- ---------- EXP + palier : tous les 10 niveaux, 100 colocoins (une seule fois par palier) ----------
+create or replace function add_xp(p_member int, p_amount int, p_reason text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_lvl int; n int;
+begin
+  if p_amount is null or p_amount = 0 then return; end if;
+  insert into xp_log (member_id, amount, reason) values (p_member, p_amount, p_reason);
+  select level_of(coalesce(sum(amount), 0)::int) into v_lvl from xp_log where member_id = p_member;
+  n := 10;
+  while n <= v_lvl loop
+    if not exists (select 1 from chip_ledger where member_id = p_member and reason = 'level:' || n) then
+      insert into chip_ledger (member_id, amount, reason) values (p_member, 100, 'level:' || n);
+    end if;
+    n := n + 10;
+  end loop;
+end $$;
+revoke execute on function add_xp(int, int, text) from public, anon, authenticated;
 
 -- ---------- Introduction : 5 étapes (une par onglet) ----------
 create or replace function quest_step(p_member int, p_step int) returns int
 language plpgsql security definer set search_path = public as $$
-declare v int;
+declare v int; v_old int;
 begin
   if p_step < 1 or p_step > 6 then raise exception 'Étape inconnue.'; end if;
   insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  select quest_mask into v_old from member_stats where member_id = p_member for update;
   update member_stats set quest_mask = (quest_mask | (1 << (p_step - 1))) & 63
     where member_id = p_member returning quest_mask into v;
+  if v = 63 and v_old <> 63 and not exists (select 1 from xp_log where member_id = p_member and reason = 'intro') then
+    perform add_xp(p_member, 50, 'intro');                  -- fin de l'introduction : 1re étape vers le niveau 2
+  end if;
   return v;
 end $$;
+
+-- Premier lancement d'un jeu (une seule fois) : dernière étape vers le niveau 2
+create or replace function launch_game(p_member int) returns int
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from xp_log where member_id = p_member and reason = 'first_game') then
+    perform add_xp(p_member, 50, 'first_game');
+    return 50;
+  end if;
+  return 0;
+end $$;
+grant execute on function launch_game(int) to anon, authenticated;
 -- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
 update member_stats set quest_mask = 63 where quest_mask in (15, 31);
 
@@ -68,6 +102,8 @@ insert into shop_items (item, slot, price) values
   ('bird:ninja', 'bird', 300),
   ('bird:or', 'bird', 700),
   ('bird:arcenciel', 'bird', 1000),
+  ('bird:chevalier', 'bird', 500),
+  ('bird:tenebres', 'bird', 900),
   ('outfit:pirate', 'outfit', 400),
   ('outfit:ninja', 'outfit', 500),
   ('outfit:astronaute', 'outfit', 800),
@@ -451,6 +487,7 @@ insert into challenges (key, coins, skin, xp) values
   ('nickel', 0, 'nickel', 800),
   ('premier_envol', 0, null, 100),
   ('employe_friterie', 0, null, 300),
+  ('sauteur_pro', 0, 'pterodactyl', 1200),
   ('maitre_poussin', 0, 'poussin', 800),
   ('legende_airs', 0, 'papangue', 2000),
   ('mascareigne', 0, null, 300),
@@ -459,13 +496,12 @@ insert into challenges (key, coins, skin, xp) values
   ('tailladeur', 0, null, 200),
   ('mentaliste', 0, 'sorcier', 600),
   ('clochard', 0, 'clochard', 100),
-  ('petit_nouveau', 0, null, 100),
   ('maitre_rh', 0, null, 1000),
   ('pilier', 0, null, 800),
   ('dollars_500', 0, null, 300),
   ('dollars_1000', 0, 'roi', 800),
   ('dollars_10000', 0, 'zeus', 3000),
-  ('noob', 0, 'zippo', 100),
+  ('noob', 0, 'zippo', 0),
   ('mathematicien', 0, null, 200),
   ('inspecteur', 0, 'detective', 200);;
 
@@ -523,3 +559,30 @@ do $$ begin
     insert into app_meta (key, value) values ('intro_again_v11', 'done');
   end if;
 end $$;
+
+-- ---------- Plateau : le joueur qui a fait le plus de tours la semaine passée gagne 500 colocoins ----------
+create table if not exists plateau_weeks (
+  week    date primary key,
+  winners int[] not null default '{}',
+  laps    int  not null default 0
+);
+alter table plateau_weeks enable row level security;
+drop policy if exists "plateau_weeks lecture" on plateau_weeks; create policy "plateau_weeks lecture" on plateau_weeks for select using (true);
+grant select on plateau_weeks to anon, authenticated;
+
+create or replace function settle_plateau() returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_prev date := (date_trunc('week', now() at time zone 'Indian/Reunion')::date) - 7;
+  v_max int; v_win int[];
+begin
+  perform pg_advisory_xact_lock(hashtext('plateau_weeks'));
+  if exists (select 1 from plateau_weeks where week = v_prev) then return; end if;
+  select coalesce(max(l), 0) into v_max from (select max(to_pos / 30) as l from dice_rolls where week = v_prev group by member_id) t;
+  if v_max >= 1 then
+    select array_agg(member_id) into v_win from (select member_id from dice_rolls where week = v_prev group by member_id having max(to_pos / 30) = v_max) t;
+    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 500, 'plateau-week:' || v_prev;
+  end if;
+  insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);
+end $$;
+grant execute on function settle_plateau() to anon, authenticated;

@@ -1,7 +1,7 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 
@@ -58,6 +58,8 @@ export async function makeCloudApi() {
     async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
     async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
     async chips() { return check(await sb.from('chip_balances').select('*')); },
+    async plateauWeeks() { return check(await sb.from('plateau_weeks').select('*').order('week', { ascending: false }).limit(8)); },
+    async settlePlateau() { const { error } = await sb.rpc('settle_plateau'); if (error) console.warn(error.message); },
     async exchangeSoap(member, soap) { return check(await sb.rpc('exchange_soap', { p_member: member, p_soap: soap })); },
     async buyShop(member, item) { return check(await sb.rpc('buy_shop', { p_member: member, p_item: item })); },
     async ledger(member) { return check(await sb.from('coin_ledger').select('*').eq('member_id', member).neq('amount', 0).order('id', { ascending: false }).limit(100)); },
@@ -106,6 +108,7 @@ export async function makeCloudApi() {
       return r;
     },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
+    async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       let ch = sb.channel('coloc');
@@ -132,12 +135,20 @@ export function makeDemoApi() {
   try { db = JSON.parse(store.get(KEY)); } catch { db = null; }
   if (!db) db = { products: PRODUCTS.map((name, i) => ({ id: i + 1, name, out_of_stock: false, updated_by: null })) };
   db.profiles ??= {}; db.purchases ??= []; db.duels ??= []; db.nextDuel ??= 1; db.logs ??= []; db.nextLog ??= 1; db.pins ??= {};
-  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= [];
+  db.ledger ??= []; db.stats ??= {}; db.unlocks ??= []; db.views ??= []; db.xp ??= []; db.dice ??= []; db.nextDice ??= 1; db.msgs ??= []; db.nextMsg ??= 1; db.perks ??= []; db.nextPerk ??= 1; db.pconf ??= []; db.chips ??= []; db.pweeks ??= [];
   const save = () => store.set(KEY, JSON.stringify(db));
   const now = () => new Date().toISOString();
 
   // Mêmes règles de calcul que la base de données (voir migration-v7.sql)
-  const addXp = (id, amount, reason) => { if (amount) db.xp.push({ member_id: id, amount, reason, at: now() }); };
+  const addChips0 = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
+  const addXp = (id, amount, reason) => {
+    if (!amount) return;
+    db.xp.push({ member_id: id, amount, reason, at: now() });
+    const lvl = levelOf(db.xp.filter((x) => x.member_id === id).reduce((a, x) => a + x.amount, 0));
+    for (let n = LEVEL_BONUS.every; n <= lvl; n += LEVEL_BONUS.every) {
+      if (!db.chips.some((c) => c.member_id === id && c.reason === `level:${n}`)) addChips0(id, LEVEL_BONUS.chips, `level:${n}`);
+    }
+  };
   const addTrophies = (id, amount, reason) => { if (amount) db.ledger.push({ member_id: id, amount, reason, at: now() }); };
   const todaySum = (id, reason) => db.ledger.filter((l) => l.member_id === id && l.reason === reason && l.at.slice(0, 10) === now().slice(0, 10)).reduce((a, l) => a + l.amount, 0);
   const addChips = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
@@ -261,7 +272,13 @@ export function makeDemoApi() {
     },
     async questStep(id, step) {
       if (!(step >= 1 && step <= 6)) fail('Étape inconnue.');
-      const s = statsOf(id); s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 63; save(); return s.quest_mask;
+      const s = statsOf(id), old = s.quest_mask; s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 63;
+      if (s.quest_mask === 63 && old !== 63 && !db.xp.some((x) => x.member_id === id && x.reason === 'intro')) addXp(id, X.introXp, 'intro');
+      save(); return s.quest_mask;
+    },
+    async launchGame(id) {
+      if (db.xp.some((x) => x.member_id === id && x.reason === 'first_game')) return 0;
+      addXp(id, X.firstGameXp, 'first_game'); save(); return X.firstGameXp;
     },
     async claimDaily(id, day) {
       const s = statsOf(id);
@@ -349,6 +366,18 @@ export function makeDemoApi() {
       return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
     async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id) })); },
+    async plateauWeeks() { return db.pweeks.map((w) => ({ ...w })).reverse(); },
+    async settlePlateau() {
+      const x = new Date(); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7) - 7);
+      const prev = iso(x);
+      if (db.pweeks.some((w) => w.week === prev)) return;
+      const laps = {};
+      db.dice.filter((r) => r.week === prev).forEach((r) => { laps[r.member_id] = Math.max(laps[r.member_id] ?? 0, Math.floor(r.to_pos / GOOSE.size)); });
+      const max = Math.max(0, ...Object.values(laps));
+      const winners = max >= 1 ? Object.keys(laps).filter((k) => laps[k] === max).map(Number) : [];
+      winners.forEach((id) => addChips(id, GOOSE.weekWin, `plateau-week:${prev}`));
+      db.pweeks.push({ week: prev, winners, laps: max }); save();
+    },
     async exchangeSoap(member, soap) {
       const o = SOAP_EXCHANGE.find((x) => x.soap === soap);
       if (!o) fail('Échange invalide.');

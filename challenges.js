@@ -125,7 +125,8 @@ export const CHALLENGES = [
   { key: 'nickel', cat: 'Ménage', xp: 800, title: 'Monsieur Nickel', emoji: '🧽', desc: 'Faire 20 tâches de ménage.', check: (c) => prog(chores(c), 20) },
   // — Jumpy Cardinal (score atteint en UNE partie) —
   { key: 'premier_envol', cat: 'Jeux', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
-  { key: 'employe_friterie', cat: 'Jeux', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 30 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 30) },
+  { key: 'employe_friterie', cat: 'Jeux', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
+  { key: 'sauteur_pro', cat: 'Jeux', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
   { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître poussin', emoji: '🐥', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 100) },
   { key: 'legende_airs', cat: 'Jeux', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Le Grand Raid —
@@ -137,7 +138,6 @@ export const CHALLENGES = [
   { key: 'mentaliste', cat: 'Jeux', xp: 600, title: 'Le mentaliste', emoji: '🔮', desc: 'Gagner 10 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 10) },
   { key: 'clochard', cat: 'Jeux', xp: 100, title: 'Le clochard', emoji: '🥫', desc: 'Perdre 5 duels de chifoumi.', check: (c) => prog(duelLosses(c.duels, c.meId), 5) },
   // — Personnages —
-  { key: 'petit_nouveau', cat: 'Personnages', xp: 100, title: 'Le petit nouveau', emoji: '🎒', desc: 'Débloquer ton premier personnage.', check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, 1) },
   { key: 'maitre_rh', cat: 'Personnages', xp: 1000, title: 'Maître RH', emoji: '👔', desc: 'Débloquer tous les personnages.',
     check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, skinsToCollect.length) },
   // — Coloc —
@@ -147,7 +147,7 @@ export const CHALLENGES = [
   { key: 'dollars_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
   { key: 'dollars_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
   // — Divers —
-  { key: 'noob', cat: 'Coloc', xp: 100, title: 'Le noob', emoji: '🐣', desc: "Terminer l'introduction de l'application.", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
+  { key: 'noob', cat: 'Coloc', xp: 0, title: 'Le petit nouveau', emoji: '🐣', desc: "Terminer l'introduction de l'application (récompense : le skin Zippo).", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
   { key: 'mathematicien', cat: 'Jeux', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
   { key: 'inspecteur', cat: 'Coloc', xp: 200, title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
     check: (c) => { const o = allOthers(c); return prog(o.filter((m) => c.viewed.has(m.id)).length, Math.max(o.length, 1)); } },

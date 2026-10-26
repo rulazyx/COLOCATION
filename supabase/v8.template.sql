@@ -7,20 +7,54 @@
 -- ---------- Niveaux : courbe __LEVEL_K__ × L × (L − 1) ----------
 create or replace function level_of(p_xp int) returns int
 language sql immutable as $$
-  select floor((1 + sqrt(1 + greatest(p_xp, 0)::numeric * 4 / __LEVEL_K__)) / 2)::int
+  select floor((1 + sqrt(1 + greatest(p_xp - __LEVEL_BASE__, 0)::numeric * 4 / __LEVEL_K__)) / 2)::int
 $$;
+
+-- ---------- EXP + palier : tous les __LB_EVERY__ niveaux, __LB_CHIPS__ colocoins (une seule fois par palier) ----------
+create or replace function add_xp(p_member int, p_amount int, p_reason text) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_lvl int; n int;
+begin
+  if p_amount is null or p_amount = 0 then return; end if;
+  insert into xp_log (member_id, amount, reason) values (p_member, p_amount, p_reason);
+  select level_of(coalesce(sum(amount), 0)::int) into v_lvl from xp_log where member_id = p_member;
+  n := __LB_EVERY__;
+  while n <= v_lvl loop
+    if not exists (select 1 from chip_ledger where member_id = p_member and reason = 'level:' || n) then
+      insert into chip_ledger (member_id, amount, reason) values (p_member, __LB_CHIPS__, 'level:' || n);
+    end if;
+    n := n + __LB_EVERY__;
+  end loop;
+end $$;
+revoke execute on function add_xp(int, int, text) from public, anon, authenticated;
 
 -- ---------- Introduction : 5 étapes (une par onglet) ----------
 create or replace function quest_step(p_member int, p_step int) returns int
 language plpgsql security definer set search_path = public as $$
-declare v int;
+declare v int; v_old int;
 begin
   if p_step < 1 or p_step > 6 then raise exception 'Étape inconnue.'; end if;
   insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  select quest_mask into v_old from member_stats where member_id = p_member for update;
   update member_stats set quest_mask = (quest_mask | (1 << (p_step - 1))) & 63
     where member_id = p_member returning quest_mask into v;
+  if v = 63 and v_old <> 63 and not exists (select 1 from xp_log where member_id = p_member and reason = 'intro') then
+    perform add_xp(p_member, __INTRO_XP__, 'intro');                  -- fin de l'introduction : 1re étape vers le niveau 2
+  end if;
   return v;
 end $$;
+
+-- Premier lancement d'un jeu (une seule fois) : dernière étape vers le niveau 2
+create or replace function launch_game(p_member int) returns int
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from xp_log where member_id = p_member and reason = 'first_game') then
+    perform add_xp(p_member, __FIRST_GAME_XP__, 'first_game');
+    return __FIRST_GAME_XP__;
+  end if;
+  return 0;
+end $$;
+grant execute on function launch_game(int) to anon, authenticated;
 -- ceux qui avaient fini l'ancienne quête (4 étapes) ne refont pas l'introduction
 update member_stats set quest_mask = 63 where quest_mask in (15, 31);
 
@@ -455,3 +489,30 @@ do $$ begin
     insert into app_meta (key, value) values ('intro_again_v11', 'done');
   end if;
 end $$;
+
+-- ---------- Plateau : le joueur qui a fait le plus de tours la semaine passée gagne __WEEK_WIN__ colocoins ----------
+create table if not exists plateau_weeks (
+  week    date primary key,
+  winners int[] not null default '{}',
+  laps    int  not null default 0
+);
+alter table plateau_weeks enable row level security;
+drop policy if exists "plateau_weeks lecture" on plateau_weeks; create policy "plateau_weeks lecture" on plateau_weeks for select using (true);
+grant select on plateau_weeks to anon, authenticated;
+
+create or replace function settle_plateau() returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_prev date := (date_trunc('week', now() at time zone 'Indian/Reunion')::date) - 7;
+  v_max int; v_win int[];
+begin
+  perform pg_advisory_xact_lock(hashtext('plateau_weeks'));
+  if exists (select 1 from plateau_weeks where week = v_prev) then return; end if;
+  select coalesce(max(l), 0) into v_max from (select max(to_pos / __GOOSE_SIZE__) as l from dice_rolls where week = v_prev group by member_id) t;
+  if v_max >= 1 then
+    select array_agg(member_id) into v_win from (select member_id from dice_rolls where week = v_prev group by member_id having max(to_pos / __GOOSE_SIZE__) = v_max) t;
+    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), __WEEK_WIN__, 'plateau-week:' || v_prev;
+  end if;
+  insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);
+end $$;
+grant execute on function settle_plateau() to anon, authenticated;

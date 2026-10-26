@@ -10,6 +10,7 @@ export { CONFIG } from './keys.js';
 // 🏆 Trophées : gagnés avec les jeux (chifoumi, blackjack).   ⭐ XP : gagnée par toutes les actions → niveaux (infinis).
 // ⚠️ Après un changement ici : node tools/build-sql.mjs puis relancer supabase/migration-v7.sql dans Supabase.
 export const XP_RULES = {
+  introXp: 50, firstGameXp: 50,   // niveau 2 = introduction + récompense du jour (50) + premier jeu lancé
   taskPerSoap: 25,    // une tâche validée rapporte (savons × 25) XP à celui qui l'a faite
   validate: 10,       // XP pour celui qui confirme la tâche d'un autre
   daily: 0,           // (la récompense quotidienne a sa propre table : DAILY_XP)
@@ -25,10 +26,10 @@ export const MILESTONES = {
   raid:   { at: [500, 1000, 3070, 6000, 10000, 20000], xp: [50, 100, 200, 300, 500, 800] },
   sudoku: { at: [900, 600, 420, 300, 240], xp: [50, 100, 200, 400, 700], low: true }, // temps en secondes : plus petit = mieux
 };
-// Niveau L atteint à LEVEL_K × L × (L − 1) XP : niveau 5 = 500, 10 = 2 250, 20 = 9 500, 50 = 61 250… sans limite
-export const LEVEL_K = 25;
-export const xpForLevel = (l) => LEVEL_K * l * (l - 1);
-export const levelOf = (xp) => Math.floor((1 + Math.sqrt(1 + (Math.max(xp, 0) * 4) / LEVEL_K)) / 2);
+// Niveau L (≥ 2) atteint à LEVEL_BASE + LEVEL_K × L × (L − 1) XP. Le niveau 2 (150 XP) = introduction (50) + récompense du jour (50) + premier lancement d'un jeu (50).
+export const LEVEL_K = 25, LEVEL_BASE = 100;
+export const xpForLevel = (l) => (l <= 1 ? 0 : LEVEL_BASE + LEVEL_K * l * (l - 1));
+export const levelOf = (xp) => Math.floor((1 + Math.sqrt(1 + (Math.max(xp - LEVEL_BASE, 0) * 4) / LEVEL_K)) / 2);
 export const levelProgress = (xp) => {
   const l = levelOf(xp), lo = xpForLevel(l), hi = xpForLevel(l + 1);
   return { level: l, into: xp - lo, need: hi - lo, pct: Math.min(100, ((xp - lo) / (hi - lo)) * 100) };
@@ -72,6 +73,7 @@ export const OUTFITS = {
   hugodeck:     { name: 'Hugo Deck',    challenge: 'diagonale', hidesHair: true },       // copie du chevalier : à redessiner dans avatar.js
   zeus:         { name: 'Zeus',         nameF: 'Héra',       challenge: 'dollars_10000' },
   nickel:       { name: 'Monsieur Nickel', nameF: 'Madame Nickel', challenge: 'nickel' },
+  pterodactyl:  { name: 'Ptérodactyle', challenge: 'sauteur_pro', hidesHair: true, hidesSkin: true },
   papangue:     { name: 'Papangue',    challenge: 'legende_airs', hidesHair: true },
   clochard:     { name: 'Clochard',     nameF: 'Clocharde',  challenge: 'clochard' },
 };
@@ -124,7 +126,10 @@ export const GOOSE = {
     17: { back: 1 }, 18: { goose: true }, 20: { xp: 60 }, 23: { chips: 40 }, 25: { xp: 80 }, 27: { back: 1 },
   },
   finish: { xp: 200, trophy: 0 },
+  weekWin: 500,   // colocoins pour le(s) joueur(s) qui ont fait le plus de tours la semaine passée (au moins 1 tour)
 };
+// Palier de niveau : tous les 10 niveaux, des colocoins offerts
+export const LEVEL_BONUS = { every: 10, chips: 100 };
 // Prix du dé selon le nombre de lancers déjà faits aujourd'hui (le 6e et les suivants coûtent le dernier prix)
 export const DICE_PRICES = [0, 1, 3, 5, 10, 20]; // le 1er dé du jour est gratuit
 // Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.
@@ -178,6 +183,8 @@ export const SHOP = {
     { key: 'ninja',    name: 'Ninja',         price: 300, body: '#1f2937', belly: '#6b7280', wing: '#111827', acc: 'band' },
     { key: 'or',       name: 'Oiseau doré',   price: 700, body: '#fbbf24', belly: '#fef3c7', wing: '#b45309', acc: 'crown' },
     { key: 'arcenciel', name: 'Arc-en-ciel',  price: 1000, body: '#ef4444', belly: '#fff', wing: '#8b5cf6', rainbow: true },
+    { key: 'chevalier', name: 'Oiseau chevalier', price: 500, body: '#8f99a4', belly: '#d7dde3', wing: '#5b6470', acc: 'knight' },
+    { key: 'tenebres', name: 'Oiseau des ténèbres', price: 900, body: '#15121c', belly: '#2c2638', wing: '#0b0910', eye: '#ef1d1d', eyeBg: '#1a0000', acc: 'dark' },
   ],
 };
 // Apparences vendues (voir OUTFITS : price). Stockées dans purchases.item sous le nom simple (ex. 'pirate')

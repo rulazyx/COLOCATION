@@ -11,6 +11,8 @@ export function birdSVG(key, size = 64) {
   const body = b.rainbow ? `url(#${id})` : b.body;
   const acc = b.acc === 'shades' ? '<rect x="40" y="26" width="22" height="9" rx="3" fill="#111"/><rect x="38" y="29" width="6" height="2" fill="#111"/>'
     : b.acc === 'band' ? '<path d="M18 30Q40 18 62 28v6Q40 26 18 36z" fill="#dc2626"/><path d="M18 33l-8 6 10 0z" fill="#dc2626"/>'
+    : b.acc === 'knight' ? '<path d="M26 40C26 20 38 14 46 14s20 6 20 26z" fill="#aab3bd"/><rect x="42" y="26" width="24" height="7" rx="3" fill="#2b2f36"/><path d="M34 16C30 4 14 6 10 16 20 12 28 14 36 22z" fill="#e5484d"/>'
+    : b.acc === 'dark' ? '<path d="M30 16l4-10 5 8 5-10 5 10 4-8 3 10z" fill="#0b0910"/>'
     : b.acc === 'crown' ? '<path d="M28 20l4-12 7 8 6-10 6 10 7-8 3 12z" fill="#facc15" stroke="#b45309" stroke-width="1.5"/>' : '';
   return `<svg viewBox="0 0 80 70" width="${size}" height="${Math.round(size * 0.875)}" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
     ${b.rainbow ? `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ef4444"/><stop offset=".33" stop-color="#facc15"/><stop offset=".66" stop-color="#22c55e"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>` : ''}
@@ -18,7 +20,7 @@ export function birdSVG(key, size = 64) {
     <circle cx="40" cy="38" r="26" fill="${body}"/>
     <ellipse cx="44" cy="48" rx="16" ry="10" fill="${b.belly}"/>
     <ellipse cx="30" cy="40" rx="13" ry="8" transform="rotate(-18 30 40)" fill="${b.wing}"/>
-    <circle cx="50" cy="28" r="8" fill="#fff"/><circle cx="52.5" cy="28" r="4" fill="#111"/>
+    <circle cx="50" cy="28" r="8" fill="${b.eyeBg ?? '#fff'}"/><circle cx="52.5" cy="28" r="${b.eye ? 5 : 4}" fill="${b.eye ?? '#111'}"${b.eye ? ' style="filter:drop-shadow(0 0 3px #f00)"' : ''}/>
     <path d="M62 33l16 5-16 7z" fill="#f59e0b"/>${acc}</svg>`;
 }
 

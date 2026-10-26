@@ -1,6 +1,6 @@
 import {
   CONFIG, TASK_KINDS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, shopItem, SOAP_EXCHANGE,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, shopItem, SOAP_EXCHANGE,
 } from './config.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
@@ -138,11 +138,12 @@ async function refresh(force = false) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
+  if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
   [state.members, state.scores, state.balances, state.products, state.purchases, state.duels,
-    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs, state.spent, state.dice, state.perks, state.pconf, state.chips] = await Promise.all([
+    state.stats, state.duelStats, state.unlocks, state.views, state.xp, state.weekly, state.logs, state.spent, state.dice, state.perks, state.pconf, state.chips, state.pweeks] = await Promise.all([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(),
   ]);
   state.msgs = state.me ? await state.api.messages(state.me.id) : [];
   if (state.me) state.me = memberById(state.me.id) ?? null;
@@ -307,6 +308,7 @@ async function sendDuel() {
   if (!s.move) return toast('Choisis ton coup.');
   try {
     await state.api.createDuel(state.me.id, s.opp, XP_RULES.duelStake, s.move);
+    state.api.launchGame(state.me.id).then((n) => n && refresh(true)).catch(() => {});
     state.sheet = null;
     toast(`Défi envoyé à ${nameOf(s.opp)} !`);
     await refresh();
@@ -502,6 +504,7 @@ async function openGame(id) {
   const G = GAMES[id];
   if (!G || state.game) return;
   state.game = id; state.sheet = null; render();
+  state.api.launchGame(state.me.id).then((n) => n && refresh(true)).catch(() => {});   // 1er jeu lancé : XP vers le niveau 2
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
   // Une fois le jeu lancé, il ne reste que la flèche retour (le nom ne s'affiche que sur l'écran jaune d'ouverture)
@@ -606,7 +609,7 @@ function render() {
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
       <span class="grow"></span>
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
-      <button class="hchip cur-soap" data-action="hist-soap" title="Historique des savons">🧼 ${soapOf(me.id)}</button>
+      <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
           </header>
     ${state.heads ? headsHTML() : ''}`}
     <main class="${anim ? 'pg' : ''} ${tab === 'me' ? 'nohdr' : ''}">
@@ -699,10 +702,10 @@ const diceCost = (id) => DICE_PRICES[Math.min(rollsToday(id), DICE_PRICES.length
 const rollsToday = (id) => state.dice.filter((r) => r.member_id === id && iso(new Date(r.created_at)) === iso(new Date())).length;
 function cellLabel(n) {
   const c = GOOSE.cells[n];
-  if (n === GOOSE.size) return '<em class="cl fin">Arrivée</em>';
+  if (n === GOOSE.size) return '<em class="cl fin">🏁</em>';
   if (!c) return '';
-  if (c.xp) return `<em class="cl xp">+${c.xp} XP</em>`;
-  if (c.chips) return `<em class="cl tr">+${c.chips} 🪙</em>`;
+  if (c.xp) return `<em class="cl xp">+${c.xp}</em>`;
+  if (c.chips) return `<em class="cl tr">+${c.chips}🪙</em>`;
   if (c.back) return `<em class="cl bk">−${c.back}</em>`;
   if (c.goose) return '<em class="cl go">Oie</em>';
   return '';
@@ -729,34 +732,54 @@ const BEACH_FOOT = `<svg class="bfoot" viewBox="0 0 360 44" preserveAspectRatio=
   <g transform="translate(262 30)"><path d="M0 0a10 9 0 0 1 20 0z" fill="#fce4ec" stroke="#f48fb1" stroke-width="1.5"/></g>
   <g transform="translate(318 10)"><rect x="0" y="14" width="30" height="12" rx="3" fill="#4fc3f7"/><rect x="0" y="14" width="30" height="4" fill="#fff" opacity=".6"/></g></svg>`;
 
+// Plateau en anneau (9 × 8 cases, 30 cases sur le pourtour) : la case 30 rejoint la case 1, on tourne à l'infini
+const RING = { cols: 9, rows: 8 };
+const ringXY = (n) => {                       // n = 1..30 → [colonne, ligne] (ligne 0 = en haut)
+  const { cols, rows } = RING;
+  if (n <= cols) return [n - 1, rows - 1];                                   // bas : gauche → droite
+  if (n <= cols + rows - 1) return [cols - 1, rows - 1 - (n - cols)];        // droite : vers le haut
+  if (n <= 2 * cols + rows - 2) return [cols - 1 - (n - (cols + rows - 1)), 0];   // haut : droite → gauche
+  return [0, n - (2 * cols + rows - 2)];                                     // gauche : vers le bas
+};
 function plateauHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
-  const cols = 6, rows = GOOSE.size / cols;
+  const { cols, rows } = RING;
   const pawns = {};
   colocs().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
-  const pawnHTML = (n) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}${lapsOf(posThisWeek(m.id)) ? ` · ${lapsOf(posThisWeek(m.id))} tour(s)` : ''}">${av(m, 22)}</span>`).join('');
+  const pawnHTML = (n, sz = 16) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
   const cells = [], pts = [];
-  for (let r = rows - 1; r >= 0; r--) {         // ligne du haut = les cases les plus hautes
-    const row = Array.from({ length: cols }, (_, i) => r * cols + i + 1);
-    if (r % 2 === 1) row.reverse();
-    row.forEach((n) => cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`));
+  for (let n = 1; n <= GOOSE.size; n++) {
+    const [c, r] = ringXY(n);
+    pts.push(`${(c + 0.5) * 100},${(r + 0.5) * 100}`);
+    cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
-  for (let n = 1; n <= GOOSE.size; n++) {       // chemin de sable qui serpente derrière les cases
-    const r = Math.floor((n - 1) / cols), i = (n - 1) % cols, col = r % 2 === 1 ? cols - 1 - i : i;
-    pts.push(`${(col + 0.5) * 100},${(rows - 1 - r + 0.5) * 100}`);
-  }
+  pts.push(pts[0]);                           // boucle fermée
   const pos = shownPos(me.id), cost = diceCost(me.id), have = soapOf(me.id), laps = lapsOf(pos);
   const can = isColoc && have >= cost && !state.rolling;
   const hist = state.dice.slice(0, 15);
   const free = DICE_PRICES[0] === 0;
+  const ranked = colocs().map((m) => ({ m, l: lapsOf(posThisWeek(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
+  const top = ranked[0]?.l ?? 0;
+  const last = (state.pweeks ?? [])[0];
+  const lastTxt = last ? (last.winners?.length ? `Semaine passée : ${last.winners.map(nameOf).map(esc).join(' & ')} · ${last.laps} tour${last.laps > 1 ? 's' : ''} · +${GOOSE.weekWin} 🪙` : '') : '';
+  const center = `<div class="gcenter">
+      <div class="gttl">🏁 Tours de la semaine</div>
+      <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em>👑</em>' : ''}</div>`).join('')}</div>
+      <div class="gdep"><span>🏖️ Départ</span><div class="pw">${pawnHTML(0, 18)}</div></div>
+      ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
+    </div>`;
   return `
-    <p class="summary" style="margin-top:0">Chaque semaine le plateau repart de zéro, mais les tours sont <b>infinis</b> : à chaque tour terminé, tu gagnes ${GOOSE.finish.xp} XP. ${free ? 'Le <b>premier dé du jour est gratuit</b>, puis ' : 'Un dé coûte '}<b>${DICE_PRICES.slice(free ? 1 : 0).join(', ')} 🧼</b> au fil des lancers (retour au début à minuit). Les cases rapportent de l'XP et des colocoins 🪙.</p>
+    <p class="summary" style="margin-top:0">Le plateau est une <b>boucle</b> : on tourne à l'infini. Chaque tour terminé rapporte ${GOOSE.finish.xp} XP, et à la fin de la semaine, celui qui a fait le <b>plus de tours</b> gagne <b>${GOOSE.weekWin} 🪙</b>. ${free ? 'Le <b>premier dé du jour est gratuit</b>, puis ' : 'Un dé coûte '}<b>${DICE_PRICES.slice(free ? 1 : 0).join(', ')} 🧼</b> (retour au début à minuit).</p>
     <div class="perkbox"><b>Récompense du premier tour de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)}</small></div>
-    <div class="beach">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}${BEACH_SCENE}<span class="palm l">${PALM}</span><span class="palm r">${PALM}</span>
-      <div class="goose"><div class="gstart"><b>🏖️ Départ</b><div class="pw">${pawnHTML(0)}</div></div>
-        <div class="ggrid"><svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>${cells.join('')}</div>
-      </div>${BEACH_FOOT}</div>
-    <div class="legend"><span><i class="cl xp">XP</i> bonus d'XP</span><span><i class="cl tr">🪙</i> colocoins</span><span><i class="cl bk">−1</i> piège : recule d'une case</span><span><i class="cl go">Oie</i> avance encore</span></div>
+    <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
+      <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
+        <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+        <div class="glagoon" style="grid-column:2/${cols};grid-row:2/${rows}"></div>
+        <span class="palm c">${PALM}</span>
+        ${cells.join('')}
+        <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
+      </div></div>
+    <div class="legend"><span><i class="cl xp">+N</i> EXP</span><span><i class="cl tr">🪙</i> colocoins</span><span><i class="cl bk">−1</i> piège</span><span><i class="cl go">Oie</i> avance encore</span></div>
     <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 ? 'Lancer le dé · gratuit' : `Lancer le dé · ${cost} 🧼`}</button>
     <div class="det" style="text-align:center">Tu as ${have} 🧼 · case ${cellOfPos(pos) || 'départ'} sur ${GOOSE.size} · ${laps} tour${laps > 1 ? 's' : ''} terminé${laps > 1 ? 's' : ''} cette semaine</div>
     <h3 class="sec">Derniers lancers</h3>
@@ -892,6 +915,7 @@ function levelUpSheetHTML() {
     <div class="sh"><div><h2>Niveau ${l.level} !</h2><div class="when">Bravo ${esc(state.me.name)}, tu montes en niveau</div></div>${closeBtn}</div>
     ${l.skins.length ? `<div class="det">Nouveau${l.skins.length > 1 ? 'x' : ''} personnage${l.skins.length > 1 ? 's' : ''} débloqué${l.skins.length > 1 ? 's' : ''} :</div>
       <div class="shop" style="margin-top:8px">${l.skins.map((k) => `<div class="item">${av({ ...state.me, outfit: k }, 84)}<b>${esc(outfitName(k, state.me.gender))}</b></div>`).join('')}</div>` : '<div class="det">Continue comme ça pour débloquer de nouveaux personnages.</div>'}
+    ${l.level % LEVEL_BONUS.every === 0 ? `<div class="det" style="font-weight:800">Palier ${l.level} : +${LEVEL_BONUS.chips} 🪙 offerts !</div>` : ''}
     <div class="det">Prochain niveau dans ${p.need - p.into} XP.</div>
     <div class="sact"><button class="btn primary" data-action="close">Super !</button></div>`, 'var(--gold)');
 }
@@ -1382,6 +1406,7 @@ document.addEventListener('click', (e) => {
     case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
+    case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); window.scrollTo(0, 0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
     case 'perk-ok': confirmPerkNow(Number(id)); break;
     case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;

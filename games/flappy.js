@@ -81,12 +81,19 @@ function draw(ctx, g, frame, skin = BASE) {
   ctx.fillStyle = body; ctx.beginPath(); ctx.arc(0, 0, BIRD_R + 2, 0, 7); ctx.fill();
   ctx.fillStyle = skin.belly; ctx.beginPath(); ctx.ellipse(2, 5, 9, 6, 0, 0, 7); ctx.fill();
   ctx.fillStyle = skin.wing; ctx.beginPath(); ctx.ellipse(-5, 2 + (Math.floor(frame / 5) % 2 ? -3 : 3), 7, 4.5, -0.3, 0, 7); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
-  ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(7.4, -4, 2, 0, 7); ctx.fill();
+  ctx.fillStyle = skin.eyeBg ?? '#fff'; ctx.beginPath(); ctx.arc(6, -4, 4.4, 0, 7); ctx.fill();
+  if (skin.eye) { ctx.shadowColor = skin.eye; ctx.shadowBlur = 8; }
+  ctx.fillStyle = skin.eye ?? '#111'; ctx.beginPath(); ctx.arc(7.4, -4, skin.eye ? 3 : 2, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
   ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.moveTo(11, -1); ctx.lineTo(21, 2); ctx.lineTo(11, 6); ctx.fill();
   if (skin.acc === 'shades') { ctx.fillStyle = '#111'; ctx.fillRect(2, -8, 12, 6); ctx.fillRect(-2, -6, 5, 2); }
   if (skin.acc === 'band') { ctx.fillStyle = '#dc2626'; ctx.fillRect(-12, -10, 24, 4); ctx.beginPath(); ctx.moveTo(-12, -9); ctx.lineTo(-22, -4 + Math.sin(frame / 4) * 3); ctx.lineTo(-12, -6); ctx.fill(); }
   if (skin.acc === 'crown') { ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.moveTo(-6, -11); ctx.lineTo(-7, -21); ctx.lineTo(-2, -16); ctx.lineTo(2, -22); ctx.lineTo(6, -16); ctx.lineTo(10, -21); ctx.lineTo(9, -11); ctx.closePath(); ctx.fill(); }
+  if (skin.acc === 'knight') {
+    ctx.fillStyle = '#aab3bd'; ctx.beginPath(); ctx.arc(0, -3, 13, Math.PI, 0); ctx.lineTo(13, -3); ctx.lineTo(-13, -3); ctx.fill();
+    ctx.fillStyle = '#2b2f36'; ctx.fillRect(1, -8, 12, 3.5);
+    ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.moveTo(-2, -15); ctx.quadraticCurveTo(-10 - Math.sin(frame / 5) * 2, -26, -16, -14 + Math.sin(frame / 4) * 2); ctx.quadraticCurveTo(-8, -17, -2, -12); ctx.fill();
+  }
+  if (skin.acc === 'dark') { ctx.fillStyle = '#0b0910'; ctx.beginPath(); ctx.moveTo(-6, -12); ctx.lineTo(-4, -22); ctx.lineTo(0, -14); ctx.lineTo(4, -22); ctx.lineTo(6, -12); ctx.fill(); }
   ctx.restore();
   // score
   ctx.textAlign = 'center'; ctx.font = '800 44px system-ui, sans-serif';

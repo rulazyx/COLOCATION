@@ -169,3 +169,16 @@ Ajouts v11e : tout le monde revoit l'introduction (une fois, via `migration-v8.s
 ## v15b
 - Échange : toucher les colocoins du header → 1 savon = 100 colocoins, 10 savons = 1 200 colocoins (`exchange_soap`, table `soap_exchanges`).
 - Icône Jeux (oiseau) redessinée ; étoile du podium retirée.
+
+## v16
+- Défi « Le noob » renommé « Le petit nouveau » : récompense = uniquement le skin Zippo (0 XP). L'ancien défi « petit nouveau » est supprimé.
+- Niveau 2 = 150 XP = introduction terminée (50) + récompense du jour (50) + premier jeu lancé (50, `launch_game`). Formule : niveau L ≥ 2 à 100 + 25·L·(L−1) XP.
+- Mise à jour : exécuter `supabase/migration-v8.sql`.
+
+## v17
+- Défis : Employé de la friterie = 50 obstacles ; nouveau « Sauteur professionnel » (500 obstacles) → apparence Ptérodactyle.
+- Oiseau de Jumpy Cardinal : looks Chevalier (500 🪙) et Ténèbres (900 🪙, yeux rouges).
+- Tous les 10 niveaux : +100 🪙 (`add_xp`, paliers uniques).
+- La pastille 🧼 ouvre le plateau.
+- Plateau en anneau (30 cases, la 30 rejoint la 1) ; classement des tours de la semaine ; `settle_plateau()` verse 500 🪙 au(x) meilleur(s) de la semaine passée (au moins 1 tour).
+- Textes, onglets du bas et segments plus petits.

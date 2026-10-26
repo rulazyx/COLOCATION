@@ -228,6 +228,20 @@ OUTFIT_DRAW.papangue = () => {
     '<path d="M50 70 C54 68 56 64 56 60" stroke="#b07f00" stroke-width="1.6" fill="none" stroke-linecap="round"/>' +
     '<circle cx="48" cy="55" r=".9" fill="#8a6200"/><circle cx="52" cy="55" r=".9" fill="#8a6200"/>';
 };
+// Ptérodactyle : crête en arrière, grand bec, ailes membraneuses
+OUTFIT_DRAW.pterodactyl = () => {
+  const sk = '#7aa05a', dk = '#55763c', lt = '#b9d08f', mem = '#a3b87a';
+  return body(sk, `<path d="M30 100 C32 90 40 86 50 86 C60 86 68 90 70 100Z" fill="${lt}"/>`) +
+    `<path d="M2 96 L12 58 L22 76 L30 52 L38 84Z" fill="${mem}" stroke="${dk}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="M98 96 L88 58 L78 76 L70 52 L62 84Z" fill="${mem}" stroke="${dk}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="M58 22 C74 2 92 6 98 12 C84 12 72 18 66 32Z" fill="${dk}"/>` +
+    `<ellipse cx="46" cy="44" rx="22" ry="24" fill="${sk}"/>` +
+    `<path d="M50 56 C52 50 80 40 98 50 C84 54 66 58 52 66Z" fill="#c9db9d" stroke="${dk}" stroke-width="2" stroke-linejoin="round"/>` +
+    `<path d="M52 61 C66 57 84 52 96 50" stroke="${dk}" stroke-width="1.6" fill="none"/>` +
+    '<circle cx="42" cy="40" r="5.4" fill="#fff"/><circle cx="43" cy="40.4" r="2.8" fill="#111"/><circle cx="44" cy="39.2" r=".9" fill="#fff"/>' +
+    `<path d="M32 30 Q40 25 48 32" stroke="${dk}" stroke-width="3" fill="none" stroke-linecap="round"/>` +
+    `<circle cx="62" cy="52" r="1.2" fill="${dk}"/>`;
+};
 OUTFIT_DRAW.hugodeck = (p) => OUTFIT_DRAW.chevalier(p);
 OUTFIT_DRAW.zippo = () =>
   body('#F4F4F5', '') +
