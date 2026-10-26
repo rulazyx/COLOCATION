@@ -503,7 +503,7 @@ const GAMES = {
   ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
   sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
 };
-let gameHandle = null;
+let gameHandle = null, gameScrollY = 0;
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
@@ -528,6 +528,7 @@ async function openGame(id) {
   // Une fois le jeu lancé, il ne reste que la flèche retour (le nom ne s'affiche que sur l'écran jaune d'ouverture)
   layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button></div><div class="gbody"></div>
     <div class="gsplash"><span>${esc(G.name)}</span></div>`;
+  gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
   layer.addEventListener('click', (e) => { if (e.target.closest('[data-gact="close"]')) closeGame(); });
   setTimeout(() => layer.querySelector('.gsplash')?.remove(), 1150);
@@ -551,8 +552,10 @@ function closeGame() {
   try { gameHandle?.destroy(); } catch { /* rien */ }
   gameHandle = null;
   document.getElementById('gamelayer')?.remove();
+  document.body.classList.remove('ingame');
   state.game = null;
   if (state.pendingRefresh) { state.pendingRefresh = false; refresh().catch(() => {}); } else render();
+  window.scrollTo(0, gameScrollY);
 }
 
 async function syncSub() {

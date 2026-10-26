@@ -134,13 +134,14 @@ const PAINT_ACC = {
   },
 };
 
+const CLOUDS = [[50, 90, 18], [190, 140, 14], [120, 60, 12]];
 export function draw(ctx, g, frame, skin = BASE) {
   const th = themeAt(g.score), hg = H - GROUND;
   ctx.drawImage(skyFor(th, g.score), 0, 0);
   // nuages
   ctx.fillStyle = th.cloud;
-  for (const [cx, cy, r] of [[50 - (frame * 0.2) % 340 + 340, 90, 18], [190 - (frame * 0.2) % 340 + 340, 140, 14], [120 - (frame * 0.2) % 340 + 340, 60, 12]]) {
-    const x = cx % 340 - 20; ctx.beginPath(); ctx.arc(x, cy, r, 0, 7); ctx.arc(x + r, cy + 4, r * 0.8, 0, 7); ctx.arc(x - r, cy + 4, r * 0.7, 0, 7); ctx.fill();
+  for (let ci = 0; ci < 3; ci++) {
+    const cx = CLOUDS[ci][0] - (frame * 0.2) % 340 + 340, cy = CLOUDS[ci][1], r = CLOUDS[ci][2], x = cx % 340 - 20; ctx.beginPath(); ctx.arc(x, cy, r, 0, 7); ctx.arc(x + r, cy + 4, r * 0.8, 0, 7); ctx.arc(x - r, cy + 4, r * 0.7, 0, 7); ctx.fill();
   }
   // collines
   ctx.fillStyle = th.hill;
@@ -213,11 +214,12 @@ export function mount(root, { onEnd, bird, fps }) {
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
   // Compteur de performances (Réglages > Compteur FPS) : images par seconde, pires images, temps de calcul du jeu
   let hud = null, deltas = [], work = [], hudAt = 0, worstAll = 0, jankAll = 0, framesAll = 0;
-  if (fps) { hud = document.createElement('pre'); hud.className = 'fpshud'; root.appendChild(hud); }
+  let hudTxt = [], jankAt = [], jankGaps = [];
+  if (fps) hud = true;
   function perf(ts, workMs) {
     if (!hud) return;
     const d = deltas.last ? ts - deltas.last : 0;
-    if (deltas.last) { deltas.push(d); work.push(workMs); framesAll++; if (d > worstAll) worstAll = d; if (d > 25) jankAll++; }
+    if (deltas.last) { deltas.push(d); work.push(workMs); framesAll++; if (d > worstAll) worstAll = d; if (d > 25) { jankAll++; if (jankAt.last) jankGaps.push(ts - jankAt.last); jankAt.last = ts; } }
     deltas.last = ts;
     if (ts - hudAt < 500) return; hudAt = ts;
     const cut = 3000; let sum = 0, i = deltas.length;
@@ -226,10 +228,9 @@ export function mount(root, { onEnd, bird, fps }) {
     if (!dd.length) return;
     const sorted = [...dd].sort((a, b) => a - b), med = sorted[sorted.length >> 1], worst = sorted[sorted.length - 1], jank = dd.filter((x) => x > 25).length;
     const avgW = ww.reduce((a, b) => a + b, 0) / ww.length, maxW = Math.max(...ww);
-    hud.textContent = `${Math.round(1000 / (sum / dd.length))} FPS · écran ~${Math.round(1000 / med)} Hz
-pire image ${worst.toFixed(0)} ms · >25 ms : ${jank}
-jeu moy ${avgW.toFixed(2)} ms · max ${maxW.toFixed(1)} ms
-total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`;
+    const gs = [...jankGaps].sort((x, y) => x - y), gap = gs.length ? gs[gs.length >> 1] : 0, near500 = gs.length ? Math.round(gs.filter((x) => x > 400 && x < 600).length / gs.length * 100) : 0;
+    hudTxt = [`${Math.round(1000 / (sum / dd.length))} FPS · écran ~${Math.round(1000 / med)} Hz`, `pire image ${worst.toFixed(0)} ms · >25 ms : ${jank}`, `jeu moy ${avgW.toFixed(2)} ms · max ${maxW.toFixed(1)} ms`,
+      `total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`, `écart médian entre saccades : ${gap.toFixed(0)} ms (${near500} % vers 500 ms)`];
   }
   let g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
   const flap = () => { if (!g.dead) g.flap(); };
@@ -247,6 +248,7 @@ total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms
     let k = dt / (1000 / 60);                          // temps réel écoulé, en images à 60 Hz
     while (k > 0.001) { const kk = Math.min(k, 1.2); g.step(kk); k -= kk; frame += kk; }   // pas de 1,2 max : les collisions restent fiables après un à-coup
     draw(ctx, g, frame, skin);
+    if (hudTxt.length) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(4, 40, 262, 70); ctx.fillStyle = '#9dffb0'; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'; hudTxt.forEach((t, i) => ctx.fillText(t, 8, 54 + i * 13)); }
     if (g.dead && g.deathT >= GROW_F + 38) cv.classList.add('gray');
     if (g.dead && !reported && g.deathT >= DEAD_F) {
       reported = true;
