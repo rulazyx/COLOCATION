@@ -238,3 +238,5 @@ L oiseau gonfle, explose en plumes, écran grisé « Vous êtes mort » avec Rej
 
 ## v29 — Compteur FPS + titre au classement
 Reglages > Compteur FPS (Jumpy Cardinal). Le titre apparait sous le nom dans les classements.
+
+## v30 — Jumpy Cardinal : mouvement au temps réel (plus de micro-saccades)

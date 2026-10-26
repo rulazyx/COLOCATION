@@ -9,24 +9,24 @@ export const GROW_F = 26, DEAD_F = 100; // images : gonflement, puis fin de l'an
 // Logique pure (testable sans navigateur)
 export function createGame(rng = Math.random) {
   const g = {
-    y: H / 2 - 40, vy: 0, pipes: [], score: 0, dead: false, deathT: 0, parts: [], started: false, t: 0, nextX: W + 60, tilt: 0,
+    y: H / 2 - 40, vy: 0, pipes: [], score: 0, dead: false, exploded: false, deathT: 0, parts: [], started: false, t: 0, nextX: W + 60, tilt: 0,
     flap() { if (g.dead) return; g.started = true; g.vy = FLAP; },
-    step() {
-      g.t++;
+    step(k = 1) {   // k = durée de l'image en « images à 60 Hz » (1 = 16,7 ms) : le mouvement suit le temps réel, quelle que soit la fréquence de l'écran
+      g.t += k;
       if (!g.started) { g.y = H / 2 - 40 + Math.sin(g.t / 9) * 6; return; }
       if (g.dead) {   // l'oiseau gonfle sur place, puis explose en plumes
-        g.deathT++;
-        if (g.deathT === GROW_F) g.parts = Array.from({ length: 30 }, (_, i) => {
+        g.deathT += k;
+        if (!g.exploded && g.deathT >= GROW_F) g.exploded = true, g.parts = Array.from({ length: 30 }, (_, i) => {
           const a = (i / 30) * Math.PI * 2 + rng() * 0.5, v = 2 + rng() * 5.5;
           return { x: BIRD_X, y: g.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 1.5, r: rng() * 6, vr: (rng() - 0.5) * 0.5, c: i % 3, life: 1, sz: 7 + rng() * 7 };
         });
-        for (const q of g.parts) { q.vy += 0.16; q.vx *= 0.985; q.x += q.vx; q.y += q.vy; q.r += q.vr; q.life -= 0.006; if (q.y > H - GROUND - 3) { q.y = H - GROUND - 3; q.vy = 0; q.vx *= 0.8; q.vr *= 0.8; } }
+        for (const q of g.parts) { q.vy += 0.16 * k; q.vx *= 0.985 ** k; q.x += q.vx * k; q.y += q.vy * k; q.r += q.vr * k; q.life -= 0.006 * k; if (q.y > H - GROUND - 3) { q.y = H - GROUND - 3; q.vy = 0; q.vx *= 0.8; q.vr *= 0.8; } }
         return;
       }
-      g.vy = Math.min(g.vy + GRAVITY, MAX_FALL);
-      g.y += g.vy;
+      g.vy = Math.min(g.vy + GRAVITY * k, MAX_FALL);
+      g.y += g.vy * k;
       g.tilt = Math.max(-0.45, Math.min(1.1, g.vy / 9));
-      for (const p of g.pipes) p.x -= SPEED;
+      for (const p of g.pipes) p.x -= SPEED * k;
       if (!g.pipes.length || g.pipes[g.pipes.length - 1].x < W + 40 - SPACING) {
         const top = 70 + rng() * (H - GROUND - GAP - 140);
         g.pipes.push({ x: Math.max(W + 40, g.nextX), top, passed: false });
@@ -231,7 +231,7 @@ pire image ${worst.toFixed(0)} ms · >25 ms : ${jank}
 jeu moy ${avgW.toFixed(2)} ms · max ${maxW.toFixed(1)} ms
 total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`;
   }
-  let g = createGame(), raf = 0, last = 0, acc = 0, frame = 0, reported = false, destroyed = false;
+  let g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
   const flap = () => { if (!g.dead) g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
   const onDown = (e) => { e.preventDefault(); flap(); };
@@ -243,10 +243,10 @@ total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms
   function loop(ts) {
     if (destroyed) return;
     const w0 = hud ? performance.now() : 0;
-    acc += Math.min(ts - (last || ts), 100); last = ts;
-    let stepped = false;
-    while (acc >= 1000 / 60) { g.step(); acc -= 1000 / 60; frame++; stepped = true; }
-    if (stepped || frame === 0) draw(ctx, g, frame, skin);
+    const dt = Math.min(ts - (last || ts), 50); last = ts;
+    let k = dt / (1000 / 60);                          // temps réel écoulé, en images à 60 Hz
+    while (k > 0.001) { const kk = Math.min(k, 1.2); g.step(kk); k -= kk; frame += kk; }   // pas de 1,2 max : les collisions restent fiables après un à-coup
+    draw(ctx, g, frame, skin);
     if (g.dead && g.deathT >= GROW_F + 38) cv.classList.add('gray');
     if (g.dead && !reported && g.deathT >= DEAD_F) {
       reported = true;
