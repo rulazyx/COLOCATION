@@ -863,3 +863,5 @@ button.np.grow:not(:disabled){background:#e0f2fe;border-color:#7dd3fc}
 @keyframes cpop{0%{transform:scale(.2) rotate(-20deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
 .cratereveal h2{margin:6px 0 2px}
 .pbird{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0}.pbird span{display:flex;flex-direction:column;text-align:left}.pbird small{color:var(--muted);font-size:11px}
+
+.fpshud{position:absolute;left:8px;top:calc(52px + env(safe-area-inset-top));z-index:6;margin:0;padding:6px 8px;border-radius:8px;background:rgba(0,0,0,.6);color:#9dffb0;font:11px/1.35 ui-monospace,Menlo,monospace;pointer-events:none;white-space:pre}

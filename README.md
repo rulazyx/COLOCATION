@@ -235,3 +235,6 @@ L oiseau gonfle, explose en plumes, écran grisé « Vous êtes mort » avec Rej
 - Optimisation FPS (ciel et oiseau pré-dessinés, plus de calque plein écran).
 - Oiseaux uniquement via caisses (150 pièces), 4 nouveaux skins (pigeon, canard, clodo, ptérodactyl). Oiseau visible sur les profils.
 - Singe, tortue, lion : 100 pièces ; dino : 200 pièces (plus de déblocage par niveau).
+
+## v29 — Compteur FPS + titre au classement
+Reglages > Compteur FPS (Jumpy Cardinal). Le titre apparait sous le nom dans les classements.

@@ -206,11 +206,31 @@ export function draw(ctx, g, frame, skin = BASE) {
   }
 }
 
-export function mount(root, { onEnd, bird }) {
+export function mount(root, { onEnd, bird, fps }) {
   const skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
     <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>`;
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
+  // Compteur de performances (Réglages > Compteur FPS) : images par seconde, pires images, temps de calcul du jeu
+  let hud = null, deltas = [], work = [], hudAt = 0, worstAll = 0, jankAll = 0, framesAll = 0;
+  if (fps) { hud = document.createElement('pre'); hud.className = 'fpshud'; root.appendChild(hud); }
+  function perf(ts, workMs) {
+    if (!hud) return;
+    const d = deltas.last ? ts - deltas.last : 0;
+    if (deltas.last) { deltas.push(d); work.push(workMs); framesAll++; if (d > worstAll) worstAll = d; if (d > 25) jankAll++; }
+    deltas.last = ts;
+    if (ts - hudAt < 500) return; hudAt = ts;
+    const cut = 3000; let sum = 0, i = deltas.length;
+    while (i > 0 && sum < cut) sum += deltas[--i];
+    const dd = deltas.slice(i), ww = work.slice(i); deltas = dd; work = ww; deltas.last = ts;
+    if (!dd.length) return;
+    const sorted = [...dd].sort((a, b) => a - b), med = sorted[sorted.length >> 1], worst = sorted[sorted.length - 1], jank = dd.filter((x) => x > 25).length;
+    const avgW = ww.reduce((a, b) => a + b, 0) / ww.length, maxW = Math.max(...ww);
+    hud.textContent = `${Math.round(1000 / (sum / dd.length))} FPS · écran ~${Math.round(1000 / med)} Hz
+pire image ${worst.toFixed(0)} ms · >25 ms : ${jank}
+jeu moy ${avgW.toFixed(2)} ms · max ${maxW.toFixed(1)} ms
+total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`;
+  }
   let g = createGame(), raf = 0, last = 0, acc = 0, frame = 0, reported = false, destroyed = false;
   const flap = () => { if (!g.dead) g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
@@ -222,6 +242,7 @@ export function mount(root, { onEnd, bird }) {
   });
   function loop(ts) {
     if (destroyed) return;
+    const w0 = hud ? performance.now() : 0;
     acc += Math.min(ts - (last || ts), 100); last = ts;
     let stepped = false;
     while (acc >= 1000 / 60) { g.step(); acc -= 1000 / 60; frame++; stepped = true; }
@@ -233,6 +254,7 @@ export function mount(root, { onEnd, bird }) {
       over.hidden = false;
       onEnd?.({ score: g.score });
     }
+    perf(ts, hud ? performance.now() - w0 : 0);
     raf = requestAnimationFrame(loop);
   }
   raf = requestAnimationFrame(loop);

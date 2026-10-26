@@ -536,7 +536,7 @@ async function openGame(id) {
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      balance: () => chipsOf(state.me.id), bird: state.me.bird, ...(id === 'ferme' ? farmCtx() : {}),
+      balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1', ...(id === 'ferme' ? farmCtx() : {}),
       async onEnd(r) {
         try {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
@@ -1307,6 +1307,7 @@ function reglagesHTML() {
       <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
       <h3 class="sec">Couleur de fond du profil</h3>
       <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>` : ''}
+    <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Jumpy Cardinal) : activé' : 'Compteur FPS (Jumpy Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
     <h3 class="sec">Mes messages</h3>
@@ -1459,7 +1460,7 @@ function boardListHTML(board, max = 99) {
     const m = memberById(r.id);
     return `<li class="${r.id === me.id ? 'me' : ''}"><button class="rrow" data-action="profile" data-id="${r.id}">
       <span class="pos">${r.rank ? (r.rank <= 3 ? MEDALS[r.rank - 1] : r.rank) : '–'}</span><span class="rav">${av(m, 38)}</span>
-      <span class="nm">${nameHTML(m)}${r.id === me.id ? ' (toi)' : ''}${m?.kind === 'copain' ? '<small class="ptitle">Copain</small>' : ''}</span>
+      <span class="nm">${nameHTML(m)}${r.id === me.id ? ' (toi)' : ''}${titleLabel(m) ? `<small class="ptitle">${esc(titleLabel(m))}</small>` : ''}${m?.kind === 'copain' ? '<small class="ptitle">Copain</small>' : ''}</span>
       <span class="pts">${r.rank ? esc(fmtValue(board, r.value)) : '—'}</span></button></li>`;
   }).join('')}</ol>`;
 }
@@ -1606,6 +1607,7 @@ document.addEventListener('click', (e) => {
     case 'task-no': case 'task-cancel': answerTaskNow(Number(id), false); break;
     case 'product': toggleProduct(Number(id)); break;
     case 'push': enablePush(); break;
+    case 'fps': store.set('coloc-fps', store.get('coloc-fps') === '1' ? '0' : '1'); render(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
     case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
