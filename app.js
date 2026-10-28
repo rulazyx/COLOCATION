@@ -1475,8 +1475,8 @@ function farmReadyBadge() {
   const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
 }
-// Pousse stylisée de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
-const FARM_ICON = '<svg viewBox="0 0 48 48" width="34" height="34" fill="none" stroke="#1f6b34" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 40V24"/><path d="M24 26c0-8-6-13-14-13 0 8 6 13 14 13z" fill="#8fd27a"/><path d="M24 30c0-7 5-12 13-12 0 7-5 12-13 12z" fill="#b9e6a3"/><path d="M12 40h24"/></svg>';
+// Botte de paille de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
+const FARM_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#7a4b0c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="14" width="36" height="24" rx="4" fill="#f5c84c"/><path d="M10 21h8M22 21h6M32 21h6M10 27h4M18 27h10M32 27h6M10 33h8M22 33h6M32 33h6" stroke="#c98f1c" stroke-width="2"/><path d="M15 14v24M33 14v24" stroke="#b5452a" stroke-width="3"/><path d="M9 14l-2-4M14 14l1-5M24 14l-1-5M29 14l2-4M38 14l2-4"/></svg>';
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
 function duelPickHTML() {
