@@ -32,7 +32,7 @@ export function birdSVG(key, size = 64) {
 const NI = (inner) => `<svg class="nico" viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 const cleaner = NI(`
   <rect x="5" y="22" width="38" height="20" rx="9" class="y" transform="rotate(-12 24 32)"/>
-  <circle cx="14" cy="11" r="5" class="f"/><circle cx="28" cy="8" r="3.4" class="f"/><circle cx="37" cy="15" r="4.2" class="f"/>`);
+  <circle cx="14" cy="11" r="5"/><circle cx="28" cy="8" r="3.4"/><circle cx="37" cy="15" r="4.2"/>`);
 const book = NI(`
   <path d="M5 11c6-3 13-3 19 1v28c-6-4-13-4-19-1z" class="f"/>
   <path d="M43 11c-6-3-13-3-19 1v28c6-4 13-4 19-1z" class="f"/>
@@ -44,7 +44,7 @@ const navBird = NI(`
 const podium = NI(`
   <path d="M14 6h20v12a10 10 0 0 1-20 0z" class="y"/>
   <path d="M14 10H7c0 7 3 10 8 10M34 10h7c0 7-3 10-8 10"/>
-  <path d="M24 28v8M15 42h18M18 36h12v6H18z" class="f"/>`);
+  <path d="M24 28v8M15 42h18M18 36h12v6H18z"/>`);
 const persoSVG = () => NI(`
   <circle cx="24" cy="17" r="9" class="f"/>
   <path d="M6 43c1-10 8-15 18-15s17 5 18 15z" class="f"/>
@@ -54,11 +54,9 @@ const calNav = NI(`
   <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
   <path d="M5 19h38M15 5v8M33 5v8"/>`);
 const wallet = NI(`
-  <path d="M8 13l24-8 4 8" />
-  <rect x="5" y="13" width="38" height="28" rx="5" class="f"/>
-  <rect x="28" y="23" width="15" height="11" rx="3.5" class="y"/>
-  <circle cx="34" cy="28.5" r="1.8" fill="currentColor" stroke="none"/>
-  <path d="M11 21h10" stroke-width="2"/>`);
+  <circle cx="24" cy="24" r="18" class="y"/>
+  <circle cx="24" cy="24" r="11"/>
+  <circle cx="24" cy="24" r="4"/>`);
 export const NAV_ICONS = {
   tasks: () => cleaner, defis: () => book, games: () => navBird, rank: () => podium, budget: () => wallet, cal: () => calNav, me: persoSVG,
 };
