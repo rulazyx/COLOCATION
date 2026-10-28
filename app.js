@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 61;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 62;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -769,7 +769,7 @@ async function enablePush() {
       await state.api.saveSub(state.me.id, sub.toJSON());
     }
     store.set('coloc-push', '1');
-    reg.showNotification('Coloc', { body: 'Notifications activées ✅', icon: './icon-192.png' });
+    reg.showNotification('La Kaz', { body: 'Notifications activées ✅', icon: './icon-192.png' });
     render();
   } catch (e) {
     console.error(e);
