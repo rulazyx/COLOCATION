@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 66;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 67;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -65,7 +65,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'week', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -806,11 +806,12 @@ function render() {
   const step = introStep();
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
-    ${tab === 'me' ? '' : tab === 'tasks' ? weekHeaderHTML() : `<header class="top hdr">
+    ${tab === 'me' ? '' : `<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="goperso" aria-label="Mon profil">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
       <button class="hcart ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${pulse('defis')}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>
       <span class="grow"></span>
+      ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
       <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
           </header>
@@ -838,13 +839,12 @@ function render() {
 
 // Tâches faites par un autre coloc : on peut les confirmer depuis n'importe quel onglet
 // Onglet Tâches : l'en-tête habituel est remplacé par les savons gagnés cette semaine (tête de chaque coloc)
-function weekHeaderHTML() {
+function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
-  return `<header class="top wkhdr">
-    <div class="wkt"><b>🧼 Savons cette semaine</b><button class="hcart calbtn ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${introStep()?.tab === 'defis' ? 'pulse' : ''}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
+  return `<div class="wkcard"><div class="wkt"><b>🧼 Savons gagnés cette semaine</b></div>
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>
-  </header>`;
+    <p class="summary" style="margin:8px 0 0">Remis à zéro chaque lundi. Les savons s'obtiennent en faisant les tâches ménagères.</p></div>`;
 }
 function syncBarHTML() {
   if (!state.syncErr) return '';
@@ -897,9 +897,9 @@ function kindStatus(kind) {
 function tasksHTML() {
   const out = state.products.filter((p) => p.out_of_stock).length;
   const seg = state.tasksSeg;
-  return `<div class="seg" style="margin-bottom:12px">${[['tasks', 'Tâches'], ['plateau', 'Plateau'], ['stock', `Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
+  return `<div class="seg" style="margin-bottom:12px">${[['week', 'Cette semaine'], ['tasks', 'Tâches'], ['plateau', 'Plateau'], ['stock', `Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
     `<button class="${seg === k ? 'on' : ''}" data-action="tseg" data-v="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'stock' ? stockHTML() : seg === 'plateau' ? plateauHTML() : taskListHTML()}`;
+    ${seg === 'stock' ? stockHTML() : seg === 'plateau' ? plateauHTML() : seg === 'tasks' ? taskListHTML() : weekHTML()}`;
 }
 
 /* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */

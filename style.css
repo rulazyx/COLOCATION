@@ -923,3 +923,4 @@ nav.tabs.six button .tl{font-size:9px;letter-spacing:-.3px}
 .evinv{display:flex;gap:3px;margin-top:4px}.evinv svg{border-radius:50%}
 
 nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:center}
+.wkcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px}.wkcard .wkt{margin-bottom:10px;font-size:14px}
