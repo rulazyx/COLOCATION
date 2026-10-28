@@ -797,15 +797,6 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area
 body.ingame::before{display:none}
 
 /* Jumpy Cardinal : son, caisse sur l'écran de départ */
-.gmute{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:12px;z-index:5;width:38px;height:38px;border-radius:50%;border:0;background:rgba(0,0,0,.35);color:#fff;display:grid;place-items:center}
-.gcratebtn{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translateX(-50%);z-index:5;border:0;border-radius:999px;padding:11px 18px;background:#ffc928;color:#3b2a00;font-weight:800;font-size:.95rem;box-shadow:0 3px 0 #b8860b;white-space:nowrap}
-.gcratebtn.poor{opacity:.55}
-.gcrate{position:absolute;inset:0;z-index:8;background:rgba(0,0,0,.7);display:grid;place-items:center}
-.gcrate[hidden],.gcratebtn[hidden]{display:none}
-.gcr-card{background:#fff;border-radius:18px;padding:18px 22px;display:flex;flex-direction:column;align-items:center;gap:10px;min-width:220px;color:#222}
-.gcr-rar{font-weight:800;font-size:.8rem;padding:2px 10px;border-radius:99px;background:#eee}
-.gbtn{border:0;border-radius:12px;padding:10px 20px;font-weight:800;background:#ffc928;color:#3b2a00;width:100%}
-.gbtn.ghost{background:#eee;color:#444}
 
 /* Quêtes du jour dans les jeux */
 .gamelayer .ghead{display:flex;gap:8px;align-items:center}
@@ -1198,3 +1189,21 @@ button.glvl{cursor:pointer}
 .gamelayer:not(.onhome) .glvl{pointer-events:none}
 .gcoins{display:inline-flex!important;align-items:center;gap:6px;font-variant-numeric:tabular-nums}.gcoins .cc,.gcoins svg{width:18px;height:18px}
 .gamelayer:not(.onhome) .ghead-r{margin-right:0!important}
+
+/* ---------- Jeux : boutons ronds en haut à droite (son, menu), fenêtre de fin ---------- */
+.gamelayer .ghead .gmenu.gicon,.gmute{width:42px!important;height:42px!important;padding:0!important;border-radius:50%;display:grid!important;place-items:center;background:rgba(255,255,255,.93);color:#1b1d22;border:0;box-shadow:0 1px 6px rgba(0,0,0,.2)}
+.gamelayer .ghead .gmenu.gicon:active,.gmute:active{transform:scale(.94)}
+.gmute{position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);right:66px;z-index:6}
+.g-ferme .ghead .gmenu{order:-1}
+.gh-btn svg{flex:none;vertical-align:0}
+.gh-btn.go svg{color:#1b1d22}
+.gend{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:7;width:min(86vw,330px);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center;background:var(--card);color:var(--text);border-radius:20px;padding:20px 18px;box-shadow:0 12px 40px rgba(0,0,0,.35);animation:sdkover .4s cubic-bezier(.2,1.4,.4,1) both}
+.gend[hidden]{display:none}
+.gend h2{margin:0;font-weight:800;font-size:22px}
+.gend .gscore{margin:0;color:var(--muted)}
+.gend .gwin{margin:0;min-height:36px}.gend .gwin small{color:var(--muted)}
+.gend .gh-btn{width:100%;background:var(--bg);color:var(--text)}
+.gend .gh-btn.go{background:var(--accent);color:var(--on-accent,#1b1d22)}
+.gl-chif i{width:70px!important;height:70px!important}
+
+.gamelayer.onhome .ghead .gmenu{display:none!important}

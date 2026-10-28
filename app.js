@@ -5,7 +5,7 @@ import {
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
-import { logoArt, moveIcon } from './gameart.js';
+import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
 const BUILD = 93;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
@@ -683,14 +683,14 @@ const GHOME = {
   blackjack: ['play', 'quit'],
 };
 const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
-const GTITLE = { perso: 'Perso', board: 'Classement', intel: 'Niveaux', duel: 'Défier un joueur', hist: 'Historique' };
+const GTITLE = { perso: 'Perso', board: 'Classement', intel: 'Niveau suivant', duel: 'Défier un joueur', hist: 'Historique' };
 let gameUI = null;                       // { id, view, mod, handle… } du jeu ouvert
 const glayer = () => document.getElementById('gamelayer');
 
 function gHomeHTML(id) {
   const G = GAMES[id];
   return `<div class="gh-art">${logoArt(id)}</div><div class="gh-title">${esc(G.name)}</div>
-    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${GBTN[k]}</button>`).join('')}</div>
+    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${gIcon(k)}${GBTN[k]}</button>`).join('')}</div>
     ${id === 'flappy' ? `<button class="gtrophy-home gbird-home" data-gh="perso" aria-label="Choisir ton oiseau">${birdSVG(null, 30)}</button>` : ''}
     ${id === 'chifoumi' ? `<button class="gtrophy-home" data-gh="hist" aria-label="Historique">${BOOK_SVG(28)}</button>` : ''}
     ${GBOARD[id] ? `<button class="gtrophy-home" data-gh="board" aria-label="${GBOARD[id]}">${TROPHY_SVG(28)}</button>` : ''}`;
@@ -709,11 +709,12 @@ function gPersoHTML() {
       <button class="gh-btn mini" data-gh="crate" ${pool.length && bal >= BIRD_CRATE.price ? '' : 'disabled'}>${pool.length ? `Ouvrir · ${BIRD_CRATE.price} ${COIN_SVG}` : 'Tous débloqués !'}</button></div></div>
     <div class="gp-grid"><button class="gp-bird ${!cur ? 'eq' : ''}" data-gh="equip" data-k="">${birdSVG(null, 62)}<small>Classique</small>${!cur ? '<em>Équipé</em>' : ''}</button>${SHOP.bird.map(tile).join('')}</div>`;
 }
-function gIntelHTML() {
-  const st = statsOf(state.me.id), { lvl, n } = intelOf(st);
-  const part = (q, k, label) => (q[k] ? `<span class="${n[k] >= q[k] ? 'ok' : ''}">${Math.min(n[k], q[k])}/${q[k]} ${label}</span>` : '');
-  return `<div class="gp-intel">Niveau <b>${lvl}</b> <small>${n.e} faciles · ${n.m} moyennes · ${n.h} expert</small></div>
-    <ol class="gp-quests">${SUDOKU_INTEL.map((q, i) => `<li class="${i < lvl ? 'done' : i === lvl ? 'cur' : ''}"><b>Niveau ${i + 1}</b><div>${part(q, 'e', 'faciles')}${part(q, 'm', 'moyennes')}${part(q, 'h', 'expert')}</div><em>${i < lvl ? 'Terminé' : i === lvl ? 'En cours' : 'À venir'}</em></li>`).join('')}</ol>`;
+function gIntelHTML() {   // seulement l'étape en cours : ce qu'il reste pour passer au niveau suivant
+  const st = statsOf(state.me.id), { lvl, n } = intelOf(st), q = SUDOKU_INTEL[lvl];
+  if (!q) return `<div class="gp-intel">Niveau <b>${lvl}</b><small>Niveau maximum atteint, bravo !</small></div>`;
+  const part = (k, label) => (q[k] ? `<li class="${n[k] >= q[k] ? 'done' : 'cur'}"><b>${label}</b><div><span class="${n[k] >= q[k] ? 'ok' : ''}">${Math.min(n[k], q[k])} / ${q[k]}</span></div><em>${n[k] >= q[k] ? 'Fait' : `encore ${q[k] - n[k]}`}</em></li>` : '');
+  return `<div class="gp-intel">Niveau <b>${lvl}</b><small>Pour passer au niveau ${lvl + 1}, réussis :</small></div>
+    <ol class="gp-quests">${part('e', 'Grilles faciles')}${part('m', 'Grilles moyennes')}${part('h', 'Grilles expert')}</ol>`;
 }
 function gBoardHTML(id) {
   if (id === 'flappy') return gRankHTML('flappy');
@@ -786,7 +787,7 @@ function gShow(view) {
 }
 function gBadge() {
   const el = glayer()?.querySelector('.ghead-r'); if (!el) return;
-  el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir les niveaux">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>`
+  el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir le niveau suivant">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>`
     : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
@@ -808,8 +809,7 @@ async function gPlay() {
     if (gameUI !== u) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
       balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
-      crate: async () => { const key = await state.api.openBirdCrate(state.me.id); await refresh(true); return key; },
-      equipBird: (key) => saveProfile({ bird: key }), ...(id === 'ferme' ? farmCtx() : {}),
+      ...(id === 'ferme' ? farmCtx() : {}),
       ...(id === 'sudoku' ? { sudoku: {
         week: currentWeek(), me: state.me.id, name: nameOf,
         report: async (mode, secs) => {
@@ -834,7 +834,7 @@ function gPauseOpen() {
   const layer = glayer(); if (!layer || layer.querySelector('.gpause')) return;
   try { gameHandle?.pause?.(); } catch { /* rien */ }
   const o = document.createElement('div'); o.className = 'gpause';
-  o.innerHTML = `<div class="gpbox"><h2>Pause</h2><button class="gh-btn go" data-gact="resume">Reprendre</button>${gameUI?.id === 'ferme' ? '' : '<button class="gh-btn" data-gact="home">Accueil</button>'}<button class="gh-btn quit" data-gact="close">Quitter</button></div>`;
+  o.innerHTML = `<div class="gpbox"><h2>Pause</h2><button class="gh-btn go" data-gact="resume">${gIcon('play')}Reprendre</button>${gameUI?.id === 'ferme' ? '' : `<button class="gh-btn" data-gact="home">${gIcon('home')}Accueil</button>`}<button class="gh-btn quit" data-gact="close">${gIcon('quit')}Quitter</button></div>`;
   layer.appendChild(o);
 }
 function gPauseClose() { glayer()?.querySelector('.gpause')?.remove(); try { gameHandle?.resume?.(); } catch { /* rien */ } }
@@ -887,8 +887,8 @@ async function openGame(id) {
   state.api.launchGame(state.me.id).then((n) => n && refresh(true)).catch(() => {});   // 1er jeu lancé : XP vers le niveau 2
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id} onhome`;
-  // Pas de flèche retour : un bouton Menu (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
-  layer.innerHTML = `<div class="ghead"><button class="chip gmenu" data-gact="menu" aria-label="Menu">Menu</button><span class="ghead-r"></span></div><div class="gbody"></div><div class="ghome"></div>
+  // Pas de flèche retour : un bouton Menu en haut à droite (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
+  layer.innerHTML = `<div class="ghead"><span class="ghead-r"></span><button class="chip gmenu gicon" data-gact="menu" aria-label="Menu">${gIcon('menu', 24)}</button></div><div class="gbody"></div><div class="ghome"></div>
     <div class="gsplash"><div class="gs-art">${logoArt(id)}</div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
   gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
