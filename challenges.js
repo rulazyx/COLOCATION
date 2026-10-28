@@ -126,7 +126,7 @@ export const CHALLENGES = [
   { key: 'premier_envol', cat: 'Jeux', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
   { key: 'employe_friterie', cat: 'Jeux', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
   { key: 'sauteur_pro', cat: 'Jeux', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
-  { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître poussin', emoji: '🐥', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 100) },
+  { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
   { key: 'legende_airs', cat: 'Jeux', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Colo-Ferme —
   { key: 'premiere_recolte', cat: 'Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },

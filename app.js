@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 72;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 73;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -84,7 +84,8 @@ const copains = () => state.members.filter((m) => m.kind === 'copain');
 // Apparences débloquées : celles gagnées par défi + celles dont le niveau est atteint
 const ownedBy = (id) => new Set(['none',
   ...state.purchases.filter((p) => p.member_id === id).map((p) => p.item),
-  ...Object.entries(OUTFITS).filter(([, o]) => o.level && o.level <= lvlOf(id)).map(([k]) => k)]);
+  ...Object.entries(OUTFITS).filter(([, o]) => o.level && o.level <= lvlOf(id)).map(([k]) => k),
+  ...Object.entries(OUTFITS).filter(([, o]) => o.farm && state.farmBuilds.some((b) => b.member_id === id && b.item === o.farm)).map(([k]) => k)]);
 const statsOf = (id) => state.stats.find((x) => x.member_id === id) ?? {};
 const keyed = (arr, f = (x) => x) => Object.fromEntries(arr.map((x) => [x.member_id, f(x)]));
 // Tout ce qu'il faut pour calculer classements et défis (voir challenges.js)
@@ -579,7 +580,7 @@ async function sendMessageNow() {
 // Messages reçus : on les marque lus quand on ouvre le Profil (les nouveaux restent signalés jusqu'à la fermeture)
 let marking = false;
 async function markRead() {
-  if (marking || !state.me || state.tab !== 'me') return;
+  if (marking || !state.me || state.tab !== 'me' || state.meSeg !== 'regl') return;   // les messages se lisent dans Paramètres
   const unread = state.msgs.filter((m) => !m.read_at);
   if (!unread.length) return;
   marking = true;
@@ -806,7 +807,7 @@ function render() {
   const step = introStep();
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
-    ${tab === 'me' ? '' : `<header class="top hdr">
+    ${`<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
       <span class="grow"></span>
       ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
@@ -814,7 +815,7 @@ function render() {
       <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
           </header>
     `}
-    <main class="${anim ? 'pg' : ''} ${tab === 'me' ? 'nohdr' : ''}">
+    <main class="${anim ? 'pg' : ''}">
       ${pushOn() || store.get('coloc-push-dismiss') === '1' || step ? '' : `
         <div class="banner">
           <span>Active les notifications pour recevoir les rappels, les alertes de rupture, les défis et les messages.</span>
@@ -840,7 +841,8 @@ function render() {
 function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
-  return `<div class="wkcard"><div class="wkt"><b>🧼 Savons gagnés cette semaine</b><small>🏆 +${GOOSE.weekWin} 🪙 pour le 1er</small></div>
+  const pk = perkOfWeekDef();
+  return `<div class="wkcard">${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}<div class="wkt"><b>🧼 Savons gagnés cette semaine</b><small>🏆 +${GOOSE.weekWin} 🪙 pour le 1er</small></div>
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
 }
 function syncBarHTML() {
@@ -1132,12 +1134,14 @@ function closeSheet() {
 }
 
 function headMenuHTML() {
-  const me = state.me, due = dailyDue() || statsOf(me.id).wheel_ready;
-  const item = (act, attrs, emo, title, sub, dot, i) => `<button class="hmi ${dot ? 'dot' : ''}" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
+  const me = state.me, due = dailyDue() || statsOf(me.id).wheel_ready, msgs = unreadCount(), owed = perksOwed().length;
+  const item = (act, attrs, emo, title, sub, n, i) => `<button class="hmi" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}${n ? `<i class="hmb">${n === true ? '' : n}</i>` : ''}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
   return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
-    ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', false, 0)}
-    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due, 1)}
-    ${item('goperso', '', '🎨', 'Personnalisation', 'Personnage, titres, badges, réglages', false, 2)}
+    ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
+    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? true : 0, 1)}
+    ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', owed ? `${owed} bière${owed > 1 ? 's' : ''} à offrir` : 'Personnage, titres, badges', owed, 2)}
+    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Notifications, messages, réglages', msgs, 3)}
+    ${item('goseg', 'data-seg="sugg"', '💡', 'Suggestions', 'Une idée ou un bug ? Dis-le nous', 0, 4)}
   </div></div>`;
 }
 function sheetHTML() {
@@ -1371,15 +1375,13 @@ function gameInfoHTML(s) {
 
 /* ---------- Onglet Profil ---------- */
 function meHTML() {
-  const me = state.me, seg = state.meSeg, lp = levelProgress(xpOf(me.id)), unread = unreadCount();
+  const me = state.me, seg = state.meSeg, lp = levelProgress(xpOf(me.id));
   const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres']];
   return `
-    <div class="mehead"><button class="gearbtn ${seg === 'regl' ? 'on' : ''}" data-action="seg" data-seg="${seg === 'regl' ? 'robe' : 'regl'}" aria-label="Réglages" title="Réglages">${GEAR_SVG}</button>
-    <div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div><button class="gearbtn ${seg === 'sugg' ? 'on' : ''}" data-action="seg" data-seg="${seg === 'sugg' ? 'robe' : 'sugg'}" aria-label="Suggestions" title="Suggestions">${SUGGEST_SVG}</button></div>
+    <div class="mehead"><div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div></div>
     <div class="center-av">${av(me, 150)}</div>
     <div class="lvlline"><b>Niveau ${lp.level}</b> · ${xpOf(me.id)} XP · encore ${lp.need - lp.into} pour le niveau ${lp.level + 1}
       <div class="bar sm lvlbar"><i style="width:${lp.pct}%"></i></div></div>
-    ${unread && seg !== 'regl' ? `<button class="btn" style="margin:10px 0" data-action="seg" data-seg="regl">✉️ ${unread} nouveau${unread > 1 ? 'x' : ''} message${unread > 1 ? 's' : ''}</button>` : ''}
     <div class="seg four">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
     ${seg === 'regl' ? '' : ''}
     ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : seg === 'sugg' ? suggestHTML() : robeHTML()}`;
@@ -1463,7 +1465,7 @@ function badgesTabHTML() {
   const me = state.me;
   return `<p class="summary" style="margin-top:12px">Touche un badge pour le mettre en avant sur ton profil. Les autres restent visibles dans un sous-menu.</p>
     ${statGrid(me, true)}
-    ${activePerksOf(me.id).length || perksOwed().length ? `<h3 class="sec">Récompenses du plateau</h3>
+    ${activePerksOf(me.id).length || perksOwed().length ? `<h3 class="sec">Récompenses de la semaine</h3>
       ${activePerksOf(me.id).map((pk) => perkCardHTML(pk, true)).join('')}
       ${perksOwed().length ? `<div class="det">À offrir :</div>${perksOwed().map((pk) => perkCardHTML(pk, false)).join('')}` : ''}` : ''}`;
 }
@@ -1525,7 +1527,7 @@ function robeHTML() {
     <h3 class="sec">À débloquer</h3>
     <div class="shop">${Object.entries(OUTFITS).filter(([id]) => id !== 'none' && !owned.has(id)).map(([id, o]) => `
       <div class="item locked">
-        ${av({ ...me, outfit: id, frame: null }, 76)}<b>${esc(outfitName(id, me.gender))}</b><small>${o.level ? `Niveau ${o.level}` : o.price ? `Boutique · ${o.price} 🪙` : `Défi : ${esc(titleOf(o.challenge) ?? '?')}`}</small></div>`).join('') || '<div class="det" style="grid-column:1/-1">Tu as tout débloqué 🎉</div>'}</div>`;
+        ${av({ ...me, outfit: id, frame: null }, 76)}<b>${esc(outfitName(id, me.gender))}</b><small>${o.level ? `Niveau ${o.level}` : o.price ? `Boutique · ${o.price} 🪙` : o.farm ? 'Ferme : construis le poulailler' : `Défi : ${esc(titleOf(o.challenge) ?? '?')}`}</small></div>`).join('') || '<div class="det" style="grid-column:1/-1">Tu as tout débloqué 🎉</div>'}</div>`;
 }
 
 // ---------- Boutique (caddie) : cadres, effets de pseudo, looks de l'oiseau ----------
@@ -1782,6 +1784,7 @@ document.addEventListener('click', (e) => {
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); window.scrollTo(0, 0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
+    case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
     case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
     case 'bseg': state.budgetSeg = v; render(); break;
     case 'exp-new': state.sheet = newExpSheet(null); render(); break;
@@ -1841,7 +1844,7 @@ document.addEventListener('click', (e) => {
     case 'reload': location.reload(); break;
     case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
     // --- Toi : personnage et boutique ---
-    case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); break;
+    case 'seg': state.anim = state.meSeg !== seg; state.meSeg = seg; state.sheet = null; render(); markRead(); break;
     case 'bg': saveProfile({ bg: v }); break;
     case 'badge': saveProfile({ badge: state.me.badge === id ? null : id }); break;
     case 'title': saveTitle(state.me.title === id ? null : id); break;

@@ -68,7 +68,8 @@ export const OUTFITS = {
   zippo:        { name: 'Zippo',        challenge: 'noob', hidesHair: true, hidesSkin: true },   // copie du singe : à redessiner dans avatar.js
   sorcier:      { name: 'Sorcier',      nameF: 'Sorcière',   challenge: 'mentaliste' },
   roi:          { name: 'Roi',          nameF: 'Reine',      challenge: 'dollars_1000' },
-  poussin:      { name: 'Poussin',      challenge: 'maitre_poussin', hidesHair: true, hidesSkin: true },
+  poussin:      { name: 'Poussin',      farm: 'poulailler', hidesHair: true, hidesSkin: true },   // débloqué en construisant le Poulailler de la ferme
+  cardinal:     { name: 'Cardinal',     challenge: 'maitre_poussin', hidesHair: true, hidesSkin: true },   // défi « Maître cardinal »
   detective:    { name: 'Détective',    nameF: 'Détective',  challenge: 'inspecteur' },
   fermier:      { name: 'Fermier',      nameF: 'Fermière',   challenge: 'maraicher' },
   zeus:         { name: 'Zeus',         nameF: 'Héra',       challenge: 'dollars_10000' },

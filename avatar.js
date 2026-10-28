@@ -103,6 +103,18 @@ const OUTFIT_DRAW = {
       `<path d="M43 50 Q50 47 57 50 Q55 58 50 60 Q45 58 43 50Z" fill="${o}"/><path d="M45 53 Q50 55 55 53" stroke="#c97a08" stroke-width="1" fill="none"/>`;
   },
 
+  cardinal: () => {
+    const r = '#ef4444', dk = '#b91c1c', bel = '#fecaca', o = '#f59e0b';
+    return body(r) +
+      `<path d="M14 100 C13 86 20 77 31 79 C28 87 28 94 31 100Z" fill="${dk}"/><path d="M86 100 C87 86 80 77 69 79 C72 87 72 94 69 100Z" fill="${dk}"/>` +
+      `<ellipse cx="50" cy="45" rx="25" ry="25" fill="${r}"/>` +
+      `<ellipse cx="50" cy="58" rx="14" ry="9" fill="${bel}"/>` +
+      `<path d="M43 21 C39 8 46 3 50 12 C52 4 59 6 57 16 C60 12 64 16 57 23Z" fill="${dk}"/>` +
+      '<circle cx="40" cy="42" r="6" fill="#fff"/><circle cx="60" cy="42" r="6" fill="#fff"/>' +
+      `<circle cx="41.5" cy="42.5" r="3.2" fill="${INK}"/><circle cx="58.5" cy="42.5" r="3.2" fill="${INK}"/>` +
+      `<path d="M43 50 Q50 47 57 50 Q55 58 50 60 Q45 58 43 50Z" fill="${o}"/>`;
+  },
+
   detective: ({ gender, skin, hair }) =>
     body('#9a7b57', '<path d="M38 74 L50 96 L62 74 L56 74 L50 84 L44 74Z" fill="#7d6244"/><path d="M42 74 L50 85 L58 74Z" fill="#f1e4cf"/><rect x="20" y="92" width="60" height="4" fill="#7d6244"/>') +
     hairBack(gender, hair) + neck(skin) + headBase(skin) + eyes() + lashes(gender) + mouth + hairFront(gender, hair) +

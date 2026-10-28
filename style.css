@@ -943,3 +943,8 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 .hmi.dot .hmt small{color:var(--danger);font-weight:700}
 .hav{transition:transform .2s}
 @media (prefers-reduced-motion:reduce){.hmenu,.hmi,.overlay.hmov{animation:none}}
+
+.hme{position:relative}
+.hmb{position:absolute;top:-5px;right:-6px;min-width:17px;height:17px;border-radius:9px;background:var(--danger);color:#fff;font:700 11px/17px system-ui;text-align:center;padding:0 4px;font-style:normal;box-sizing:border-box}
+.hmb:empty{min-width:12px;width:12px;height:12px;top:-3px;right:-3px}
+.hmi.dot .hmt small{color:inherit;font-weight:inherit}

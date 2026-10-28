@@ -358,10 +358,7 @@ begin
   end loop;
   if v_to / v_size > v_laps then
     v_xp := v_xp + 200; v_tr := v_tr + 0; v_note := v_note || ' TOUR TERMINÉ ! +' || 200 || ' XP';
-    if v_laps = 0 then
-      v_perk := (array['biere', 'course', 'vacances'])[1 + ((v_week - date '2024-01-01') / 7) % 3];
-      insert into perks (member_id, week, kind) values (p_member, v_week, v_perk) on conflict do nothing;
-    end if;
+    -- (la récompense de la semaine va désormais au coloc qui a gagné le plus de savons : voir settle_plateau)
   end if;
   insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, 0, v_roll, v_pos, v_to, nullif(trim(v_note), ''));   -- les dés ne consomment plus de savons
   if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
@@ -485,7 +482,7 @@ insert into challenges (key, coins, skin, xp) values
   ('premier_envol', 0, null, 100),
   ('employe_friterie', 0, null, 300),
   ('sauteur_pro', 0, 'pterodactyl', 1200),
-  ('maitre_poussin', 0, 'poussin', 800),
+  ('maitre_poussin', 0, 'cardinal', 800),
   ('legende_airs', 0, 'papangue', 2000),
   ('premiere_recolte', 0, null, 100),
   ('jardinier', 0, null, 400),
@@ -590,6 +587,7 @@ begin
   if v_max >= 1 then
     select array_agg(member_id) into v_win from _wk where n = v_max;
     insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 1000, 'plateau-week:' || v_prev;
+    insert into perks (member_id, week, kind) select unnest(v_win), v_prev, (array['biere', 'course', 'vacances'])[1 + ((v_prev - date '2024-01-01') / 7) % 3] on conflict do nothing;
   end if;
   insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);
 end $$;
@@ -1276,3 +1274,64 @@ begin
   if not found then raise exception 'Impossible d''annuler.'; end if;
 end $$;
 grant execute on function add_shop_request(int, text), shop_request_bought(int, bigint), answer_shop_request(int, bigint, boolean), cancel_shop_request(int, bigint) to anon, authenticated;
+
+
+-- ===== Jeux : petit gain de colocoins (Jumpy Cardinal : 1 par tranche de 10 obstacles, 3 max par partie ; Sudoku : 3 par grille ; plafond quotidien) =====
+create or replace function report_game(p_member int, p_game text, p_score int) returns member_stats
+language plpgsql security definer set search_path = public as $$
+declare s member_stats; v_xp int := 0; v_new int; v_want int := 0; v_today int; v_chips int := 0; v_cap int := 0;
+begin
+  if p_score is null or p_score < 0 then raise exception 'Score invalide.'; end if;
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  select * into s from member_stats where member_id = p_member for update;
+  if p_game = 'flappy' then
+    v_new := least(p_score, 5000);
+    v_xp := least(p_score * 3, 300) + milestone_xp('flappy', s.flappy_best, v_new);
+    update member_stats set flappy_best = greatest(flappy_best, v_new), flappy_total = flappy_total + v_new where member_id = p_member;
+    v_chips := least(v_new / 10, 3); v_cap := 15;
+  elsif p_game = 'raid' then
+    v_new := least(p_score, 1000000);
+    v_xp := least((p_score / 50) * 2, 300) + milestone_xp('raid', s.raid_best, v_new);
+    update member_stats set raid_best = greatest(raid_best, v_new) where member_id = p_member;
+  elsif p_game = 'sudoku' then
+    if p_score < 20 then raise exception 'Temps invalide.'; end if;
+    v_xp := 150 + milestone_xp('sudoku', s.sudoku_best, p_score);
+    update member_stats set sudoku_done = sudoku_done + 1, sudoku_best = least(coalesce(sudoku_best, p_score), p_score) where member_id = p_member;
+    v_chips := 3; v_cap := 9;
+  elsif p_game = 'blackjack' then
+    if p_score > 3 then raise exception 'Résultat invalide.'; end if;   -- 0 perdu · 1 égalité · 2 gagné · 3 blackjack
+    v_xp := 10 + case p_score when 2 then 15 when 3 then 30 else 0 end;
+    v_want := case p_score when 2 then undefined when 3 then undefined else 0 end;
+    select coalesce(sum(amount), 0) into v_today from coin_ledger
+      where member_id = p_member and reason = 'blackjack'
+        and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+    v_want := greatest(0, least(v_want, undefined - v_today));
+    if v_want > 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_want, 'blackjack'); end if;
+    update member_stats set blackjack_played = blackjack_played + 1, blackjack_wins = blackjack_wins + (case when p_score >= 2 then 1 else 0 end)
+     where member_id = p_member;
+  else raise exception 'Jeu inconnu.';
+  end if;
+  if v_chips > 0 and exists (select 1 from members where id = p_member and kind = 'coloc') then
+    select coalesce(sum(amount), 0) into v_today from chip_ledger
+      where member_id = p_member and reason = 'jeu:' || p_game
+        and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+    v_chips := greatest(0, least(v_chips, v_cap - v_today));
+    if v_chips > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_chips, 'jeu:' || p_game); end if;
+  end if;
+  perform add_xp(p_member, v_xp, 'game:' || p_game);
+  select * into s from member_stats where member_id = p_member;
+  return s;
+end $$;
+grant execute on function report_game(int, text, int) to anon, authenticated;
+
+-- ===== Poussin : débloqué par le Poulailler de la ferme ; Cardinal : défi « Maître cardinal » =====
+create or replace function poulailler_skin() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.item = 'poulailler' then insert into purchases (member_id, item, price) values (new.member_id, 'poussin', 0) on conflict do nothing; end if;
+  return new;
+end $$;
+drop trigger if exists poulailler_skin on farm_builds;
+create trigger poulailler_skin after insert on farm_builds for each row execute function poulailler_skin();
+insert into purchases (member_id, item, price) select member_id, 'poussin', 0 from farm_builds where item = 'poulailler' on conflict do nothing;
+insert into purchases (member_id, item, price) select member_id, 'cardinal', 0 from unlocks where key = 'maitre_poussin' on conflict do nothing;

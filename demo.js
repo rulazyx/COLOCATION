@@ -290,6 +290,11 @@ export function makeDemoApi() {
         addXp(id, X.sudoku + milestoneXp('sudoku', s.sudoku_best, score), 'game:sudoku');
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
       } else fail('Jeu inconnu.');
+      const want = game === 'flappy' ? Math.min(Math.floor(Math.min(score, 5000) / 10), 3) : game === 'sudoku' ? 3 : 0, cap = game === 'flappy' ? 15 : 9;
+      if (want && isColoc(id)) {
+        const today = db.chips.filter((c) => c.member_id === id && c.reason === `jeu:${game}` && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
+        addChips(id, Math.max(0, Math.min(want, cap - today)), `jeu:${game}`);
+      }
       save(); return { member_id: id, ...s };
     },
     async claimChallenge(id, key) {
@@ -337,7 +342,6 @@ export function makeDemoApi() {
       let perk = null;
       if (Math.floor(to / GOOSE.size) > laps) {
         xp += GOOSE.finish.xp; tr += GOOSE.finish.trophy; note += ` TOUR TERMINÉ ! +${GOOSE.finish.xp} XP, +${GOOSE.finish.trophy} trophées`;
-        if (laps === 0) { perk = perkOfWeek(new Date(week + 'T00:00:00')).key; db.perks.push({ id: db.nextPerk++, member_id: member, week, kind: perk, created_at: now() }); }
       }
       db.dice.push({ id: db.nextDice++, member_id: member, week, cost: 0, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
       addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); addChips(member, ch, 'plateau'); save();
@@ -394,6 +398,7 @@ export function makeDemoApi() {
       for (const [k, v] of Object.entries(it.cost)) if ((st[k] ?? 0) < v) fail(`Il te manque des fruits et légumes (${k}).`);
       for (const [k, v] of Object.entries(it.cost)) st[k] -= v;
       db.fbuilds.push({ member_id: m, spot, item, built_at: now() });
+      if (item === 'poulailler' && !db.purchases.some((p) => p.member_id === m && p.item === 'poussin')) db.purchases.push({ id: db.purchases.length + 1, member_id: m, item: 'poussin', price: 0 });
       statsOf(m).farm_builds = (statsOf(m).farm_builds ?? 0) + 1; save();
     },
     async farmWater(w, o, slot) {
