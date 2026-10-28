@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 93;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 96;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1024,7 +1024,7 @@ function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   const pk = perkOfWeekDef();
-  return `<div class="wkcard">${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}<div class="wkt"><b>🧼 Savons gagnés cette semaine</b><small>🏆 +${GOOSE.weekWin} 🪙 pour le 1er</small></div>
+  return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
 }
 function syncBarHTML() {
@@ -1164,7 +1164,10 @@ function plateauHTML() {
       <div class="gdep"><span>🏖️ Départ</span><div class="pw">${pawnHTML(0, 18)}</div></div>
       ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
     </div>`;
+  const nextK = rollsToday(me.id) + left;          // prochain dé encore bloqué
+  const tip = nextK >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui, reviens demain !' : `Encore ${dicePriceAt(nextK) - have} 🧼 avant le prochain dé`;
   return `
+    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">🏆 +${GOOSE.weekWin} 🪙 pour le 1er</div>
     <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
         <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
@@ -1173,7 +1176,8 @@ function plateauHTML() {
         ${cells.join('')}
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
-    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : rollsToday(me.id) >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui' : have < cost ? `Encore ${cost - have} 🧼 cette semaine pour le prochain dé` : cost === 0 ? 'Lancer le dé · gratuit' : 'Lancer le dé'}${isColoc ? `<span class="dleft" title="Dés restants">🎲 ${left}</span>` : ''}</button>`;
+    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 && can ? 'Lancer le dé · gratuit' : 'Lancer le dé'}</button>
+      ${isColoc ? `<div class="dicewrap">${state.diceTip ? `<div class="dicetip">${tip}</div>` : ''}<button class="btn dicecount" data-action="dicetip" title="Dés restants">🎲 ${left}</button></div>` : ''}</div>`;
 }
 
 
@@ -1915,7 +1919,8 @@ document.addEventListener('click', (e) => {
     }
     case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
-    case 'roll': rollDiceNow(); break;
+    case 'roll': state.diceTip = false; rollDiceNow(); break;
+    case 'dicetip': state.diceTip = !state.diceTip; render(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;

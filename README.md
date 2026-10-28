@@ -295,3 +295,6 @@ Les tuiles de l'onglet Jeux reprennent le fond, le logo et la police de l'écran
 
 ### v95 — Menus des jeux
 Icônes SVG dans les menus des jeux (accueil, pause, fin de partie) ; « Accueil » devient « Menu principal ». En partie, le bouton menu (icône) est en haut à droite, avec le bouton son à côté dans Jumpy Cardinal (à gauche pour la Colo-Ferme). Jumpy Cardinal : plus de « Caisse mystère 150 » en partie (elle reste dans le choix de l'oiseau) ; l'écran de fin est une fenêtre au thème de l'appli (Rejouer / Menu principal) sans griser le jeu. Chifoumi : pierre, feuille et ciseaux dessinés en couleur (tuile, accueil, choix du coup). Sudoku : « Niveau N › » n'affiche plus que l'étape pour passer au niveau suivant.
+
+### v96 — Écran « Cette semaine »
+« Savons gagnés cette semaine » devient un grand titre au-dessus de la récompense de la semaine. Au-dessus du plateau : titre « La course aux pièces » avec « +1000 🪙 pour le 1er » en dessous. Sous le plateau : bouton « Lancer le dé » et, à côté, un bouton 🎲 avec le nombre de dés encore jetables ; le toucher ouvre une bulle « Encore X 🧼 avant le prochain dé ». Aucun SQL à lancer.
