@@ -1149,4 +1149,5 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 html{min-height:100%}
 body{min-height:calc(100vh + 2px)}
 /* Bande de l'heure / batterie : même couleur que l'en-tête (en mode sombre ; en clair le texte de la barre d'état est blanc, il lui faut un fond sombre) */
-@media (prefers-color-scheme: dark){body::before{background:var(--bg)!important}}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body::before{background:var(--bg)!important}}
+:root[data-theme="dark"] body::before{background:var(--bg)!important}
