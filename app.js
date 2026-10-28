@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 81;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 83;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -162,7 +162,6 @@ async function refresh(force = false, only = null) {
   checkNewResults();
   checkLevelUp();
   render();
-  autoClaim();
   markRead();
 }
 
@@ -610,6 +609,12 @@ async function autoClaim() {
   claiming = false;
 }
 
+// Défis réussis dont la récompense n'a pas encore été récupérée (on la récupère à la main dans Quêtes)
+const readyChals = () => { if (!state.me) return []; const have = unlockedKeys(state.me.id), ctx = makeCtx(); return CHALLENGES.filter((c) => !have.has(c.key) && c.check(ctx).done); };
+async function claimChal(key) {
+  try { const r = await state.api.claimChallenge(state.me.id, key); if (r) state.won.push(key); await refresh(true); }
+  catch (e) { toast(e.message || 'Récupération impossible.'); refresh(true).catch(() => {}); }
+}
 const dailyDue = () => !!state.me && statsOf(state.me.id).last_login !== iso(new Date());
 async function claimDailyNow() {
   try {
@@ -651,6 +656,9 @@ const GAMES = {
   sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
+// L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
+const appEl = () => document.getElementById('app');
+const scrollApp = (y = 0) => { const a = appEl(); if (a) a.scrollTop = y; };
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
@@ -877,7 +885,7 @@ async function openGame(id) {
   // Pas de flèche retour : un bouton Menu (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
   layer.innerHTML = `<div class="ghead"><button class="chip gmenu" data-gact="menu" aria-label="Menu">☰ Menu</button><span class="ghead-r"></span></div><div class="gbody"></div><div class="ghome"></div>
     <div class="gsplash"><div class="gs-art">${logoArt(id)}</div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
-  gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
+  gameScrollY = appEl()?.scrollTop ?? 0; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
@@ -898,7 +906,7 @@ function closeGame() {
   document.body.classList.remove('ingame');
   state.game = null;
   if (state.pendingRefresh) { state.pendingRefresh = false; refresh().catch(() => {}); } else render();
-  window.scrollTo(0, gameScrollY);
+  scrollApp(gameScrollY);
 }
 
 async function syncSub() {
@@ -977,7 +985,7 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${`<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
+      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
       <span class="grow"></span>
       ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
@@ -1303,11 +1311,11 @@ function closeSheet() {
 }
 
 function headMenuHTML() {
-  const me = state.me, due = dailyDue() || statsOf(me.id).wheel_ready, msgs = unreadCount(), owed = perksOwed().length;
+  const me = state.me, nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready || nready > 0, msgs = unreadCount(), owed = perksOwed().length;
   const item = (act, attrs, emo, title, sub, n, i) => `<button class="hmi" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}${n ? `<i class="hmb">${n === true ? '' : n}</i>` : ''}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
   return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
     ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
-    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? true : 0, 1)}
+    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
     ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', owed ? `${owed} bière${owed > 1 ? 's' : ''} à offrir` : 'Personnage, titres, badges', owed, 2)}
     ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Notifications, messages, réglages', msgs, 3)}
     ${item('goseg', 'data-seg="sugg"', '💡', 'Suggestions', 'Une idée ou un bug ? Dis-le nous', 0, 4)}
@@ -1602,17 +1610,18 @@ function inboxHTML() {
 function defisHTML() {
   const ctx = makeCtx();
   const have = unlockedKeys(state.me.id);
-  const rows = CHALLENGES.map((c) => ({ c, p: c.check(ctx), done: have.has(c.key) }));
+  const rows = CHALLENGES.map((c) => { const p = c.check(ctx), done = have.has(c.key); return { c, p, done, ready: !done && p.done }; });
   const rewardTxt = (c) => {
     const r = rewardOf(c.key);
     return [r.xp ? `+${r.xp} XP` : '', r.skin ? `🎭 ${outfitName(r.skin, state.me.gender)}` : ''].filter(Boolean).join(' · ');
   };
-  const row = ({ c, p, done }) => `
-      <div class="chal ${done ? 'done' : ''}">
-        <div class="cemo">${done ? c.emoji : '🔒'}</div>
+  const row = ({ c, p, done, ready }) => `
+      <div class="chal ${done ? 'done' : ''} ${ready ? 'ready' : ''}">
+        <div class="cemo">${done || ready ? c.emoji : '🔒'}</div>
         <div class="ctxt"><b>${esc(c.title)}</b><small>${esc(c.desc)}${c.hint ? ` <i>${esc(c.hint)}</i>` : ''}</small>
-          ${done ? '' : `<div class="bar sm"><i style="width:${(p.value / p.goal) * 100}%"></i></div><small class="cp">${p.value} / ${p.goal}</small>`}
+          ${done || ready ? '' : `<div class="bar sm"><i style="width:${(p.value / p.goal) * 100}%"></i></div><small class="cp">${p.value} / ${p.goal}</small>`}
           ${rewardTxt(c) ? `<span class="crew">${rewardTxt(c)}</span>` : ''}</div>
+        ${ready ? `<button class="mini ok claimb" data-action="chal-claim" data-id="${c.key}">🎁 Récupérer</button>` : ''}
         ${done ? `<button class="mini ${state.me.title === c.key ? 'ok' : ''}" data-action="title" data-id="${c.key}">${state.me.title === c.key ? 'Affiché' : 'Afficher'}</button>` : ''}
       </div>`;
   const cats = [...new Set(CHALLENGES.map((c) => c.cat))];
@@ -1620,9 +1629,10 @@ function defisHTML() {
     const part = list.filter((r) => r.c.cat === cat);
     return part.length ? `<h4 class="cat">${esc(cat)}</h4>${part.map(row).join('')}` : '';
   }).join('');
-  const todo = rows.filter((r) => !r.done), done = rows.filter((r) => r.done);
+  const todo = rows.filter((r) => !r.done && !r.ready), done = rows.filter((r) => r.done), ready = rows.filter((r) => r.ready);
   return `
     <p class="summary">Chaque défi réussi débloque un <b>titre</b> à afficher sur ton profil et de l'<b>XP</b>, parfois un personnage.</p>
+    ${ready.length ? `<h3 class="sec" style="margin-top:0">🎁 À récupérer (${ready.length})</h3>${ready.map(row).join('')}` : ''}
     ${group(todo)}
     ${done.length ? `<h3 class="sec">Terminés (${done.length})</h3>${group(done)}` : ''}`;
 }
@@ -1948,7 +1958,7 @@ document.addEventListener('click', (e) => {
     case 'pin-back': state.auth = null; render(); break;
     case 'switch': store.set('coloc-auth', ''); state.me = null; state.auth = null; state.tab = 'tasks'; state.sheet = null; render(); break;
     case 'tab': {
-      state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; state.heads = false; render(); window.scrollTo(0, 0);
+      state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; state.heads = false; render(); scrollApp(0);
       const is = INTRO_STEPS.find((x) => x.tab === tab); if (is) questStep(is.n);
       if (tab === 'me') markRead();
       break;
@@ -1957,10 +1967,10 @@ document.addEventListener('click', (e) => {
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
-    case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); window.scrollTo(0, 0); break;
+    case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
-    case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
-    case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
+    case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
+    case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
     case 'bseg': state.budgetSeg = v; render(); break;
     case 'exp-new': state.sheet = newExpSheet(null); render(); break;
     case 'exp-open': state.sheet = { type: 'expd', id: Number(id), confirm: false }; render(); break;
@@ -1990,7 +2000,7 @@ document.addEventListener('click', (e) => {
     case 'crate-equip': saveProfile({ bird: id }); state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
     case 'crate-again': state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
-    case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); window.scrollTo(0, 0); break;
+    case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
     case 'perk-ok': confirmPerkNow(Number(id)); break;
     case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;
@@ -1999,8 +2009,8 @@ document.addEventListener('click', (e) => {
     case 'msg': state.sheet = { type: 'msg', to: Number(id), text: '' }; render(); break;
     case 'msg-send': sendMessageNow(); break;
     case 'close': if (e.target === el) closeSheet(); break;
-    case 'rseg': state.anim = state.rankSeg !== v; state.rankSeg = v; render(); window.scrollTo(0, 0); break;
-    case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); window.scrollTo(0, 0); break;
+    case 'rseg': state.anim = state.rankSeg !== v; state.rankSeg = v; render(); scrollApp(0); break;
+    case 'tseg': state.anim = state.tasksSeg !== v; state.tasksSeg = v; render(); scrollApp(0); break;
     case 'task-group': state.sheet = { type: 'task-group', group: id }; render(); break;
     case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); break;
     case 'task-submit': submitTaskNow(id); break;
@@ -2025,8 +2035,9 @@ document.addEventListener('click', (e) => {
     case 'badge': saveProfile({ badge: state.me.badge === id ? null : id }); break;
     case 'title': saveTitle(state.me.title === id ? null : id); break;
     case 'profile': openProfile(Number(id)); break;
-    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'robe'; state.anim = true; markRead(); render(); window.scrollTo(0, 0); break;
+    case 'goprofile': state.sheet = null; state.tab = 'me'; state.meSeg = 'robe'; state.anim = true; markRead(); render(); scrollApp(0); break;
     case 'daily-claim': claimDailyNow(); break;
+    case 'chal-claim': claimChal(id); break;
     case 'wheel': state.sheet = { type: 'wheel' }; render(); break;
     case 'spin': spinNow(); break;
     case 'game': openGame(id); break;

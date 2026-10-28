@@ -1142,3 +1142,10 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 .sdk-ui .spad button{background:#fff}.sdk-ui .spad .era{background:#fecaca;color:#7f1d1d}
 .sdk-over{background:#fff;color:#1e1b4b}.sdk-over p{color:#4c4a7a}.sdk-over .btn{background:#e0e7ff;color:#1e1b4b}.sdk-over .btn.primary{background:#4f46e5;color:#fff}
 
+.chal.ready{background:var(--accent-soft);outline:2px solid var(--accent)}
+.chal.ready .claimb{align-self:center;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+
+/* Écran fixe : seul #app défile, la barre du bas ne bouge plus (ni au défilement, ni sur les pages courtes) */
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0;width:100%;padding-bottom:0!important}
+#app{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
