@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 91;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 92;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -674,12 +674,13 @@ function farmCtx() {
   };
 }
 /* ---------- Jeux : écran d'accueil par jeu, panneaux (perso, classement…), menu pause ---------- */
+const GBOARD = { flappy: 'Classement', sudoku: 'Classement', blackjack: 'Classement victoires' };   // jeux qui ont un classement (icône trophée en haut à droite)
 const GHOME = {
-  flappy: ['play', 'perso', 'board', 'quit'],
-  sudoku: ['play', 'perso', 'board', 'intel', 'quit'],
+  flappy: ['play', 'perso', 'quit'],
+  sudoku: ['play', 'perso', 'intel', 'quit'],
   chifoumi: ['duel', 'hist', 'quit'],
   ferme: ['play', 'quit'],
-  blackjack: ['play', 'board', 'quit'],
+  blackjack: ['play', 'quit'],
 };
 const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
 const GTITLE = { perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique' };
@@ -689,7 +690,8 @@ const glayer = () => document.getElementById('gamelayer');
 function gHomeHTML(id) {
   const G = GAMES[id];
   return `<div class="gh-art">${logoArt(id)}</div><div class="gh-title">${esc(G.name)}</div>
-    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${k === 'board' && id === 'blackjack' ? 'Classement victoires' : GBTN[k]}</button>`).join('')}</div>`;
+    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${GBTN[k]}</button>`).join('')}</div>
+    ${GBOARD[id] ? `<button class="gtrophy-home" data-gh="board" aria-label="${GBOARD[id]}">${TROPHY_SVG(28)}</button>` : ''}`;
 }
 const gRows = (rows) => `<ol class="gp-rank">${rows.map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${r.pos}</span>${av(r.m, 34)}<b>${esc(r.m?.name ?? '?')}</b><em>${r.right}</em></li>`).join('') || '<li class="empty">Personne pour l\'instant</li>'}</ol>`;
 function gRankHTML(key, max = 10) {
@@ -763,7 +765,7 @@ function gShow(view) {
   const layer = glayer(), u = gameUI; if (!layer || !u) return;
   u.view = view;
   const home = layer.querySelector('.ghome');
-  layer.classList.add('onhome');
+  layer.classList.add('onhome'); layer.classList.toggle('has-trophy', view === 'home' && !!GBOARD[u.id]);
   if (view === 'home') { home.className = 'ghome'; home.innerHTML = gHomeHTML(u.id); return; }
   const bodies = { perso: gPersoHTML, board: () => gBoardHTML(u.id), intel: gIntelHTML, duel: gDuelHTML, hist: gHistHTML, move: () => gMoveHTML(u.duel), result: () => gResultHTML(u.result),
     reveal: () => { const b = SHOP.bird.find((x) => x.key === u.crateKey); return `<div class="gp-won"><span class="rar ${RAR_CLS[birdRarity(b.w)]}">${birdRarity(b.w)}</span><div class="bigbird">${birdSVG(b.key, 140)}</div><h2>${esc(b.name)}</h2><small>Nouvel oiseau débloqué !</small>
@@ -1447,7 +1449,6 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <div class="gtop"><button class="gtrophy" data-action="gboards" aria-label="Classement des jeux">${TROPHY_SVG(30)}</button></div>
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${g.cls}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? `<span class="paidbadge" title="Payant (colocoins)">${COIN_SVG}</span>` : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
