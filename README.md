@@ -271,3 +271,6 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 ## v38
 - Header : le bouton Quêtes remplace le calendrier ; toucher sa tête ouvre le profil (menu des têtes supprimé). Onglets : Tâches, Budget, Calendrier, Jeux, Classement, Perso.
 - Budget : camembert « Qui a avancé l'argent » dans Soldes ; plus de choix de date ni de payeur (c'est celui qui saisit, à la date du jour) ; dépense automatique « Internet » 29,99 € (Zakaria) chaque 1er du mois dès le 1er novembre 2026 (`run_recurring`).
+
+## v39
+- Mise à jour automatique : dès qu'une nouvelle version est prête, l'appli se recharge toute seule quand rien n'est en cours (pas de partie, de fenêtre ni de saisie). Sinon la bannière « Actualiser » s'affiche, puis l'appli se recharge dès qu'elle est libre.

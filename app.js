@@ -189,6 +189,22 @@ function checkNewResults() {
   }
 }
 
+// Nouvelle version prête : on recharge toute seule dès que rien n'est en cours (ni partie, ni fenêtre, ni saisie) ; sinon bannière « Actualiser »
+let updatePending = false;
+function appIdle() {
+  const ae = document.activeElement;
+  return !state.game && !currentSheet() && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName));
+}
+function applyUpdate() {
+  if (updatePending) return; updatePending = true;
+  const tryNow = () => {
+    if (appIdle()) { toast('Mise à jour de l\'appli…', 1500); setTimeout(() => location.reload(), 600); return true; }
+    return false;
+  };
+  if (tryNow()) return;
+  showUpdateBar();
+  const t = setInterval(() => { if (appIdle()) { clearInterval(t); tryNow(); } }, 3000);
+}
 function showUpdateBar() {
   if (document.getElementById('updbar')) return;
   const el = document.createElement('div');
@@ -204,7 +220,7 @@ async function init() {
   if ('serviceWorker' in navigator) {
     // Alerte de mise à jour : quand une nouvelle version prend le relais, on propose d'actualiser (sans jamais couper une partie)
     const hadController = !!navigator.serviceWorker.controller;
-    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) showUpdateBar(); });
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) applyUpdate(); });
     navigator.serviceWorker.register('./sw.js').then((reg) => {
       const check = () => reg.update().catch(() => {});
       document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
