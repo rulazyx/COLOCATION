@@ -1,13 +1,13 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, GAME_QUESTS,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, QUEST_SVG, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 73;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 74;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -647,7 +647,7 @@ const GAMES = {
   flappy: { name: 'Jumpy Cardinal', cls: 'flap', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
   blackjack: { direct: 'game', name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
-  sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Remplis la grille contre la montre. Tu as 3 vies : chaque erreur en coûte une.' },
+  sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
 function farmCtx() {
@@ -672,49 +672,29 @@ async function openGame(id) {
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
   // Une fois le jeu lancé, il ne reste que la flèche retour (le nom ne s'affiche que sur l'écran jaune d'ouverture)
-  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button><button class="chip gqbtn" data-gact="quests" hidden></button></div><div class="gqpanel" hidden></div><div class="gbody"></div>
-    <div class="gsplash"><span>${esc(G.name)}</span></div>`;
+  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button></div><div class="gbody"></div>
+    <div class="gsplash"><div class="gs-bird"><svg viewBox="0 0 80 70" aria-hidden="true"><path d="M8 40q-6-10 0-18 4 10 12 14z" fill="#b91c1c"/><circle cx="40" cy="38" r="26" fill="#ef4444"/><ellipse cx="44" cy="48" rx="16" ry="10" fill="#fecaca"/><ellipse cx="30" cy="40" rx="13" ry="8" transform="rotate(-18 30 40)" fill="#b91c1c"/><circle cx="50" cy="28" r="8" fill="#fff"/><circle cx="52.5" cy="28" r="4" fill="#111"/><path d="M62 33l16 5-16 7z" fill="#f59e0b"/></svg></div><div class="gs-shadow"></div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
   gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
-  const qs = GAME_QUESTS[id] ?? [], gq = {};
-  const qBtn = layer.querySelector('.gqbtn'), qPanel = layer.querySelector('.gqpanel');
-  const qDraw = () => {
-    if (!qs.length) return;
-    const n = qs.filter((q) => gq[q.key]?.done).length;
-    qBtn.hidden = false; qBtn.innerHTML = `${QUEST_SVG}<span>Quêtes ${n}/${qs.length}</span>`;
-    qPanel.innerHTML = `<div class="gqh"><b>Quêtes du jour</b><small>Reviennent demain</small></div>` + qs.map((q) => {
-      const r = gq[q.key] ?? { progress: 0, done: false }, pc = Math.round(100 * Math.min(r.progress, q.target) / q.target);
-      return `<div class="gqi ${r.done ? 'ok' : ''}"><div class="gql"><span>${esc(q.label)}</span><em>${r.done ? 'Fait' : `${r.progress}/${q.target}`}</em></div><div class="gqbar"><i style="width:${r.done ? 100 : pc}%"></i></div><div class="gqr">+${q.reward} ${COIN_SVG}</div></div>`;
-    }).join('');
-  };
-  const quest = (key, amount = 1) => {
-    const q = qs.find((x) => x.key === key); if (!q || gq[key]?.done) return;
-    const r = gq[key] ??= { progress: 0, done: false };
-    r.progress = Math.min(q.target, q.mode === 'max' ? Math.max(r.progress, amount) : r.progress + amount);   // affichage immédiat, la base fait foi
-    qDraw();
-    state.api.gameQuest(state.me.id, key, amount).then((res) => {
-      Object.assign(r, { progress: res.progress, done: res.done || r.done }); qDraw();
-      if (res.just) { r.done = true; qDraw(); toast(`Quête réussie : ${q.label} · +${res.reward} colocoins`, 4500); refresh(true).catch(() => {}); }
-    }).catch((e) => console.warn(e));
-  };
-  state.api.gameQuests(state.me.id).then((rows) => { rows.forEach((x) => { const q = qs.find((y) => y.key === x.quest); if (q) gq[x.quest] = { progress: Math.max(x.progress, gq[x.quest]?.progress ?? 0), done: x.done }; }); qDraw(); }).catch(() => qDraw());
-  layer.addEventListener('click', (e) => {
-    if (e.target.closest('[data-gact="close"]')) closeGame();
-    else if (e.target.closest('[data-gact="quests"]')) qPanel.hidden = !qPanel.hidden;
-    else if (!qPanel.hidden && !e.target.closest('.gqpanel')) qPanel.hidden = true;
-  });
+  layer.addEventListener('click', (e) => { if (e.target.closest('[data-gact="close"]')) closeGame(); });
   setTimeout(() => layer.querySelector('.gsplash')?.remove(), 1150);
   try {
     const mod = await import(G.mod);
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      quest, balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
+      balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
       crate: async () => { const key = await state.api.openBirdCrate(state.me.id); await refresh(true); return key; },
       equipBird: (key) => saveProfile({ bird: key }), ...(id === 'ferme' ? farmCtx() : {}),
+      ...(id === 'sudoku' ? { sudoku: {
+        week: currentWeek(), me: state.me.id, name: nameOf,
+        board: () => state.api.sudokuWeek(currentWeek()),
+        report: async (mode, secs) => { const r = await state.api.reportSudoku(state.me.id, mode, secs); refresh(true).catch(() => {}); return r; },
+      } } : {}),
       async onEnd(r) {
         try {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
+          else if (id === 'flappy') { const g = await state.api.reportFlappy(state.me.id, r.score); refresh(true).catch(() => {}); return g; }
           else await state.api.reportGame(state.me.id, id, r.score);
           await refresh(true);
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }

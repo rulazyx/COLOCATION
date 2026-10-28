@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 73;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 74;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -115,6 +115,9 @@ export async function makeCloudApi() {
       if (Array.isArray(r)) r = r[0];
       return r;
     },
+    async sudokuWeek(week) { return check(await sb.from('sudoku_weekly').select('member_id,seconds').eq('week', week).order('seconds').limit(20)); },
+    async reportSudoku(id, mode, seconds) { return check(await sb.rpc('report_sudoku', { p_member: id, p_mode: mode, p_seconds: Math.floor(seconds) })); },
+    async reportFlappy(id, score) { return check(await sb.rpc('report_flappy', { p_member: id, p_score: Math.floor(score) })); },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
     async expenses() { return check(await sb.from('expenses').select('*').order('spent_on', { ascending: false }).order('id', { ascending: false }).limit(500)); },
@@ -131,12 +134,10 @@ export async function makeCloudApi() {
     async runRecurring() { return check(await sb.rpc('run_recurring')); },
     async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
     async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
-    async gameQuests(id) { return check(await sb.from('game_quests').select('quest,progress,done').eq('member_id', id).eq('day', reunionDay())); },
-    async gameQuest(id, key, amount) { return check(await sb.rpc('game_quest', { p_member: id, p_quest: key, p_amount: Math.floor(amount) })); },
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'shop_requests', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'sudoku_weekly', 'shop_requests', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, () => cb(table)).subscribe();
       }
     },

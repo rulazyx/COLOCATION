@@ -948,3 +948,94 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 .hmb{position:absolute;top:-5px;right:-6px;min-width:17px;height:17px;border-radius:9px;background:var(--danger);color:#fff;font:700 11px/17px system-ui;text-align:center;padding:0 4px;font-style:normal;box-sizing:border-box}
 .hmb:empty{min-width:12px;width:12px;height:12px;top:-3px;right:-3px}
 .hmi.dot .hmt small{color:inherit;font-weight:inherit}
+
+/* Sudoku v2 : menu, animations */
+.sdk-menu{width:min(100%,420px);display:flex;flex-direction:column;gap:10px}
+.sdk-mode{display:flex;align-items:center;gap:14px;text-align:left;width:100%;padding:14px;border-radius:18px;background:var(--card);box-shadow:0 2px 8px rgba(0,0,0,.1);border-left:6px solid var(--accent)}
+.sdk-mode.easy{border-color:#22c55e}.sdk-mode.mid{border-color:#f59e0b}.sdk-mode.hard{border-color:#ef4444}
+.sdk-mode.week{border-color:#3b82f6;background:linear-gradient(135deg,var(--card),color-mix(in srgb,#3b82f6 14%,var(--card)))}
+.sdk-mode .sdk-e{font-size:30px}.sdk-mode b{display:block;font-size:17px}.sdk-mode small{color:var(--muted);font-size:12.5px}
+.sdk-mode:active{transform:scale(.98)}
+.sdk-h{margin:8px 2px 0;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.sdk-board{background:var(--card);border-radius:16px;padding:6px 12px}
+.sdk-board div{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}.sdk-board div:last-child{border:0}
+.sdk-board div.me{color:var(--accent-ink);font-weight:800}.sdk-board b{flex:1}.sdk-board em{font-style:normal;font-variant-numeric:tabular-nums}.sdk-board span{width:26px;text-align:center}
+.sdk-load{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text)}.sdk-spin{font-size:48px;animation:sdkspin 1s ease-in-out infinite}
+@keyframes sdkspin{50%{transform:rotate(20deg) scale(1.15)}}
+.sbar{gap:8px}.sdk-back{font-size:22px;padding:2px 10px;border-radius:10px;background:var(--card)}.sdk-title{font-size:14px;font-weight:800;flex:1;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbar{font-size:17px}
+.sgrid{position:relative}
+.sc{position:relative}
+.sc.pop{animation:sdkpop .25s ease}
+@keyframes sdkpop{40%{transform:scale(1.35)}}
+.sc.fx-line{animation:sdkline .55s ease both;animation-delay:var(--d,0ms);z-index:1}
+@keyframes sdkline{0%{transform:scale(1)}40%{transform:scale(1.28);background:#ffd23f;color:#5a3a00}100%{transform:scale(1)}}
+.sc.fx-box{animation:sdkbox .8s ease both;animation-delay:var(--d,0ms)}
+@keyframes sdkbox{0%,100%{background:inherit}30%,60%{background:#86efac;color:#14532d}}
+.sc.shake{animation:sdkshake .4s ease;background:#fecaca!important}
+@keyframes sdkshake{20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-4px)}80%{transform:translateX(4px)}}
+.sgrid.gshake{animation:sdkgrid .35s ease}
+@keyframes sdkgrid{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+.sc.fx-win{animation:sdkwin .9s ease both;animation-delay:var(--d,0ms)}
+@keyframes sdkwin{0%{transform:scale(1)}35%{transform:scale(1.25);background:#ffd23f;color:#5a3a00}100%{transform:scale(1)}}
+.lives i.lose{animation:sdkheart .7s ease}
+@keyframes sdkheart{0%{transform:scale(1)}30%{transform:scale(1.8);color:#e5484d}100%{transform:scale(1)}}
+.sdk-over{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(88%,330px);background:var(--card);color:var(--text);border-radius:22px;padding:20px 18px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.35);z-index:5;display:flex;flex-direction:column;gap:8px;animation:sdkover .45s cubic-bezier(.2,1.4,.4,1) both;animation-delay:.9s}
+.sdk-over:not(.win){animation-delay:.1s}
+@keyframes sdkover{from{opacity:0;transform:translate(-50%,-30%) scale(.85)}}
+.sdk-over h2{margin:0;font-size:26px}.sdk-over p{margin:0;color:var(--muted)}
+.sdk-gain{min-height:44px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.sdk-gain span{font-weight:900;font-size:22px;padding:4px 14px;border-radius:99px;animation:sdkgain .5s cubic-bezier(.2,1.6,.4,1) both}
+.sdk-gain .gx{background:#fde68a;color:#7c4a03}.sdk-gain .gc{background:#fef3c7;color:#92400e;animation-delay:.15s}
+@keyframes sdkgain{from{opacity:0;transform:scale(.3)}}
+.sdk-rec{width:100%;font-weight:800;color:#b45309;font-size:14px}
+.sdk-conf{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:6}
+.sdk-conf i{position:absolute;top:-12px;width:9px;height:14px;border-radius:2px;opacity:0;animation:sdkfall var(--t,2s) ease-in both;animation-delay:var(--d,0ms)}
+@keyframes sdkfall{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:1;transform:translate(var(--x,0),105vh) rotate(720deg)}}
+@media (prefers-reduced-motion:reduce){.sc,.sdk-over,.sdk-conf i,.sdk-gain span{animation:none!important}}
+
+/* Écran d'ouverture d'un jeu : l'animation de chargement de La Kaz, au nom du jeu */
+.gsplash{background:#fff4d6!important;display:flex!important;flex-direction:column;align-items:center;justify-content:center;animation:splashout .3s ease 0.85s forwards}
+.gs-bird{width:min(38vw,150px);animation:gshop .7s cubic-bezier(.3,0,.4,1) infinite;transform-origin:50% 100%}
+.gs-bird svg{display:block;width:100%;height:auto;overflow:visible}
+.gs-shadow{width:min(20vw,80px);height:10px;border-radius:50%;background:rgba(120,70,0,.22);margin-top:4px;animation:gshad .7s cubic-bezier(.3,0,.4,1) infinite}
+@keyframes gshop{0%,100%{transform:translateY(0) scale(1.08,.9)}12%{transform:translateY(0) scale(.96,1.05)}50%{transform:translateY(-30px) scale(.97,1.04)}88%{transform:translateY(0) scale(1,1)}}
+@keyframes gshad{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.6);opacity:.5}}
+.gs-name{margin-top:26px;font-weight:800;font-size:1.7rem;letter-spacing:.04em;color:#e08a00;text-transform:uppercase;text-align:center;padding:0 16px}
+.gs-bar{margin-top:18px;width:120px;height:6px;border-radius:3px;background:rgba(224,138,0,.2);overflow:hidden}
+.gs-bar i{display:block;height:100%;width:0;background:#f5a300;border-radius:3px;animation:gsfill .85s ease-out forwards}
+@keyframes gsfill{to{width:100%}}
+@media (prefers-reduced-motion:reduce){.gs-bird,.gs-shadow{animation:none}}
+
+/* Sudoku : fond du jeu (grille violette + chiffres flottants) et menu aux couleurs du jeu */
+.gbody.sdk-root{background:repeating-linear-gradient(90deg,rgba(255,255,255,.35) 0 2px,transparent 2px 33.3%),repeating-linear-gradient(0deg,rgba(255,255,255,.35) 0 2px,transparent 2px 33.3%),linear-gradient(135deg,#4f46e5,#7c3aed);overflow:hidden;touch-action:none}
+.sdk-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sdk-bg i{position:absolute;left:0;top:0;font-style:normal;font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;color:#fff;will-change:transform,opacity;text-shadow:0 2px 0 rgba(30,27,75,.35)}
+.sdk-ui{position:relative;z-index:1;width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;touch-action:manipulation}
+.sdk-logo{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-size:clamp(44px,15vw,66px);color:#fff;letter-spacing:.06em;text-shadow:0 4px 0 #1e1b4b,0 0 18px rgba(255,255,255,.35);margin-bottom:4px}
+.sdk-menu{gap:12px}
+.sdk-mode{background:#fff;border:3px solid #1e1b4b;border-left-width:3px;border-radius:12px;box-shadow:0 5px 0 #1e1b4b;font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;color:#1e1b4b;padding:12px 14px;transition:transform .08s,box-shadow .08s}
+.sdk-mode:active{transform:translateY(4px);box-shadow:0 1px 0 #1e1b4b}
+.sdk-mode b{font-weight:400;font-size:20px;letter-spacing:.02em}
+.sdk-mode small{font-family:system-ui,sans-serif;color:#4c4a7a;font-weight:600}
+.sdk-mode .sdk-e{width:46px;height:46px;display:grid;place-items:center;border:2px solid #1e1b4b;border-radius:8px;background:#ede9fe;font-size:26px;flex:none}
+.sdk-mode.week{background:#ffd23f}.sdk-mode.week .sdk-e{background:#fff}.sdk-mode.week small{color:#5a3a00}
+.sdk-mode.easy .sdk-e{background:#bbf7d0}.sdk-mode.mid .sdk-e{background:#fed7aa}.sdk-mode.hard .sdk-e{background:#fecaca}
+.sdk-h{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-weight:400;color:#fff;font-size:18px;letter-spacing:.06em;text-shadow:0 2px 0 #1e1b4b;margin:6px 2px 0;text-transform:uppercase;align-self:flex-start}
+.sdk-board{background:#fff;border:3px solid #1e1b4b;border-radius:12px;box-shadow:0 5px 0 #1e1b4b;color:#1e1b4b}
+.sdk-board small{color:#4c4a7a}
+.sdk-load{color:#fff}.sdk-load small{color:#ddd6fe}
+.sdk-back{background:#fff;border:2px solid #1e1b4b;box-shadow:0 3px 0 #1e1b4b;color:#1e1b4b}
+.sdk-title{color:#fff;font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-weight:400;font-size:18px;text-shadow:0 2px 0 #1e1b4b}
+.sbar{color:#fff}.sbar .stime{text-shadow:0 2px 0 #1e1b4b}
+.sdk-ui .sgrid{border-color:#1e1b4b;box-shadow:0 5px 0 #1e1b4b;border-radius:10px}
+.sdk-ui .spad button{border:2px solid #1e1b4b;box-shadow:0 3px 0 #1e1b4b;color:#1e1b4b;font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-weight:400}
+.sdk-ui .spad .era{background:#fecaca}
+.sdk-over{border:3px solid #1e1b4b;box-shadow:0 6px 0 #1e1b4b}
+.sdk-over h2{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-weight:400;color:#1e1b4b}
+
+.gwin{display:flex;gap:8px;justify-content:center;align-items:center;min-height:40px;margin-bottom:10px;flex-wrap:wrap}
+.gwin small{color:#d1d5db}
+.gwin span{font-weight:900;font-size:22px;padding:4px 14px;border-radius:99px;animation:sdkgain .5s cubic-bezier(.2,1.6,.4,1) both}
+.gwin .gx{background:#fde68a;color:#7c4a03;text-shadow:none}.gwin .gc{background:#fef3c7;color:#92400e;text-shadow:none;animation-delay:.15s}
+.sdk-gain span,.gwin span{white-space:nowrap}

@@ -1008,52 +1008,10 @@ end $$;
 grant execute on function open_bird_crate(int) to anon, authenticated;
 
 
--- ===== v33 : quêtes journalières par jeu (récompense en colocoins) =====
-create table if not exists game_quest_defs (key text primary key, game text not null, target int not null, reward int not null, mode text not null check (mode in ('add', 'max')));
-insert into game_quest_defs (key, game, target, reward, mode) values
-  ('fl_games', 'flappy', 3, 20, 'add'),
-  ('fl_score', 'flappy', 20, 40, 'max'),
-  ('fl_jumps', 'flappy', 100, 30, 'add'),
-  ('fe_plant', 'ferme', 1, 20, 'add'),
-  ('fe_visit', 'ferme', 1, 20, 'add'),
-  ('fe_barn', 'ferme', 1, 20, 'add'),
-  ('bj_bj', 'blackjack', 1, 40, 'add'),
-  ('bj_streak', 'blackjack', 2, 30, 'max'),
-  ('bj_low', 'blackjack', 1, 30, 'add')
-on conflict (key) do update set game = excluded.game, target = excluded.target, reward = excluded.reward, mode = excluded.mode;
-create table if not exists game_quests (
-  member_id int not null references members(id) on delete cascade,
-  day date not null,
-  quest text not null references game_quest_defs(key),
-  progress int not null default 0,
-  done boolean not null default false,
-  primary key (member_id, day, quest)
-);
-alter table game_quest_defs enable row level security;
-alter table game_quests enable row level security;
-drop policy if exists "game_quest_defs lecture" on game_quest_defs; create policy "game_quest_defs lecture" on game_quest_defs for select using (true);
-drop policy if exists "game_quests lecture" on game_quests; create policy "game_quests lecture" on game_quests for select using (true);
-create or replace function game_quest(p_member int, p_quest text, p_amount int) returns json
-language plpgsql security definer set search_path = public as $$
-declare d game_quest_defs; v_day date := (now() at time zone 'Indian/Reunion')::date; v_new int; v_old game_quests; v_just boolean := false;
-begin
-  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
-  select * into d from game_quest_defs where key = p_quest;
-  if not found then raise exception 'Quête inconnue.'; end if;
-  p_amount := least(greatest(coalesce(p_amount, 0), 0), d.target);          -- un appel ne peut jamais dépasser l'objectif
-  perform pg_advisory_xact_lock(hashtext('gq:' || p_member));
-  insert into game_quests (member_id, day, quest) values (p_member, v_day, p_quest) on conflict do nothing;
-  select * into v_old from game_quests where member_id = p_member and day = v_day and quest = p_quest for update;
-  if v_old.done then return json_build_object('progress', d.target, 'target', d.target, 'done', true, 'just', false, 'reward', d.reward); end if;
-  v_new := least(d.target, case when d.mode = 'max' then greatest(v_old.progress, p_amount) else v_old.progress + p_amount end);
-  if v_new >= d.target then
-    v_just := true;
-    insert into chip_ledger (member_id, amount, reason) values (p_member, d.reward, 'quete:' || p_quest);
-  end if;
-  update game_quests set progress = v_new, done = v_just where member_id = p_member and day = v_day and quest = p_quest;
-  return json_build_object('progress', v_new, 'target', d.target, 'done', v_just, 'just', v_just, 'reward', d.reward);
-end $$;
-grant execute on function game_quest(int, text, int) to anon, authenticated;
+-- (les quêtes journalières des jeux ont été supprimées)
+drop function if exists game_quest(int, text, int);
+drop table if exists game_quests;
+drop table if exists game_quest_defs;
 
 
 -- ===== v34 : fenêtres surprise (affichées une fois à l'ouverture de l'appli) =====
@@ -1297,7 +1255,6 @@ begin
     if p_score < 20 then raise exception 'Temps invalide.'; end if;
     v_xp := 150 + milestone_xp('sudoku', s.sudoku_best, p_score);
     update member_stats set sudoku_done = sudoku_done + 1, sudoku_best = least(coalesce(sudoku_best, p_score), p_score) where member_id = p_member;
-    v_chips := 3; v_cap := 9;
   elsif p_game = 'blackjack' then
     if p_score > 3 then raise exception 'Résultat invalide.'; end if;   -- 0 perdu · 1 égalité · 2 gagné · 3 blackjack
     v_xp := 10 + case p_score when 2 then 15 when 3 then 30 else 0 end;
@@ -1335,3 +1292,75 @@ drop trigger if exists poulailler_skin on farm_builds;
 create trigger poulailler_skin after insert on farm_builds for each row execute function poulailler_skin();
 insert into purchases (member_id, item, price) select member_id, 'poussin', 0 from farm_builds where item = 'poulailler' on conflict do nothing;
 insert into purchases (member_id, item, price) select member_id, 'cardinal', 0 from unlocks where key = 'maitre_poussin' on conflict do nothing;
+
+
+-- ===== Sudoku : grille de la semaine (même pour tous, chrono) + grilles aléatoires (facile / moyen / expert) =====
+create table if not exists sudoku_weekly (
+  member_id int  not null references members(id) on delete cascade,
+  week      date not null,
+  seconds   int  not null check (seconds >= 1),
+  updated_at timestamptz not null default now(),
+  primary key (member_id, week)
+);
+alter table sudoku_weekly enable row level security;
+drop policy if exists "sudoku_weekly lecture" on sudoku_weekly; create policy "sudoku_weekly lecture" on sudoku_weekly for select using (true);
+grant select on sudoku_weekly to anon, authenticated;
+do $$ begin begin alter publication supabase_realtime add table sudoku_weekly; exception when duplicate_object then null; end; end $$;
+
+-- Remise à zéro unique des records de sudoku (les défis déjà obtenus, comme Mathématicien, sont conservés)
+do $$ begin
+  if not exists (select 1 from app_meta where key = 'reset_sudoku_v2') then
+    update member_stats set sudoku_best = null, sudoku_done = 0;
+    insert into app_meta (key, value) values ('reset_sudoku_v2', 'done');
+  end if;
+end $$;
+
+create or replace function report_sudoku(p_member int, p_mode text, p_seconds int) returns json
+language plpgsql security definer set search_path = public as $$
+declare s member_stats; v_week date := date_trunc('week', now() at time zone 'Indian/Reunion')::date;
+        v_xp int := 0; v_coins int := 0; v_today int; v_prev int; v_record boolean := false;
+begin
+  if p_mode not in ('week', 'easy', 'mid', 'hard') then raise exception 'Mode inconnu.'; end if;
+  if p_seconds is null or p_seconds < 20 then raise exception 'Temps invalide.'; end if;
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  select * into s from member_stats where member_id = p_member for update;
+  if p_mode = 'week' then
+    select seconds into v_prev from sudoku_weekly where member_id = p_member and week = v_week;
+    if v_prev is null then
+      v_xp := 150 + milestone_xp('sudoku', s.sudoku_best, p_seconds); v_record := true;
+      insert into sudoku_weekly (member_id, week, seconds) values (p_member, v_week, p_seconds);
+    elsif p_seconds < v_prev then
+      v_record := true; update sudoku_weekly set seconds = p_seconds, updated_at = now() where member_id = p_member and week = v_week;
+    end if;
+    update member_stats set sudoku_done = sudoku_done + 1, sudoku_best = least(coalesce(sudoku_best, p_seconds), p_seconds) where member_id = p_member;
+  else
+    v_xp := case p_mode when 'easy' then 10 when 'mid' then 25 else 50 end;
+    v_coins := case p_mode when 'easy' then 1 when 'mid' then 2 else 4 end;
+    update member_stats set sudoku_done = sudoku_done + 1 where member_id = p_member;
+    if exists (select 1 from members where id = p_member and kind = 'coloc') then
+      select coalesce(sum(amount), 0) into v_today from chip_ledger
+        where member_id = p_member and reason like 'sudoku:%' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+      v_coins := greatest(0, least(v_coins, 12 - v_today));
+      if v_coins > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_coins, 'sudoku:' || p_mode); end if;
+    else v_coins := 0; end if;
+  end if;
+  if v_xp > 0 then perform add_xp(p_member, v_xp, 'game:sudoku'); end if;
+  return json_build_object('xp', v_xp, 'coins', v_coins, 'record', v_record, 'mode', p_mode);
+end $$;
+grant execute on function report_sudoku(int, text, int) to anon, authenticated;
+
+
+-- Jumpy Cardinal : renvoie l'XP et les colocoins gagnés (affichés à l'écran de défaite)
+create or replace function report_flappy(p_member int, p_score int) returns json
+language plpgsql security definer set search_path = public as $$
+declare v_x0 int; v_c0 int; v_x1 int; v_c1 int;
+begin
+  select coalesce(sum(amount), 0) into v_x0 from xp_log where member_id = p_member;
+  select coalesce(sum(amount), 0) into v_c0 from chip_ledger where member_id = p_member;
+  perform report_game(p_member, 'flappy', p_score);
+  select coalesce(sum(amount), 0) into v_x1 from xp_log where member_id = p_member;
+  select coalesce(sum(amount), 0) into v_c1 from chip_ledger where member_id = p_member;
+  return json_build_object('xp', v_x1 - v_x0, 'coins', v_c1 - v_c0);
+end $$;
+grant execute on function report_flappy(int, int) to anon, authenticated;

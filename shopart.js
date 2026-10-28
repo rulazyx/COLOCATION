@@ -86,7 +86,6 @@ export const CRATE_SVG = (size = 96) => `<svg viewBox="0 0 96 90" width="${size}
   <circle cx="48" cy="56" r="15" fill="#ffd23f" stroke="#4a2c12" stroke-width="3"/>
   <path d="M43 51a5.5 5.5 0 1 1 8 5c-2 1.4-3 2.4-3 4.5M48 66.5v.5" fill="none" stroke="#4a2c12" stroke-width="3.4" stroke-linecap="round"/></svg>`;
 
-export const QUEST_SVG = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="3.5" width="14" height="17" rx="3"/><path d="M8.5 9l1.5 1.5L13 7.5M8.5 15.5h7"/></svg>`;
 export const COIN_SVG = `<svg viewBox="0 0 20 20" width="14" height="14" style="vertical-align:-2px" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="9" fill="#f6b91d" stroke="#9a6209" stroke-width="1.6"/><circle cx="10" cy="10" r="5.4" fill="none" stroke="#fde68a" stroke-width="1.5"/></svg>`;
 
 // Illustrations « pixel art » (rectangles) pour la fenêtre surprise

@@ -1,5 +1,5 @@
 // Mode démo : même interface que le cloud, avec localStorage (chargé seulement si aucune clé Supabase n'est configurée)
-import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM, ALL_QUESTS } from './config.js';
+import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
@@ -242,18 +242,6 @@ export function makeDemoApi() {
     },
     async popups(id) { db.popups ??= []; return db.popups.filter((p) => p.to_id === id && !p.seen_at).map((p) => ({ ...p })); },
     async popupSeen(id, popup) { const p = (db.popups ?? []).find((x) => x.id === popup && x.to_id === id); if (p) { p.seen_at = now(); save(); } },
-    async gameQuests(id) { const day = reunionDay(); return (db.gq ?? []).filter((r) => r.member_id === id && r.day === day).map(({ quest, progress, done }) => ({ quest, progress, done })); },
-    async gameQuest(id, key, amount) {
-      const d = ALL_QUESTS.find((q) => q.key === key); if (!d) fail('Quête inconnue.');
-      db.gq ??= []; const day = reunionDay();
-      let r = db.gq.find((x) => x.member_id === id && x.day === day && x.quest === key);
-      if (!r) db.gq.push(r = { member_id: id, day, quest: key, progress: 0, done: false });
-      if (r.done) return { progress: d.target, target: d.target, done: true, just: false, reward: d.reward };
-      amount = Math.min(Math.max(Math.floor(amount) || 0, 0), d.target);
-      r.progress = Math.min(d.target, d.mode === 'max' ? Math.max(r.progress, amount) : r.progress + amount);
-      const just = r.progress >= d.target; if (just) { r.done = true; addChips(id, d.reward, 'quete:' + key); }
-      save(); return { progress: r.progress, target: d.target, done: just, just, reward: d.reward };
-    },
     async launchGame(id) {
       if (db.xp.some((x) => x.member_id === id && x.reason === 'first_game')) return 0;
       addXp(id, X.firstGameXp, 'first_game'); save(); return X.firstGameXp;
@@ -290,12 +278,37 @@ export function makeDemoApi() {
         addXp(id, X.sudoku + milestoneXp('sudoku', s.sudoku_best, score), 'game:sudoku');
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
       } else fail('Jeu inconnu.');
-      const want = game === 'flappy' ? Math.min(Math.floor(Math.min(score, 5000) / 10), 3) : game === 'sudoku' ? 3 : 0, cap = game === 'flappy' ? 15 : 9;
+      const want = game === 'flappy' ? Math.min(Math.floor(Math.min(score, 5000) / 10), 3) : 0, cap = 15;
       if (want && isColoc(id)) {
         const today = db.chips.filter((c) => c.member_id === id && c.reason === `jeu:${game}` && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
         addChips(id, Math.max(0, Math.min(want, cap - today)), `jeu:${game}`);
       }
       save(); return { member_id: id, ...s };
+    },
+    async sudokuWeek(week) { return (db.sudokuw ?? []).filter((r) => r.week === week).sort((a, b) => a.seconds - b.seconds).map((r) => ({ member_id: r.member_id, seconds: r.seconds })); },
+    async reportSudoku(id, mode, seconds) {
+      if (!['week', 'easy', 'mid', 'hard'].includes(mode)) fail('Mode inconnu.');
+      if (!(seconds >= 20)) fail('Temps invalide.');
+      db.sudokuw ??= []; const s = statsOf(id); let xp = 0, coins = 0, record = false;
+      if (mode === 'week') {
+        const week = (() => { const t = new Date(); return iso(new Date(t.getFullYear(), t.getMonth(), t.getDate() - ((t.getDay() + 6) % 7))); })(), cur = db.sudokuw.find((r) => r.member_id === id && r.week === week);
+        if (!cur) { xp = X.sudoku + milestoneXp('sudoku', s.sudoku_best, seconds); record = true; db.sudokuw.push({ member_id: id, week, seconds }); }
+        else if (seconds < cur.seconds) { record = true; cur.seconds = seconds; }
+        s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? seconds, seconds);
+      } else {
+        xp = { easy: 10, mid: 25, hard: 50 }[mode]; coins = { easy: 1, mid: 2, hard: 4 }[mode]; s.sudoku_done++;
+        if (isColoc(id)) {
+          const today = db.chips.filter((c) => c.member_id === id && String(c.reason).startsWith('sudoku:') && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
+          coins = Math.max(0, Math.min(coins, 12 - today)); if (coins) addChips(id, coins, `sudoku:${mode}`);
+        } else coins = 0;
+      }
+      if (xp) addXp(id, xp, 'game:sudoku'); save(); return { xp, coins, record, mode };
+    },
+    async reportFlappy(id, score) {
+      const x0 = (db.xp.filter((r) => r.member_id === id).reduce((t, r) => t + r.amount, 0)), c0 = db.chips.filter((c) => c.member_id === id).reduce((t, c) => t + c.amount, 0);
+      await this.reportGame(id, 'flappy', score);
+      const x1 = db.xp.filter((r) => r.member_id === id).reduce((t, r) => t + r.amount, 0), c1 = db.chips.filter((c) => c.member_id === id).reduce((t, c) => t + c.amount, 0);
+      return { xp: x1 - x0, coins: c1 - c0 };
     },
     async claimChallenge(id, key) {
       if (db.unlocks.some((u) => u.member_id === id && u.key === key)) return null;

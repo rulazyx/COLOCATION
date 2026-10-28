@@ -254,7 +254,7 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
   let skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   const snd = makeAudio();
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
-    <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>
+    <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><div class="gwin"></div><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>
     <button class="gmute" data-act="mute" aria-label="Son">${snd.muted ? SPK_OFF : SPK_ON}</button>
     ${crate ? `<button class="gcratebtn" data-act="crate" hidden>${COIN} <b>${BIRD_CRATE.price}</b> · Caisse mystère</button>` : ''}
     <div class="gcrate" hidden></div>`;
@@ -333,7 +333,14 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
       reported = true;
       over.querySelector('.gscore').textContent = `${g.score} colonne${g.score > 1 ? 's' : ''} passée${g.score > 1 ? 's' : ''}`;
       over.hidden = false;
-      onEnd?.({ score: g.score });
+      const gw = over.querySelector('.gwin'); gw.innerHTML = '<small>Calcul des gains…</small>';
+      Promise.resolve(onEnd?.({ score: g.score })).then((r) => {
+        if (destroyed) return;
+        const parts = [];
+        if (r?.xp > 0) parts.push(`<span class="gx">+${r.xp} XP</span>`);
+        if (r?.coins > 0) parts.push(`<span class="gc">+${r.coins} 🪙</span>`);
+        gw.innerHTML = parts.length ? parts.join('') : '<small>Aucun gain cette fois</small>';
+      }).catch(() => { if (!destroyed) gw.innerHTML = '<small>Gains non enregistrés</small>'; });
     }
     perf(ts, hud ? performance.now() - w0 : 0);
     raf = requestAnimationFrame(loop);
