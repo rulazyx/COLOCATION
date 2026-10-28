@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 64;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 65;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -73,7 +73,7 @@ export async function makeCloudApi() {
     async readMessages(member) { check(await sb.rpc('read_messages', { p_member: member })); },
     async events() { return check(await sb.from('events').select('*').order('starts_at').limit(200)); },
     async eventVotes() { return check(await sb.from('event_votes').select('*')); },
-    async createEvent(m, title, place, startsAt, invitees = null) { return check(await sb.rpc('create_event', { p_member: m, p_title: title, p_place: place || null, p_starts: startsAt, p_invitees: invitees })); },
+    async createEvent(m, title, place, startsAt, invitees = null) { return check(await sb.rpc('create_event', { p_member: m, p_title: title, p_place: place || null, p_starts: startsAt, ...(invitees ? { p_invitees: invitees } : {}) })); },
     async voteEvent(m, ev, vote) { check(await sb.rpc('vote_event', { p_member: m, p_event: ev, p_vote: vote })); },
     async deleteEvent(m, ev) { check(await sb.rpc('delete_event', { p_member: m, p_event: ev })); },
     async sendSuggestion(member, body) {
