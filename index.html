@@ -23,7 +23,12 @@
     transition:opacity .5s ease}
   #splash.out{opacity:0;pointer-events:none}
   .sunwrap{position:relative;width:min(56vw,230px);aspect-ratio:1}
-  .sunwrap svg{width:100%;height:100%;overflow:visible}
+  .sunwrap{display:flex;flex-direction:column;align-items:center;justify-content:flex-end}
+  .hopper{width:70%;animation:hop .7s cubic-bezier(.3,0,.4,1) infinite;transform-origin:50% 100%}
+  .hopper svg{display:block;width:100%;height:auto;overflow:visible}
+  .shadow{width:42%;height:10px;border-radius:50%;background:rgba(120,70,0,.22);margin-top:4px;animation:shad .7s cubic-bezier(.3,0,.4,1) infinite}
+  @keyframes hop{0%,100%{transform:translateY(0) scale(1.08,.9)}12%{transform:translateY(0) scale(.96,1.05)}50%{transform:translateY(-34px) scale(.97,1.04)}88%{transform:translateY(0) scale(1,1)}}
+  @keyframes shad{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.6);opacity:.5}}
   .ray{transform-box:view-box;transform-origin:100px 100px;opacity:0;transform:scale(.55);transition:opacity .25s,transform .35s cubic-bezier(.2,1.6,.4,1)}
   .ray.on{opacity:1;transform:scale(1)}
   .disc{transform-box:view-box;transform-origin:100px 100px;animation:breathe 1.6s ease-in-out infinite}
@@ -42,27 +47,21 @@
   #grow.go{transition:transform .55s cubic-bezier(.6,0,.3,1);transform:scale(var(--s,400))}
   #grow.fade{transition:opacity .6s;opacity:0}
   #replay{position:fixed;right:12px;bottom:12px;z-index:10001;padding:10px 14px;border-radius:20px;border:0;background:#2f9e6b;color:#fff;font:600 14px system-ui}
-  @media (prefers-reduced-motion:reduce){.disc,.eye{animation:none}}
+  @media (prefers-reduced-motion:reduce){.hopper,.shadow,.eye{animation:none}}
 </style>
 </head>
 <body>
   <div id="splash" aria-label="Chargement">
   <div class="sunwrap" id="sunwrap">
-    <svg viewBox="0 0 200 200" aria-hidden="true">
-      <g id="rays" stroke="#ffb300" stroke-width="9" stroke-linecap="round"></g>
-      <g class="disc">
-        <circle cx="100" cy="100" r="50" fill="#ffd23f" stroke="#ffb300" stroke-width="5"/>
-        <g class="sunface">
-          <ellipse class="eye" cx="84" cy="94" rx="5" ry="7" fill="#5a3a00"/>
-          <ellipse class="eye" cx="116" cy="94" rx="5" ry="7" fill="#5a3a00"/>
-          <circle cx="76" cy="108" r="7" fill="#ff8a65" opacity=".55"/>
-          <circle cx="124" cy="108" r="7" fill="#ff8a65" opacity=".55"/>
-          <path d="M85 108 Q100 126 115 108" fill="none" stroke="#5a3a00" stroke-width="4.5" stroke-linecap="round"/>
-        </g>
-      </g>
-    </svg>
+    <div class="hopper"><svg viewBox="0 0 80 70" aria-hidden="true">
+      <path d="M8 40q-6-10 0-18 4 10 12 14z" fill="#b91c1c"/>
+      <circle cx="40" cy="38" r="26" fill="#ef4444"/>
+      <ellipse cx="44" cy="48" rx="16" ry="10" fill="#fecaca"/>
+      <ellipse cx="30" cy="40" rx="13" ry="8" transform="rotate(-18 30 40)" fill="#b91c1c"/>
+      <circle cx="50" cy="28" r="8" fill="#fff"/><circle class="eye" cx="52.5" cy="28" r="4" fill="#111"/>
+      <path d="M62 33l16 5-16 7z" fill="#f59e0b"/></svg></div><div class="shadow"></div>
   </div>
-  <div class="brand">KOMAN IL É</div>
+  <div class="brand">LA KAZ</div>
   <div class="bar"><i id="barfill"></i></div>
 </div>
 <div id="grow"></div>
@@ -72,29 +71,17 @@
 <script>
 // Écran de chargement : splashProgress(0..1) pendant le chargement, splashDone() quand l'appli est prête (voir app.js)
 (function () {
-  var N = 12, rays = document.getElementById('rays'), splash = document.getElementById('splash'), grow = document.getElementById('grow'), fill = document.getElementById('barfill');
-  if (!rays || !splash) { window.splashProgress = window.splashDone = function () {}; return; }
-  for (var i = 0; i < N; i++) {
-    var l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    l.setAttribute('x1', 100); l.setAttribute('y1', 22); l.setAttribute('x2', 100); l.setAttribute('y2', 4);
-    l.setAttribute('transform', 'rotate(' + (i * 360 / N) + ' 100 100)');
-    var g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('class', 'ray'); g.appendChild(l); rays.appendChild(g);
-  }
-  var rayEls = [].slice.call(rays.children), target = 0, shown = 0, last = performance.now(), finished = false, ended = false;
+  var splash = document.getElementById('splash'), grow = document.getElementById('grow'), fill = document.getElementById('barfill');
+  if (!splash) { window.splashProgress = window.splashDone = function () {}; return; }
+  var target = 0, shown = 0, last = performance.now(), finished = false, ended = false;
   function show(p) {
     fill.style.width = (p * 100) + '%';
-    rayEls.forEach(function (r, i) { r.classList.toggle('on', p >= (i + 1) / N - 0.001); });
     if (p >= 1) splash.classList.add('full');
   }
   function end() {
     if (ended) return; ended = true;
-    var r = document.getElementById('sunwrap').getBoundingClientRect();
-    grow.style.setProperty('--cy', (r.top + r.height / 2) + 'px');
-    grow.style.setProperty('--s', Math.ceil(Math.hypot(innerWidth, innerHeight) / 5) + 20);
-    void grow.offsetWidth; grow.classList.add('go');
-    setTimeout(function () { splash.classList.add('out'); grow.classList.add('fade'); }, 550);
-    setTimeout(function () { splash.remove(); grow.remove(); }, 1100);
+    splash.classList.add('out');
+    setTimeout(function () { splash.remove(); if (grow) grow.remove(); }, 600);
   }
   // l'affichage rattrape la progression réelle à vitesse limitée : les rayons se voient même si tout charge très vite
   function tick(now) {
