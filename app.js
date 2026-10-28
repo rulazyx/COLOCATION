@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 76;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 77;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -777,6 +777,7 @@ function gBadge() {
   el.innerHTML = gameUI?.id === 'sudoku' ? `<span class="gbadge">🧠 Niv. ${intelOf(statsOf(state.me.id)).lvl}</span>` : '';
 }
 function gToHome() {
+  if (gameUI?.id === 'ferme') return closeGame();
   try { gameHandle?.destroy(); } catch { /* rien */ }
   gameHandle = null;
   const layer = glayer(); if (!layer) return;
@@ -820,7 +821,7 @@ function gPauseOpen() {
   const layer = glayer(); if (!layer || layer.querySelector('.gpause')) return;
   try { gameHandle?.pause?.(); } catch { /* rien */ }
   const o = document.createElement('div'); o.className = 'gpause';
-  o.innerHTML = `<div class="gpbox"><h2>⏸ Pause</h2><button class="gh-btn go" data-gact="resume">▶️ Reprendre</button><button class="gh-btn" data-gact="home">🏠 Accueil</button><button class="gh-btn quit" data-gact="close">🚪 Quitter</button></div>`;
+  o.innerHTML = `<div class="gpbox"><h2>⏸ Pause</h2><button class="gh-btn go" data-gact="resume">▶️ Reprendre</button>${gameUI?.id === 'ferme' ? '' : '<button class="gh-btn" data-gact="home">🏠 Accueil</button>'}<button class="gh-btn quit" data-gact="close">🚪 Quitter</button></div>`;
   layer.appendChild(o);
 }
 function gPauseClose() { glayer()?.querySelector('.gpause')?.remove(); try { gameHandle?.resume?.(); } catch { /* rien */ } }
@@ -881,6 +882,7 @@ async function openGame(id) {
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
   gShow('home'); gBadge();
+  if (id === 'ferme') gPlay();   // Colo-Ferme : pas d'écran d'accueil, on arrive directement dans le jeu
   layer.addEventListener('click', (e) => {
     const a = e.target.closest('[data-gact]'), h = e.target.closest('[data-gh]');
     if (a) { const k = a.dataset.gact; if (k === 'close') closeGame(); else if (k === 'menu') gPauseOpen(); else if (k === 'resume') gPauseClose(); else if (k === 'home') gToHome(); }
