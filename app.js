@@ -1451,7 +1451,7 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-farmer">${logoArt('ferme')}</span><span class="gt-sign">Colo-Ferme</span>${farmReadyBadge()}</button>
+    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
@@ -1475,17 +1475,8 @@ function farmReadyBadge() {
   const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
 }
-function farmArt() {
-  return `<svg class="gart" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="fsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8f2"/><stop offset="1" stop-color="#d8f0ff"/></linearGradient></defs>
-    <rect width="400" height="150" fill="url(#fsky)"/><circle cx="335" cy="34" r="20" fill="#ffd84a"/>
-    <path d="M0 78 Q70 40 140 74 T290 70 T400 62 V150 H0Z" fill="#4c9a5b"/><path d="M0 92 Q100 64 200 90 T400 84 V150 H0Z" fill="#6cbc6a"/>
-    <path d="M0 110 H400 V150 H0Z" fill="#8a5a2c"/>
-    <g stroke="#6b4420" stroke-width="3"><path d="M0 122 H400 M0 136 H400"/></g>
-    <g stroke="#3a2412" stroke-width="1.6"><circle cx="40" cy="112" r="8" fill="#e4891c"/><circle cx="100" cy="112" r="8" fill="#e63b2e"/><circle cx="160" cy="112" r="8" fill="#f3b51d"/><circle cx="220" cy="112" r="8" fill="#35602a"/><circle cx="280" cy="112" r="8" fill="#d02a4c"/><circle cx="340" cy="112" r="8" fill="#f2a52b"/></g>
-    <g fill="#c0392b"><rect x="40" y="38" width="46" height="34"/><path d="M34 40 L63 18 L92 40Z" fill="#8a2b20"/></g><rect x="56" y="52" width="14" height="20" fill="#f5e6c8"/>
-  </svg>`;
-}
+// Pousse stylisée de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
+const FARM_ICON = '<svg viewBox="0 0 48 48" width="34" height="34" fill="none" stroke="#1f6b34" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 40V24"/><path d="M24 26c0-8-6-13-14-13 0 8 6 13 14 13z" fill="#8fd27a"/><path d="M24 30c0-7 5-12 13-12 0 7-5 12-13 12z" fill="#b9e6a3"/><path d="M12 40h24"/></svg>';
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
 function duelPickHTML() {
