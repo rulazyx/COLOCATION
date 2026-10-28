@@ -138,6 +138,7 @@ export async function makeCloudApi() {
     async updateExpense(m, id, title, cents, payer, day, parts) { check(await sb.rpc('update_expense', { p_member: m, p_id: id, p_title: title, p_amount_cents: cents, p_payer: payer, p_day: day, p_parts: parts })); },
     async deleteExpense(m, id) { check(await sb.rpc('delete_expense', { p_member: m, p_id: id })); },
     async addTransfer(m, from, to, cents) { return check(await sb.rpc('add_transfer', { p_member: m, p_from: from, p_to: to, p_cents: cents })); },
+    async runRecurring() { return check(await sb.rpc('run_recurring')); },
     async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
     async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
     async gameQuests(id) { return check(await sb.from('game_quests').select('quest,progress,done').eq('member_id', id).eq('day', reunionDay())); },
@@ -341,6 +342,23 @@ export function makeDemoApi() {
         },
       };
     })(),
+    async runRecurring() {
+      db.recur ??= [{ id: 1, title: 'Internet', amount_cents: 2999, payer_id: 5, start_on: '2026-11-01' }]; db.recruns ??= []; db.exp ??= []; db.nextExp ??= 1;
+      const today = reunionDay(); let n = 0;
+      for (const r of db.recur) {
+        let [y, mo] = r.start_on.split('-').map(Number);
+        for (;;) {
+          const m = `${y}-${String(mo).padStart(2, '0')}-01`; if (m > today) break;
+          if (!db.recruns.some((x) => x.rec_id === r.id && x.month === m)) {
+            db.recruns.push({ rec_id: r.id, month: m }); const id = db.nextExp++;
+            db.exp.push({ id, creator_id: r.payer_id, payer_id: r.payer_id, title: r.title, amount_cents: r.amount_cents, spent_on: m, kind: 'expense', recurring_id: r.id, created_at: now() });
+            db.expsh = (db.expsh ?? []).concat(base.filter((b) => b.kind === 'coloc').map((b) => ({ expense_id: id, member_id: b.id }))); n++;
+          }
+          if (++mo > 12) { mo = 1; y++; }
+        }
+      }
+      if (n) save(); return n;
+    },
     async popups(id) { db.popups ??= [{ id: 1, key: 'zakaria-anniv-2026', to_id: 5, title: 'Joyeux anniversaire ZakariYa', theme: 'gamer', seen_at: null, body: "Joyeux anniversaire en retard !\nBonne nouvelle : tu es convié à une soirée entre mecs, avec bière et nourriture à volonté pour toi, aux Toiles Noires ! https://lestoilesnoires.re/ Invite les copains de ton choix, sinon ça va finir en duo bot lol" }]; return db.popups.filter((p) => p.to_id === id && !p.seen_at).map((p) => ({ ...p })); },
     async popupSeen(id, popup) { const p = (db.popups ?? []).find((x) => x.id === popup && x.to_id === id); if (p) { p.seen_at = now(); save(); } },
     async gameQuests(id) { const day = reunionDay(); return (db.gq ?? []).filter((r) => r.member_id === id && r.day === day).map(({ quest, progress, done }) => ({ quest, progress, done })); },

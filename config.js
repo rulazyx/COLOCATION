@@ -84,7 +84,7 @@ export const INTRO_STEPS = [
   { n: 2, tab: 'defis', title: 'Quêtes', text: "Chaque jour, récupère tout en haut 50 colocoins et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
   { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (mise de 10 🪙), le blackjack se joue avec tes colocoins 🪙, et les autres jeux rapportent de l'XP." },
   { n: 4, tab: 'rank', title: 'Classement', text: "Qui a le plus de colocoins 🪙 ? Qui a le meilleur niveau ? Compare-toi aux autres colocs et copains. Dans chaque jeu, la fenêtre de règle montre aussi le classement des records." },
-  { n: 6, tab: 'heads', title: 'Les têtes', text: "Touche ta tête en haut à gauche : tu vois celles de tous les colocs et copains. Touche une tête pour ouvrir son profil, le défier au chifoumi ou lui envoyer un message. Ta propre tête montre ton profil tel que les autres le voient." },
+  { n: 6, tab: 'heads', title: 'Ton profil', text: "Touche ta tête en haut à gauche : c'est un raccourci vers ton profil (garde-robe, titres, badges, réglages). Pour voir le profil d'un autre, touche-le dans le classement." },
   { n: 5, tab: 'me', title: 'Perso', text: "Ici tu personnalises ton personnage : garde-robe, titres, badges, cadres et réglages (genre, couleurs, notifications). Le caddie 🛒 en haut ouvre la boutique : cadres, effets de pseudo et looks de l'oiseau de Jumpy Cardinal." },
 ];
 // Récompense quotidienne (en XP) : jours 1 à 6, le jour 7 débloque la roue de la fortune (XP aussi)

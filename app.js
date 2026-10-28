@@ -139,6 +139,7 @@ async function refresh(force = false) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
+  if (state.me?.kind === 'coloc' && Date.now() - (state.recAt ?? 0) > 3600000) { state.recAt = Date.now(); state.api.runRecurring().then((n) => { if (n) refresh(true); }).catch(() => {}); }   // dépenses automatiques du 1er du mois
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
   const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups', 'msgs', 'expenses', 'expShares'];
   const res = await Promise.allSettled([
@@ -418,6 +419,7 @@ function soapHistHTML() {
 
 
 /* ---------- Budget (comme Tricount) ---------- */
+const PIE_COLORS = ['#f59e0b', '#3b82f6', '#10b981', '#ec4899', '#8b5cf6'];
 const budgetIds = () => state.members.filter((m) => m.kind === 'coloc').map((m) => m.id);
 const budgetBal = () => budgetBalances(state.expenses, state.expShares, budgetIds());
 const budgetMine = () => (state.me ? budgetBal()[state.me.id] ?? 0 : 0);
@@ -449,7 +451,7 @@ function budgetHTML() {
       body = state.expenses.map((e) => {
         const head = e.spent_on !== lastDay ? `<h4 class="bgt-day">${esc(dayLabel(e.spent_on))}</h4>` : ''; lastDay = e.spent_on;
         const parts = sharesOf(e), my = splitCents(e.amount_cents, parts, e.id)[me.id] ?? 0;
-        const sub = e.kind === 'transfer' ? `${esc(nameOf(e.payer_id))} → ${esc(nameOf(parts[0]))}` : `Payé par ${esc(nameOf(e.payer_id))} · pour ${parts.length} pers.`;
+        const sub = e.kind === 'transfer' ? `${esc(nameOf(e.payer_id))} → ${esc(nameOf(parts[0]))}` : `Payé par ${esc(nameOf(e.payer_id))} · pour ${parts.length} pers.${e.recurring_id ? ' · chaque mois' : ''}`;
         const mineTxt = e.kind === 'transfer' ? '' : my ? `<small>Ta part ${eur(my)}</small>` : '<small>Pas concerné</small>';
         return `${head}<button class="bgt-row ${e.kind}" data-action="exp-open" data-id="${e.id}"><span class="bgt-av">${av(memberById(e.payer_id), 38)}</span>
           <span class="bgt-t"><b>${esc(e.title)}</b><small>${sub}</small></span><span class="bgt-a"><b>${eur(e.amount_cents)}</b>${mineTxt}</span></button>`;
@@ -462,7 +464,15 @@ function budgetHTML() {
       return `<div class="bgt-bal"><span class="bgt-av">${av(m, 34)}</span><b>${esc(m.name)}</b><div class="bgt-bar"><i class="${c >= 0 ? 'p' : 'n'}" style="${c >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%`}"></i></div><em class="${c > 0 ? 'p' : c < 0 ? 'n' : ''}">${c === 0 ? eur(0) : signed(c)}</em></div>`;
     }).join('');
     const sets = budgetSettle(bal);
-    body = `<div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
+    const paid = state.members.filter((m) => m.kind === 'coloc').map((m, i) => ({ m, c: list.filter((e) => e.payer_id === m.id).reduce((s, e) => s + e.amount_cents, 0), col: PIE_COLORS[i % PIE_COLORS.length] }));
+    const sum = paid.reduce((s, x) => s + x.c, 0);
+    const R = 15.9155; let off = 0;
+    const pie = sum ? `<div class="bgt-card bgt-pie"><h4 class="bgt-day" style="margin-top:6px">Qui a avancé l'argent</h4><div class="bgt-pierow">
+      <svg viewBox="0 0 42 42" width="140" height="140" role="img" aria-label="Répartition des sommes avancées"><circle cx="21" cy="21" r="${R}" fill="none" stroke="rgba(128,128,128,.15)" stroke-width="7"/>
+      ${paid.filter((x) => x.c).map((x) => { const p = 100 * x.c / sum, seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${x.col}" stroke-width="7" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${25 - off}"/>`; off += p; return seg; }).join('')}
+      <text x="21" y="20.5" text-anchor="middle" font-size="4.6" font-weight="800" fill="currentColor">${esc(eur(sum))}</text><text x="21" y="26" text-anchor="middle" font-size="2.9" fill="currentColor" opacity=".6">avancés</text></svg>
+      <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${Math.round(100 * x.c / sum)} %</small></li>`).join('')}</ul></div></div>` : '';
+    body = `${pie}<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
       ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
   }
   return `${hero}${segs}${body}<button class="bgt-fab" data-action="exp-new"><span>+</span> Ajouter une dépense</button>`;
@@ -479,11 +489,9 @@ function expPreview(s) {
 function expFormHTML(s) {
   const cs = state.members.filter((m) => m.kind === 'coloc');
   return sheetWrap(`
-    <div class="sh"><div><h2>${s.id ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2><div class="when">Partagée à parts égales</div></div>${closeBtn}</div>
+    <div class="sh"><div><h2>${s.id ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2><div class="when">Payée par ${esc(nameOf(s.payer))} · partagée à parts égales</div></div>${closeBtn}</div>
     <label class="evl">Pour quoi ?<input class="evin" data-input="exp-title" maxlength="60" placeholder="Ex. Courses, internet…" value="${esc(s.title)}"></label>
-    <div class="evrow"><label class="evl">Montant (€)<input class="evin" data-input="exp-amount" inputmode="decimal" placeholder="0,00" value="${esc(s.amount)}"></label>
-      <label class="evl">Date<input class="evin" type="date" data-input="exp-day" value="${esc(s.day)}"></label></div>
-    <label class="evl">Payé par<select class="evin" data-input="exp-payer">${cs.map((m) => `<option value="${m.id}" ${m.id === s.payer ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
+    <label class="evl">Montant (€)<input class="evin" data-input="exp-amount" inputmode="decimal" placeholder="0,00" value="${esc(s.amount)}"></label>
     <div class="evl">Pour qui ?</div>
     <div class="bgt-chips">${cs.map((m) => `<button class="bgt-chip ${s.parts.includes(m.id) ? 'on' : ''}" data-action="exp-part" data-id="${m.id}">${av(m, 26)}<span>${esc(m.name)}</span></button>`).join('')}</div>
     <div class="det" id="exppv" style="margin-top:8px">${expPreview(s)}</div>
@@ -774,14 +782,14 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${tab === 'me' ? '' : tab === 'tasks' ? weekHeaderHTML() : `<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="heads" aria-label="Les colocs" aria-expanded="${state.heads}">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
+      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="goperso" aria-label="Mon profil">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
-      <button class="hcart ${upcomingEvents().length ? 'dot' : ''}" data-action="calendar" aria-label="Calendrier" title="Calendrier">${CAL_SVG}</button>
+      <button class="hcart ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${pulse('defis')}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>
       <span class="grow"></span>
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
       <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
           </header>
-    ${state.heads ? headsHTML() : ''}`}
+    `}
     <main class="${anim ? 'pg' : ''} ${tab === 'me' ? 'nohdr' : ''}">
       ${pushOn() || store.get('coloc-push-dismiss') === '1' || step ? '' : `
         <div class="banner">
@@ -789,16 +797,16 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
-      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : la tête est visible partout sauf dans Profil' : '👆 Touche ta tête, en haut à gauche') : `👇 Touche l'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
+      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : ta tête est visible partout sauf dans Profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche le livre « Quêtes », en haut' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
     <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
-      <button data-action="tab" data-tab="defis" class="${tab === 'defis' ? 'active' : ''} ${pulse('defis')}"><span class="ico">${NAV_ICONS.defis()}</span><span class="tl">QUÊTES</span>${badge(dailyDue() || statsOf(me.id).wheel_ready ? 1 : 0, 'var(--danger)')}</button>
+      ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
+      <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">CALENDRIER</span>${badge(evToAnswer())}</button>
       <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
-      ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
       <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''} ${pulse('me')}"><span class="ico">${NAV_ICONS.me()}</span><span class="tl">PERSO</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
     </nav>
     ${sheetHTML()}`;
@@ -810,7 +818,7 @@ function weekHeaderHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   return `<header class="top wkhdr">
-    <div class="wkt"><b>🧼 Savons cette semaine</b><button class="hcart calbtn ${upcomingEvents().length ? 'dot' : ''}" data-action="calendar" aria-label="Calendrier" title="Calendrier">${CAL_SVG}</button>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
+    <div class="wkt"><b>🧼 Savons cette semaine</b><button class="hcart calbtn ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${introStep()?.tab === 'defis' ? 'pulse' : ''}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>${me.kind === 'coloc' ? `<span class="wkdice" title="Dés restants">🎲 ${diceLeft(me.id)}</span>` : ''}</div>
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>
   </header>`;
 }
@@ -1102,7 +1110,6 @@ function sheetHTML() {
     case 'shop': return shopHTML(s);
     case 'exchange': return exchangeHTML();
     case 'crate': return crateHTML(s);
-    case 'cal': return calendarHTML();
     case 'cal-new': return calNewHTML();
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
@@ -1569,13 +1576,14 @@ function eventCardHTML(e, past) {
     <div class="evwho">${by('yes').map((v) => `<span title="${esc(nameOf(v.member_id))}">${av(memberById(v.member_id), 24)}</span>`).join('')}${everyone > answered ? `<small>${everyone - answered} sans réponse</small>` : ''}</div>
   </div>`;
 }
+const evToAnswer = () => (state.me ? upcomingEvents().filter((e) => !state.evVotes.some((v) => v.event_id === e.id && v.member_id === state.me.id)).length : 0);
 function calendarHTML() {
   const up = upcomingEvents(), past = state.events.filter((e) => !up.includes(e)).slice(-5).reverse();
-  return sheetWrap(`
-    <div class="sh"><div><h2>Calendrier</h2><div class="when">Propose une activité, chacun répond</div></div>${closeBtn}</div>
+  return (`
+    <div class="sh"><div><h2>Calendrier</h2><div class="when">Propose une activité, chacun répond</div></div></div>
     <button class="btn primary" style="width:100%;margin:4px 0 10px" data-action="cal-new">Proposer une activité</button>
     ${up.length ? up.map((e) => eventCardHTML(e, false)).join('') : '<div class="det">Aucune activité prévue pour le moment.</div>'}
-    ${past.length ? `<h3 class="sec">Passées</h3>${past.map((e) => eventCardHTML(e, true)).join('')}` : ''}`, 'var(--accent)');
+    ${past.length ? `<h3 class="sec">Passées</h3>${past.map((e) => eventCardHTML(e, true)).join('')}` : ''}`);
 }
 function calNewHTML() {
   const d = new Date(Date.now() + 86400000), pad = (n) => String(n).padStart(2, '0'), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -1741,11 +1749,11 @@ document.addEventListener('click', (e) => {
       break;
     }
     case 'tog': state.open[id] = !state.open[id]; render(); break;
-    case 'heads': state.heads = !state.heads; render(); if (state.heads) questStep(6); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
-    case 'calendar': state.heads = false; state.sheet = { type: 'cal' }; render(); break;
+    case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); window.scrollTo(0, 0); break;
+    case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
     case 'bseg': state.budgetSeg = v; render(); break;
     case 'exp-new': state.sheet = newExpSheet(null); render(); break;
     case 'exp-open': state.sheet = { type: 'expd', id: Number(id), confirm: false }; render(); break;
@@ -1759,7 +1767,7 @@ document.addEventListener('click', (e) => {
       const title = document.getElementById('evtitle')?.value ?? '', place = document.getElementById('evplace')?.value ?? '';
       const when = new Date(`${document.getElementById('evday')?.value}T${document.getElementById('evtime')?.value || '20:00'}`);
       if (isNaN(when)) { toast('Choisis un jour et une heure.'); break; }
-      calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString()), () => { state.sheet = { type: 'cal' }; toast('Activité proposée !'); render(); });
+      calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString()), () => { state.sheet = null; state.tab = 'cal'; toast('Activité proposée !'); render(); });
       break;
     }
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;

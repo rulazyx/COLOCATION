@@ -267,3 +267,7 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 - Tâche « Vaisselle pour tout le monde » (+2 savons).
 - Alerte « Mise à jour disponible » ; démarrage plus rapide (écran d'accueil raccourci, appli servie depuis le cache, chargement des données en parallèle).
 - SQL : relancer `supabase/migration-v8.sql` (tables `expenses`, `expense_shares`).
+
+## v38
+- Header : le bouton Quêtes remplace le calendrier ; toucher sa tête ouvre le profil (menu des têtes supprimé). Onglets : Tâches, Budget, Calendrier, Jeux, Classement, Perso.
+- Budget : camembert « Qui a avancé l'argent » dans Soldes ; plus de choix de date ni de payeur (c'est celui qui saisit, à la date du jour) ; dépense automatique « Internet » 29,99 € (Zakaria) chaque 1er du mois dès le 1er novembre 2026 (`run_recurring`).

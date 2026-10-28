@@ -62,6 +62,10 @@ const persoSVG = () => NI(`
   <path d="M6 43c1-10 8-15 18-15s17 5 18 15z" class="f"/>
   <path d="M20 17h.01M28 17h.01" stroke-width="3"/>`);
 
+const calNav = NI(`
+  <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
+  <path d="M5 19h38M15 5v8M33 5v8"/>
+  <rect x="12" y="25" width="7" height="6" rx="1.5" class="y"/><rect x="21" y="25" width="7" height="6" rx="1.5"/><rect x="30" y="25" width="7" height="6" rx="1.5"/><rect x="12" y="34" width="7" height="5" rx="1.5"/><rect x="21" y="34" width="7" height="5" rx="1.5"/>`);
 const wallet = NI(`
   <path d="M8 13l24-8 4 8" />
   <rect x="5" y="13" width="38" height="28" rx="5" class="f"/>
@@ -69,7 +73,7 @@ const wallet = NI(`
   <circle cx="34" cy="28.5" r="1.8" fill="currentColor" stroke="none"/>
   <path d="M11 21h10" stroke-width="2"/>`);
 export const NAV_ICONS = {
-  tasks: () => cleaner, defis: () => book, games: () => navBird, rank: () => podium, budget: () => wallet, me: persoSVG,
+  tasks: () => cleaner, defis: () => book, games: () => navBird, rank: () => podium, budget: () => wallet, cal: () => calNav, me: persoSVG,
 };
 export const CART_SVG = `<svg viewBox="0 0 40 40" width="26" height="26" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <path d="M3 6h6l4 18h18l4-13H11" fill="#fde68a" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>

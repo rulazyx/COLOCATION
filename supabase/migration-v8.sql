@@ -1165,3 +1165,48 @@ grant execute on function add_expense(int, text, int, int, date, int[]) to anon,
 grant execute on function update_expense(int, bigint, text, int, int, date, int[]) to anon, authenticated;
 grant execute on function delete_expense(int, bigint) to anon, authenticated;
 grant execute on function add_transfer(int, int, int, int) to anon, authenticated;
+
+
+-- ===== v36 : dépenses automatiques (chaque 1er du mois, pour tous les colocs) =====
+create table if not exists recurring_expenses (
+  id           bigserial primary key,
+  key          text unique,
+  title        text not null,
+  amount_cents int  not null check (amount_cents between 1 and 10000000),
+  payer_id     int  not null references members(id) on delete cascade,
+  start_on     date not null,
+  active       boolean not null default true
+);
+create table if not exists recurring_runs (
+  rec_id bigint not null references recurring_expenses(id) on delete cascade,
+  month  date   not null,
+  primary key (rec_id, month)
+);
+alter table expenses add column if not exists recurring_id bigint references recurring_expenses(id) on delete set null;
+alter table recurring_expenses enable row level security; alter table recurring_runs enable row level security;
+drop policy if exists "recurring lecture" on recurring_expenses; create policy "recurring lecture" on recurring_expenses for select using (true);
+grant select on recurring_expenses to anon, authenticated;
+create or replace function run_recurring() returns int
+language plpgsql security definer set search_path = public as $$
+declare r recurring_expenses; m date; v_id bigint; n int := 0; v_today date := (now() at time zone 'Indian/Reunion')::date;
+begin
+  perform pg_advisory_xact_lock(hashtext('recurring'));
+  for r in select * from recurring_expenses where active loop
+    m := date_trunc('month', r.start_on)::date;
+    while m <= v_today loop
+      insert into recurring_runs (rec_id, month) values (r.id, m) on conflict do nothing;
+      if found then
+        insert into expenses (creator_id, payer_id, title, amount_cents, spent_on, recurring_id) values (r.payer_id, r.payer_id, r.title, r.amount_cents, m, r.id) returning id into v_id;
+        insert into expense_shares (expense_id, member_id) select v_id, id from members where kind = 'coloc';
+        n := n + 1;
+      end if;
+      m := (m + interval '1 month')::date;
+    end loop;
+  end loop;
+  return n;
+end $$;
+grant execute on function run_recurring() to anon, authenticated;
+-- Internet : 29,99 € payés par Zakaria, pour tout le monde, à partir du 1er novembre 2026
+insert into recurring_expenses (key, title, amount_cents, payer_id, start_on)
+select 'internet', 'Internet', 2999, id, date '2026-11-01' from members where name = 'Zakaria' limit 1
+on conflict (key) do nothing;
