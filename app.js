@@ -786,7 +786,8 @@ function gShow(view) {
 }
 function gBadge() {
   const el = glayer()?.querySelector('.ghead-r'); if (!el) return;
-  el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir les niveaux">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>` : '';
+  el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir les niveaux">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>`
+    : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
   if (gameUI?.id === 'ferme') return closeGame();
@@ -823,7 +824,7 @@ async function gPlay() {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
           else if (id === 'flappy') { const g = await state.api.reportFlappy(state.me.id, r.score); refresh(true).catch(() => {}); return g; }
           else await state.api.reportGame(state.me.id, id, r.score);
-          await refresh(true);
+          await refresh(true); gBadge();
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }
       },
     });

@@ -1195,3 +1195,5 @@ body{min-height:calc(100vh + 2px)}
 .g-flappy .gt-name{text-shadow:0 1px 4px rgba(0,60,110,.35)}
 button.glvl{cursor:pointer}
 .gamelayer:not(.onhome) .glvl{pointer-events:none}
+.gcoins{display:inline-flex!important;align-items:center;gap:6px;font-variant-numeric:tabular-nums}.gcoins .cc,.gcoins svg{width:18px;height:18px}
+.gamelayer:not(.onhome) .ghead-r{margin-right:0!important}

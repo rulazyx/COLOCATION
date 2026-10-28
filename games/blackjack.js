@@ -76,7 +76,7 @@ export function mount(root, { onEnd, balance, quest }) {
         : '';
     root.innerHTML = `<div class="bj">
       <div class="dealer ${fresh && fresh !== 'flip' ? 'dealing' : ''}">${DEALER}</div>
-      <div class="bj-bal">Colocoins : <b>${bal}</b>${bet ? ` · Mise : <b>${bet}</b>` : ''}</div>
+      <div class="bj-bal">${bet ? `Mise : <b>${bet}</b>` : ''}</div>
       <div class="bj-side"><div class="bj-lab">Banque ${dealer.length ? `<b>${dTot}</b>` : ''}</div>
         <div class="bj-hand">${dealer.map((c, k) => card(c, k === 1 && !hideDealer && fresh === 'flip' ? 'flip' : `d${k}`, hideDealer && k === 1, true)).join('')}</div></div>
       ${TABLE_ARC}
