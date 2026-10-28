@@ -54,9 +54,11 @@ const calNav = NI(`
   <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
   <path d="M5 19h38M15 5v8M33 5v8"/>`);
 const wallet = NI(`
-  <circle cx="24" cy="24" r="18" class="y"/>
-  <circle cx="24" cy="24" r="11"/>
-  <circle cx="24" cy="24" r="4"/>`);
+  <path d="M7 31v6c0 4 8 7 17 7s17-3 17-7v-6" class="y"/>
+  <ellipse cx="24" cy="31" rx="17" ry="7" class="y"/>
+  <path d="M7 21v6c0 4 8 7 17 7s17-3 17-7v-6" class="y"/>
+  <ellipse cx="24" cy="21" rx="17" ry="7" class="y"/>
+  <path d="M17 21h14" stroke-width="2.4"/>`);
 export const NAV_ICONS = {
   tasks: () => cleaner, defis: () => book, games: () => navBird, rank: () => podium, budget: () => wallet, cal: () => calNav, me: persoSVG,
 };

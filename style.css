@@ -1151,3 +1151,48 @@ body{min-height:calc(100vh + 2px)}
 /* Bande de l'heure / batterie : même couleur que l'en-tête (en mode sombre ; en clair le texte de la barre d'état est blanc, il lui faut un fond sombre) */
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) body::before{background:var(--bg)!important}}
 :root[data-theme="dark"] body::before{background:var(--bg)!important}
+
+/* ---------- Jeux : look sobre, dans le design de l'appli (sans emoji, sans police cartoon) ---------- */
+.gs-name,.gh-title{font-family:inherit!important;font-weight:800!important;text-shadow:none!important;letter-spacing:.01em!important;text-transform:none!important}
+.gh-title{font-size:30px!important}.gs-name{font-size:22px!important}
+.gmenu,.glvl{font-family:inherit;font-size:14px;font-weight:700;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.92);color:#1b1d22;border:0;box-shadow:0 1px 6px rgba(0,0,0,.18);display:inline-block;width:auto!important;height:auto!important}
+.glvl{background:var(--accent,#ffc928)}
+.gh-btn{font:700 16px/1.2 inherit;font-family:inherit;border:0;border-radius:14px;box-shadow:none;background:rgba(255,255,255,.93);color:#1b1d22;padding:15px 18px}
+.gh-btn:active{transform:scale(.98);box-shadow:none}
+.gh-btn.go{background:var(--accent,#ffc928);color:#1b1d22}
+.gh-btn.quit,.gh-btn.ghost{background:rgba(255,255,255,.2);color:#fff}
+.gh-btn.mini{padding:7px 12px;font-size:14px;box-shadow:none}
+.gp-card .gh-btn,.gpbox .gh-btn{background:var(--bg);color:var(--text)}
+.gp-card .gh-btn.go,.gpbox .gh-btn.go{background:var(--accent);color:var(--on-accent,#1b1d22)}
+.gp-card .gh-btn.quit,.gpbox .gh-btn.quit{background:var(--danger-soft,#fee2e2);color:var(--danger,#b91c1c)}
+.gp-card .gh-btn.ghost{background:var(--bg);color:var(--text)}
+.gp-head h2{font-family:inherit;font-weight:800;font-size:20px;text-shadow:none}
+.gp-card{border:0;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.gpbox{background:var(--card);border:0;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.gpbox h2{font-family:inherit;font-weight:800;font-size:20px;color:var(--text)}
+.gp-card .gh-btn .cc,.gh-btn svg{vertical-align:-2px}
+.gp-vs b,.rv-vs{font-family:inherit;font-weight:800;font-size:15px;color:var(--muted)}
+.gp-verdict h2{font-family:inherit;font-weight:800;font-size:24px}
+.gp-move{color:var(--text)}.gp-move svg{display:block}
+.rv-hand{color:var(--text)}
+.gl-sudo{border:0;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+.gl-sudo i{font-family:inherit;font-weight:700;border-color:#e0e7ff}
+.gl-chif i{border:0;box-shadow:0 6px 18px rgba(0,0,0,.2);color:#1b1d22}
+.gl-card{border:0;box-shadow:0 6px 18px rgba(0,0,0,.25);font-family:inherit;font-weight:800}
+/* Sudoku */
+.sdk-logo{font-family:inherit;font-weight:800;letter-spacing:.08em;text-shadow:none;font-size:clamp(34px,11vw,48px)}
+.sdk-mode{font-family:inherit;background:rgba(255,255,255,.93);border:0;border-radius:14px;box-shadow:none;color:#1b1d22;padding:14px 16px}
+.sdk-mode:active{transform:scale(.98);box-shadow:none}
+.sdk-mode b{font-family:inherit;font-weight:800;font-size:16px;letter-spacing:0}
+.sdk-mode small{color:#5b6070}
+.sdk-mode.week{background:var(--accent,#ffc928)}.sdk-mode.week small{color:#5a3a00}
+.sdk-h{font-family:inherit;font-weight:700;font-size:12px;letter-spacing:.08em;text-shadow:none;opacity:.9}
+.sdk-title{font-family:inherit;font-weight:800;font-size:15px;text-shadow:none}
+.sbar .stime{text-shadow:none;font-weight:800}
+.sdk-ui .sgrid{border:2px solid #1e1b4b;box-shadow:none;border-radius:8px}
+.sdk-ui .spad button{border:0;box-shadow:none;font-family:inherit;font-weight:700;border-radius:12px}
+.sdk-over{border:0;box-shadow:0 12px 40px rgba(0,0,0,.35)}.sdk-over h2{font-family:inherit;font-weight:800;font-size:22px}
+.sdk-spin{width:34px;height:34px;border:3px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:sdkrot .8s linear infinite;font-size:0}
+@keyframes sdkrot{to{transform:rotate(360deg)}}
+.gp-quests li em,.gp-rank em{font-style:normal}.gp-quests li em{font-size:12px;font-weight:700;color:var(--muted)}
+.gp-sub{font-family:inherit}

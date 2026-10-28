@@ -19,6 +19,13 @@ const FARMER = `<svg viewBox="0 0 120 140" aria-hidden="true">
     <ellipse cx="60" cy="27" rx="38" ry="8" fill="#facc15" stroke="#a16207" stroke-width="2"/><path d="M42 27q0-24 18-24t18 24z" fill="#fde047" stroke="#a16207" stroke-width="2"/><rect x="42" y="21" width="36" height="6" fill="#dc2626"/>
   </g></svg>`;
 
+const MI = {
+  pierre: '<path d="M8 30c0-9 6-16 15-16s17 6 17 15-6 13-15 13-17-3-17-12z"/><path d="M17 25c3-3 8-4 12-1M21 35c3 1 7 0 10-3"/>',
+  feuille: '<path d="M11 6h19l8 8v28H11z"/><path d="M30 6v8h8M16 22h16M16 29h16M16 36h10"/>',
+  ciseaux: '<circle cx="14" cy="36" r="6"/><circle cx="34" cy="36" r="6"/><path d="M18 31L35 6M30 31L13 6"/>',
+};
+export const moveIcon = (k, size = 40) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MI[k] ?? MI.pierre}</svg>`;
+
 export function logoArt(id) {
   switch (id) {
     case 'flappy': return `<div class="gl-bird">${BIRD}</div><div class="gl-shadow"></div>`;
@@ -27,7 +34,7 @@ export function logoArt(id) {
       return `<div class="gl-sudo">${d.map((v, i) => `<i style="--i:${i}">${v || ['1', '8', '4', '2'][i % 4]}</i>`).join('')}</div>`;
     }
     case 'chifoumi':
-      return `<div class="gl-chif"><i style="--i:0">✊</i><i style="--i:1">✋</i><i style="--i:2">✌️</i></div>`;
+      return `<div class="gl-chif">${['pierre', 'feuille', 'ciseaux'].map((k, i) => `<i style="--i:${i}">${moveIcon(k, 34)}</i>`).join('')}</div>`;
     case 'ferme': return `<div class="gl-farmer">${FARMER}</div>`;
     case 'blackjack':
       return `<div class="gl-cards"><div class="gl-card c1"><b>A</b><i>♠</i></div><div class="gl-card c2 red"><b>K</b><i>♥</i></div></div>`;

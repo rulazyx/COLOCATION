@@ -5,10 +5,10 @@ import {
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
-import { logoArt } from './gameart.js';
+import { logoArt, moveIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 88;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 90;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -681,7 +681,7 @@ const GHOME = {
   ferme: ['play', 'quit'],
   blackjack: ['play', 'board', 'quit'],
 };
-const GBTN = { play: ['▶️', 'Jouer'], perso: ['🐦', 'Perso'], board: ['🏆', 'Classement'], intel: ['🧠', "Niveau d'intelligence"], duel: ['⚔️', 'Défier un joueur'], hist: ['📜', 'Historique'], quit: ['🚪', 'Quitter'] };
+const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
 const GTITLE = { perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique' };
 let gameUI = null;                       // { id, view, mod, handle… } du jeu ouvert
 const glayer = () => document.getElementById('gamelayer');
@@ -689,12 +689,12 @@ const glayer = () => document.getElementById('gamelayer');
 function gHomeHTML(id) {
   const G = GAMES[id];
   return `<div class="gh-art">${logoArt(id)}</div><div class="gh-title">${esc(G.name)}</div>
-    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}"><span>${GBTN[k][0]}</span>${k === 'board' && id === 'blackjack' ? 'Classement victoires' : GBTN[k][1]}</button>`).join('')}</div>`;
+    <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${k === 'board' && id === 'blackjack' ? 'Classement victoires' : GBTN[k]}</button>`).join('')}</div>`;
 }
 const gRows = (rows) => `<ol class="gp-rank">${rows.map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${r.pos}</span>${av(r.m, 34)}<b>${esc(r.m?.name ?? '?')}</b><em>${r.right}</em></li>`).join('') || '<li class="empty">Personne pour l\'instant</li>'}</ol>`;
 function gRankHTML(key, max = 10) {
   const board = BOARDS.find((b) => b.key === key), me = state.me;
-  return gRows(ranking(makeCtx(), board).slice(0, max).map((r) => ({ me: r.id === me.id, pos: r.rank ? (r.rank <= 3 ? MEDALS[r.rank - 1] : r.rank) : '–', m: memberById(r.id), right: r.rank ? esc(fmtValue(board, r.value)) : '—' })));
+  return gRows(ranking(makeCtx(), board).slice(0, max).map((r) => ({ me: r.id === me.id, pos: r.rank || '–', m: memberById(r.id), right: r.rank ? esc(fmtValue(board, r.value)) : '—' })));
 }
 function gPersoHTML() {
   const me = state.me, owned = shopOwned(me.id), cur = me.bird, bal = chipsOf(me.id);
@@ -702,61 +702,61 @@ function gPersoHTML() {
   const tile = (b) => { const mine = has(b.key), eq = cur === b.key;
     return `<button class="gp-bird ${mine ? '' : 'lock'} ${eq ? 'eq' : ''}" ${mine ? `data-gh="equip" data-k="${b.key}"` : 'disabled'}>${birdSVG(b.key, 62)}<small>${mine ? esc(b.name) : '???'}</small>${eq ? '<em>Équipé</em>' : ''}</button>`; };
   return `<div class="gp-crate">${CRATE_SVG(64)}<div><b>Caisse mystère</b><small>Un oiseau au hasard parmi ceux que tu n'as pas encore.</small>
-      <button class="gh-btn mini" data-gh="crate" ${pool.length && bal >= BIRD_CRATE.price ? '' : 'disabled'}>${pool.length ? `Ouvrir · ${BIRD_CRATE.price} 🪙` : 'Tous débloqués !'}</button></div></div>
+      <button class="gh-btn mini" data-gh="crate" ${pool.length && bal >= BIRD_CRATE.price ? '' : 'disabled'}>${pool.length ? `Ouvrir · ${BIRD_CRATE.price} ${COIN_SVG}` : 'Tous débloqués !'}</button></div></div>
     <div class="gp-grid"><button class="gp-bird ${!cur ? 'eq' : ''}" data-gh="equip" data-k="">${birdSVG(null, 62)}<small>Classique</small>${!cur ? '<em>Équipé</em>' : ''}</button>${SHOP.bird.map(tile).join('')}</div>`;
 }
 function gIntelHTML() {
   const st = statsOf(state.me.id), { lvl, n } = intelOf(st);
   const part = (q, k, label) => (q[k] ? `<span class="${n[k] >= q[k] ? 'ok' : ''}">${Math.min(n[k], q[k])}/${q[k]} ${label}</span>` : '');
-  return `<div class="gp-intel">🧠 Niveau <b>${lvl}</b> <small>· ${n.e} faciles · ${n.m} moyennes · ${n.h} expert</small></div>
-    <ol class="gp-quests">${SUDOKU_INTEL.map((q, i) => `<li class="${i < lvl ? 'done' : i === lvl ? 'cur' : ''}"><b>Niveau ${i + 1}</b><div>${part(q, 'e', 'faciles')}${part(q, 'm', 'moyennes')}${part(q, 'h', 'expert')}</div><em>${i < lvl ? '✔' : i === lvl ? '🎯' : '🔒'}</em></li>`).join('')}</ol>`;
+  return `<div class="gp-intel">Niveau <b>${lvl}</b> <small>· ${n.e} faciles · ${n.m} moyennes · ${n.h} expert</small></div>
+    <ol class="gp-quests">${SUDOKU_INTEL.map((q, i) => `<li class="${i < lvl ? 'done' : i === lvl ? 'cur' : ''}"><b>Niveau ${i + 1}</b><div>${part(q, 'e', 'faciles')}${part(q, 'm', 'moyennes')}${part(q, 'h', 'expert')}</div><em>${i < lvl ? 'Terminé' : i === lvl ? 'En cours' : 'À venir'}</em></li>`).join('')}</ol>`;
 }
 function gBoardHTML(id) {
   if (id === 'flappy') return gRankHTML('flappy');
   if (id === 'blackjack') {
     const rows = state.members.map((m) => { const s = statsOf(m.id), w = Number(s.blackjack_wins) || 0, l = Math.max(0, (Number(s.blackjack_played) || 0) - w); return { m, w, l }; })
       .sort((a, b) => b.w - a.w || a.l - b.l);
-    return `<div class="gp-sub">Victoires et défaites</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i < 3 ? MEDALS[i] : i + 1, m: r.m, right: `${r.w} V · ${r.l} D` })));
+    return `<div class="gp-sub">Victoires et défaites</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i + 1, m: r.m, right: `${r.w} V · ${r.l} D` })));
   }
   if (id === 'sudoku') {
     const rows = state.members.map((m) => ({ m, ...intelOf(statsOf(m.id)) })).sort((a, b) => b.lvl - a.lvl || (b.n.e + b.n.m + b.n.h) - (a.n.e + a.n.m + a.n.h));
     return `<div class="gp-sub">Grille de la semaine</div><div id="gp-week"><small>Chargement…</small></div>
-      <div class="gp-sub">Niveau d'intelligence</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i < 3 ? MEDALS[i] : i + 1, m: r.m, right: `🧠 Niv. ${r.lvl}` })));
+      <div class="gp-sub">Niveau d'intelligence</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i + 1, m: r.m, right: `Niveau ${r.lvl}` })));
   }
   return '';
 }
-const gDuelHead = (a, b) => `<div class="gp-vs">${av(a, 54)}<b>⚔️</b>${av(b, 54)}</div>`;
+const gDuelHead = (a, b) => `<div class="gp-vs">${av(a, 54)}<b>VS</b>${av(b, 54)}</div>`;
 function gDuelHTML() {
   const me = state.me, received = pendingForMe(), sent = state.duels.filter((d) => d.status === 'pending' && d.challenger_id === me.id);
   const others = [...colocs(), ...copains()].filter((m) => m.id !== me.id);
   return `${received.length ? `<div class="gp-sub">Défis reçus</div>${received.map((d) => { const ch = memberById(d.challenger_id);
       return `<div class="gp-row">${av(ch, 40)}<b>${esc(ch?.name)} te défie</b><button class="gh-btn mini" data-gh="duelopen" data-id="${d.id}">Relever</button><button class="gh-btn mini ghost" data-gh="duelcancel" data-id="${d.id}">Refuser</button></div>`; }).join('')}` : ''}
     ${sent.length ? `<div class="gp-sub">En attente</div>${sent.map((d) => `<div class="gp-row">${av(memberById(d.opponent_id), 40)}<b>${esc(nameOf(d.opponent_id))}</b><button class="gh-btn mini ghost" data-gh="duelcancel" data-id="${d.id}">Annuler</button></div>`).join('')}` : ''}
-    <div class="gp-sub">Choisis ton adversaire · mise ${XP_RULES.duelStake} 🪙</div>
+    <div class="gp-sub">Choisis ton adversaire · mise ${XP_RULES.duelStake} colocoins</div>
     <div class="gp-heads">${others.map((m) => `<button class="gp-head" data-gh="duelwith" data-id="${m.id}">${av(m, 56)}<small>${esc(m.name)}</small>${m.kind === 'copain' ? '<i>copain</i>' : ''}</button>`).join('')}</div>`;
 }
 function gMoveHTML(u) {
   const me = state.me, d = u.duelId ? state.duels.find((x) => x.id === u.duelId) : null;
   const opp = memberById(d ? d.challenger_id : u.opp);
   if (!opp) return '<div class="empty">Défi introuvable.</div>';
-  return `${gDuelHead(d ? opp : me, d ? me : opp)}<div class="gp-sub" style="text-align:center">${d ? `${esc(opp.name)} te défie !` : `Défier ${esc(opp.name)}`} · mise ${XP_RULES.duelStake} 🪙</div>
-    <div class="gp-moves">${Object.entries(MOVES).map(([k, m]) => `<button class="gp-move ${u.move === k ? 'sel' : ''}" data-gh="move" data-v="${k}"><span>${m.emoji}</span><small>${m.label}</small></button>`).join('')}</div>
-    <button class="gh-btn go" data-gh="duelgo" ${u.move ? '' : 'disabled'}>${d ? '✅ Jouer ce coup' : '⚔️ Lancer le défi'}</button>`;
+  return `${gDuelHead(d ? opp : me, d ? me : opp)}<div class="gp-sub" style="text-align:center">${d ? `${esc(opp.name)} te défie !` : `Défier ${esc(opp.name)}`} · mise ${XP_RULES.duelStake} colocoins</div>
+    <div class="gp-moves">${Object.entries(MOVES).map(([k, m]) => `<button class="gp-move ${u.move === k ? 'sel' : ''}" data-gh="move" data-v="${k}">${moveIcon(k, 46)}<small>${m.label}</small></button>`).join('')}</div>
+    <button class="gh-btn go" data-gh="duelgo" ${u.move ? '' : 'disabled'}>${d ? 'Jouer ce coup' : 'Lancer le défi'}</button>`;
 }
 function gResultHTML(d) {
   const me = state.me.id, iAmC = d.challenger_id === me, other = memberById(iAmC ? d.opponent_id : d.challenger_id);
   const mine = iAmC ? d.challenger_move : d.opponent_move, theirs = iAmC ? d.opponent_move : d.challenger_move;
   const won = d.winner_id === me, tie = !d.winner_id;
-  const head = tie ? '🤝 Égalité !' : won ? '🎉 Victoire !' : '😅 Perdu…';
-  const sub = tie ? 'Personne ne perd de colocoins.' : won ? (d.wager ? `Tu gagnes +${d.wager} 🪙 contre ${esc(other?.name)}` : `Tu bats ${esc(other?.name)} !`) : (d.wager ? `Tu perds −${d.wager} 🪙 contre ${esc(other?.name)}` : `${esc(other?.name)} gagne cette fois.`);
-  return `<div class="gp-reveal"><div class="rv-side">${av(state.me, 64)}<div class="rv-hand"><u>✊</u><span>${moveEmoji(mine)}</span></div><small>Toi</small></div><b class="rv-vs">VS</b>
-    <div class="rv-side">${av(other, 64)}<div class="rv-hand"><u>✊</u><span>${moveEmoji(theirs)}</span></div><small>${esc(other?.name)}</small></div></div>
+  const head = tie ? 'Égalité' : won ? 'Victoire' : 'Perdu';
+  const sub = tie ? 'Personne ne perd de colocoins.' : won ? (d.wager ? `Tu gagnes +${d.wager} colocoins contre ${esc(other?.name)}` : `Tu bats ${esc(other?.name)} !`) : (d.wager ? `Tu perds −${d.wager} colocoins contre ${esc(other?.name)}` : `${esc(other?.name)} gagne cette fois.`);
+  return `<div class="gp-reveal"><div class="rv-side">${av(state.me, 64)}<div class="rv-hand"><u>${moveIcon('pierre', 52)}</u><span>${moveIcon(mine, 52)}</span></div><small>Toi</small></div><b class="rv-vs">VS</b>
+    <div class="rv-side">${av(other, 64)}<div class="rv-hand"><u>${moveIcon('pierre', 52)}</u><span>${moveIcon(theirs, 52)}</span></div><small>${esc(other?.name)}</small></div></div>
     <div class="gp-verdict"><h2>${head}</h2><p>${sub}</p><button class="gh-btn go" data-gh="duel">Rejouer</button></div>`;
 }
 function gHistHTML() {
   const me = state.me, hist = state.duels.filter((d) => d.status === 'done').slice(0, 20);
   return hist.length ? hist.map((d) => { const ch = memberById(d.challenger_id), op = memberById(d.opponent_id), w = d.winner_id ? nameOf(d.winner_id) : null, mineD = d.challenger_id === me.id || d.opponent_id === me.id;
-    return `<div class="gp-row ${mineD ? 'mine' : ''}"><span class="gp-vsm">${av(ch, 34)}${av(op, 34)}</span><div><b>${esc(ch?.name)} ${moveEmoji(d.challenger_move)} vs ${moveEmoji(d.opponent_move)} ${esc(op?.name)}</b><small>${w ? `${esc(w)} gagne` : 'Égalité'}</small></div></div>`; }).join('')
+    return `<div class="gp-row ${mineD ? 'mine' : ''}"><span class="gp-vsm">${av(ch, 34)}${av(op, 34)}</span><div><b>${esc(ch?.name)} (${MOVES[d.challenger_move]?.label ?? '?'}) contre ${esc(op?.name)} (${MOVES[d.opponent_move]?.label ?? '?'})</b><small>${w ? `${esc(w)} gagne` : 'Égalité'}</small></div></div>`; }).join('')
     : '<div class="empty">Aucun duel pour l\'instant. Lance le premier !</div>';
 }
 function gShow(view) {
@@ -775,14 +775,14 @@ function gShow(view) {
   if (view === 'board' && u.id === 'sudoku') {
     Promise.resolve(state.api.sudokuWeek(currentWeek())).then((rows) => {
       const el = home.querySelector('#gp-week'); if (!el || gameUI !== u) return;
-      el.innerHTML = gRows((rows ?? []).slice(0, 10).map((r, i) => ({ me: r.member_id === state.me.id, pos: i < 3 ? MEDALS[i] : i + 1, m: memberById(r.member_id), right: fmtTime(r.seconds) })));
+      el.innerHTML = gRows((rows ?? []).slice(0, 10).map((r, i) => ({ me: r.member_id === state.me.id, pos: i + 1, m: memberById(r.member_id), right: fmtTime(r.seconds) })));
     }).catch(() => { const el = home.querySelector('#gp-week'); if (el) el.innerHTML = '<small>Indisponible</small>'; });
   }
   if (view === 'result') setTimeout(() => home.querySelector('.gp-reveal')?.classList.add('go'), 30);
 }
 function gBadge() {
   const el = glayer()?.querySelector('.ghead-r'); if (!el) return;
-  el.innerHTML = gameUI?.id === 'sudoku' ? `<span class="gbadge">🧠 Niv. ${intelOf(statsOf(state.me.id)).lvl}</span>` : '';
+  el.innerHTML = gameUI?.id === 'sudoku' ? `<span class="glvl">Niveau ${intelOf(statsOf(state.me.id)).lvl}</span>` : '';
 }
 function gToHome() {
   if (gameUI?.id === 'ferme') return closeGame();
@@ -810,7 +810,7 @@ async function gPlay() {
         report: async (mode, secs) => {
           const before = intelOf(statsOf(state.me.id)).lvl;
           const r = await state.api.reportSudoku(state.me.id, mode, secs);
-          refresh(true).then(() => { gBadge(); const after = intelOf(statsOf(state.me.id)).lvl; if (after > before) toast(`🧠 Niveau d'intelligence ${after} !`); }).catch(() => {});
+          refresh(true).then(() => { gBadge(); const after = intelOf(statsOf(state.me.id)).lvl; if (after > before) toast(`Niveau d'intelligence ${after} !`); }).catch(() => {});
           return r;
         },
       } } : {}),
@@ -829,7 +829,7 @@ function gPauseOpen() {
   const layer = glayer(); if (!layer || layer.querySelector('.gpause')) return;
   try { gameHandle?.pause?.(); } catch { /* rien */ }
   const o = document.createElement('div'); o.className = 'gpause';
-  o.innerHTML = `<div class="gpbox"><h2>⏸ Pause</h2><button class="gh-btn go" data-gact="resume">▶️ Reprendre</button>${gameUI?.id === 'ferme' ? '' : '<button class="gh-btn" data-gact="home">🏠 Accueil</button>'}<button class="gh-btn quit" data-gact="close">🚪 Quitter</button></div>`;
+  o.innerHTML = `<div class="gpbox"><h2>Pause</h2><button class="gh-btn go" data-gact="resume">Reprendre</button>${gameUI?.id === 'ferme' ? '' : '<button class="gh-btn" data-gact="home">Accueil</button>'}<button class="gh-btn quit" data-gact="close">Quitter</button></div>`;
   layer.appendChild(o);
 }
 function gPauseClose() { glayer()?.querySelector('.gpause')?.remove(); try { gameHandle?.resume?.(); } catch { /* rien */ } }
@@ -883,7 +883,7 @@ async function openGame(id) {
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id} onhome`;
   // Pas de flèche retour : un bouton Menu (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
-  layer.innerHTML = `<div class="ghead"><button class="chip gmenu" data-gact="menu" aria-label="Menu">☰ Menu</button><span class="ghead-r"></span></div><div class="gbody"></div><div class="ghome"></div>
+  layer.innerHTML = `<div class="ghead"><button class="chip gmenu" data-gact="menu" aria-label="Menu">Menu</button><span class="ghead-r"></span></div><div class="gbody"></div><div class="ghome"></div>
     <div class="gsplash"><div class="gs-art">${logoArt(id)}</div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
   gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
@@ -985,7 +985,7 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${`<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
+      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
       <span class="grow"></span>
       ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
@@ -1316,7 +1316,7 @@ function headMenuHTML() {
   return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
     ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
     ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
-    ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', owed ? `${owed} bière${owed > 1 ? 's' : ''} à offrir` : 'Personnage, titres, badges', owed, 2)}
+    ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 2)}
     ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Notifications, messages, réglages', msgs, 3)}
     ${item('goseg', 'data-seg="sugg"', '💡', 'Suggestions', 'Une idée ou un bug ? Dis-le nous', 0, 4)}
   </div></div>`;
@@ -1421,8 +1421,8 @@ function duelResultHTML(s) {
   const won = d.winner_id === me, tie = !d.winner_id;
   const headline = tie ? '🤝 Égalité !' : won ? '🎉 Victoire !' : '😅 Perdu…';
   const detail = tie ? 'Égalité : personne ne perd de colocoins, on recommence ?'
-    : won ? (d.wager ? `Tu gagnes +${d.wager} 🪙 contre ${esc(other?.name)}` : `Tu bats ${esc(other?.name)} !`)
-    : (d.wager ? `Tu perds −${d.wager} 🪙 contre ${esc(other?.name)}` : `${esc(other?.name)} gagne cette fois.`);
+    : won ? (d.wager ? `Tu gagnes +${d.wager} colocoins contre ${esc(other?.name)}` : `Tu bats ${esc(other?.name)} !`)
+    : (d.wager ? `Tu perds −${d.wager} colocoins contre ${esc(other?.name)}` : `${esc(other?.name)} gagne cette fois.`);
   return sheetWrap(`
     <div class="sh"><div><h2>${headline}</h2><div class="when">${detail}</div></div>${closeBtn}</div>
     <div class="reveal"><div>${av(state.me, 64)}<span>${moveEmoji(myMove)}</span><small>Toi</small></div><b>VS</b>
@@ -1447,10 +1447,10 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gboards-btn" data-action="gboards">🏆 Classement des jeux</button>
+    <button class="gboards-btn" data-action="gboards">Classement des jeux</button>
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
-      <button class="gtile g-${g.cls}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? '<span class="paidbadge" title="Payant (colocoins)">🪙</span>' : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
+      <button class="gtile g-${g.cls}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? `<span class="paidbadge" title="Payant (colocoins)">${COIN_SVG}</span>` : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
     ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
       <div class="up"><div class="mini-av">${av(memberById(d.opponent_id), 44)}</div>
@@ -1536,8 +1536,8 @@ function duelPickHTML() {
     <div class="heads picker">${others.map((m) => `<button class="headb" data-action="duel-with" data-id="${m.id}">${av(m, 56)}<small>${esc(m.name)}</small>${m.kind === 'copain' ? '<i>copain</i>' : ''}</button>`).join('')}</div>`);
 }
 function gBoardsSheetHTML() {
-  return sheetWrap(`<div class="sh"><div><h2>🏆 Classement des jeux</h2><div class="when">Les meilleurs de la coloc</div></div>${closeBtn}</div>
-    ${['chifoumi', 'flappy', 'sudoku', 'blackjack', 'ferme'].map((k) => { const b = BOARDS.find((x) => x.key === k); return b ? `<h3 class="sec">${b.emoji} ${esc(b.label)}</h3>${boardListHTML(b, 5)}` : ''; }).join('')}`);
+  return sheetWrap(`<div class="sh"><div><h2>Classement des jeux</h2><div class="when">Les meilleurs de la coloc</div></div>${closeBtn}</div>
+    ${['chifoumi', 'flappy', 'sudoku', 'blackjack', 'ferme'].map((k) => { const b = BOARDS.find((x) => x.key === k); return b ? `<h3 class="sec">${esc(b.label)}</h3>${boardListHTML(b, 5)}` : ''; }).join('')}`);
 }
 function gameInfoHTML(s) {
   const g = GAMES[s.id], me = state.me, st = statsOf(me.id);

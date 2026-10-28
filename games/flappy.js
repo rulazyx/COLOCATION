@@ -339,7 +339,7 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
         if (destroyed) return;
         const parts = [];
         if (r?.xp > 0) parts.push(`<span class="gx">+${r.xp} XP</span>`);
-        if (r?.coins > 0) parts.push(`<span class="gc">+${r.coins} 🪙</span>`);
+        if (r?.coins > 0) parts.push(`<span class="gc">+${r.coins} colocoin${r.coins > 1 ? 's' : ''}</span>`);
         gw.innerHTML = parts.length ? parts.join('') : '<small>Aucun gain cette fois</small>';
       }).catch(() => { if (!destroyed) gw.innerHTML = '<small>Gains non enregistrés</small>'; });
     }

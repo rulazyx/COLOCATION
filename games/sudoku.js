@@ -66,9 +66,9 @@ export const conflicts = (grid) => {
 // Modes : « givens » = chiffres déjà donnés (moins = plus dur). Les gains (coins / xp) sont validés côté serveur : ici ils ne servent qu'à l'affichage.
 export const MODES = {
   week: { label: 'Grille de la semaine', givens: 40 },
-  easy: { label: 'Facile', givens: 40, coins: 1, emoji: '🌱' },
-  mid:  { label: 'Moyen', givens: 32, coins: 2, emoji: '🔥' },
-  hard: { label: 'Expert', givens: 25, coins: 4, emoji: '💀' },
+  easy: { label: 'Facile', givens: 40, coins: 1 },
+  mid:  { label: 'Moyen', givens: 32, coins: 2 },
+  hard: { label: 'Expert', givens: 25, coins: 4 },
 };
 
 /* ---------- Interface ---------- */
@@ -135,9 +135,9 @@ export function mount(root, ctx = {}) {
     const mine = board?.find((r) => r.member_id === S.me);
     ui.innerHTML = `<div class="sdk-menu">
       <div class="sdk-logo">SUDOKU</div>
-      <button class="sdk-mode week" data-act="mode" data-m="week"><span class="sdk-e">📅</span><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
+      <button class="sdk-mode week" data-act="mode" data-m="week"><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
       <h3 class="sdk-h">Grilles aléatoires</h3>
-      ${['easy', 'mid', 'hard'].map((k) => `<button class="sdk-mode ${k}" data-act="mode" data-m="${k}"><span class="sdk-e">${MODES[k].emoji}</span><span><b>${MODES[k].label}</b><small>+${MODES[k].coins} 🪙 par grille réussie</small></span></button>`).join('')}
+      ${['easy', 'mid', 'hard'].map((k) => `<button class="sdk-mode ${k}" data-act="mode" data-m="${k}"><span><b>${MODES[k].label}</b><small>+${MODES[k].coins} colocoin${MODES[k].coins > 1 ? 's' : ''} par grille réussie</small></span></button>`).join('')}
     </div>`;
   }
   function loadBoard() { Promise.resolve(S.board?.()).then((rows) => { if (destroyed) return; board = rows ?? []; if (view === 'menu') drawMenu(); }).catch(() => { board = []; }); }
@@ -170,7 +170,7 @@ export function mount(root, ctx = {}) {
     if (view === 'menu') return drawMenu();
     showBg(false);
     const m = MODES[mode];
-    if (loading) { ui.innerHTML = `<div class="sdk-load"><div class="sdk-spin">🔢</div><b>Création de la grille…</b><small>${m.label}</small></div>`; return; }
+    if (loading) { ui.innerHTML = `<div class="sdk-load"><div class="sdk-spin"></div><b>Création de la grille…</b><small>${m.label}</small></div>`; return; }
     const bad = conflicts(grid), selV = sel >= 0 ? grid[sel] : 0, f = fx; fx = null;
     let cells = '';
     for (let i = 0; i < 81; i++) {
@@ -183,19 +183,19 @@ export function mount(root, ctx = {}) {
     }
     const hearts = [0, 1, 2].map((i) => `<i class="${i < lives ? 'on' : ''} ${f?.lose === i ? 'lose' : ''}">♥</i>`).join('');
     ui.innerHTML = `
-      <div class="sbar"><span class="sdk-title">${m.emoji ?? '📅'} ${m.label}</span>${mode === 'week' ? `<span>⏱ <b class="stime">${fmt(elapsed)}</b></span>` : ''}<span class="lives" aria-label="${lives} vies">${hearts}</span></div>
+      <div class="sbar"><span class="sdk-title">${m.label}</span>${mode === 'week' ? `<span>Temps <b class="stime">${fmt(elapsed)}</b></span>` : ''}<span class="lives" aria-label="${lives} vies">${hearts}</span></div>
       <div class="sgrid ${f?.err !== undefined ? 'gshake' : ''}">${cells}</div>
       <div class="spad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="0" class="era">⌫</button></div>
-      ${lost ? `<div class="sdk-over"><h2>Plus de vies 💔</h2><p>Trois erreurs : la grille est perdue.</p>${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Réessayer la grille de la semaine</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>` : ''}
-      ${finished ? `<div class="sdk-over win"><h2>Bravo ! 🎉</h2>${mode === 'week' ? `<p>Terminé en <b>${fmt(elapsed)}</b></p>` : '<p>Grille terminée !</p>'}${resultHTML()}${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Retenter pour battre ton temps</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>${confetti}` : ''}`;
+      ${lost ? `<div class="sdk-over"><h2>Plus de vies</h2><p>Trois erreurs : la grille est perdue.</p>${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Réessayer la grille de la semaine</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>` : ''}
+      ${finished ? `<div class="sdk-over win"><h2>Bravo !</h2>${mode === 'week' ? `<p>Terminé en <b>${fmt(elapsed)}</b></p>` : '<p>Grille terminée !</p>'}${resultHTML()}${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Retenter pour battre ton temps</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>${confetti}` : ''}`;
   }
   function resultHTML() {
     if (!result) return '<div class="sdk-gain"><small>Calcul des gains…</small></div>';
     if (result.error) return '<div class="sdk-gain"><small>Gains non enregistrés (réseau)</small></div>';
     const parts = [];
     if (result.xp > 0) parts.push(`<span class="gx">+${result.xp} XP</span>`);
-    if (result.coins > 0) parts.push(`<span class="gc">+${result.coins} 🪙</span>`);
-    return `<div class="sdk-gain">${parts.join('') || '<small>Pas de gain cette fois (plafond du jour atteint)</small>'}${result.record ? '<div class="sdk-rec">🏆 Meilleur temps de la semaine pour toi !</div>' : ''}</div>`;
+    if (result.coins > 0) parts.push(`<span class="gc">+${result.coins} colocoin${result.coins > 1 ? 's' : ''}</span>`);
+    return `<div class="sdk-gain">${parts.join('') || '<small>Pas de gain cette fois (plafond du jour atteint)</small>'}${result.record ? '<div class="sdk-rec">Meilleur temps de la semaine pour toi !</div>' : ''}</div>`;
   }
   function makeConfetti() {
     const cols = ['#ffc928', '#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f97316'];
