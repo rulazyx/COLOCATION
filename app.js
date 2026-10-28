@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 65;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 66;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -497,11 +497,11 @@ function budgetHTML() {
     const paid = state.members.filter((m) => m.kind === 'coloc').map((m, i) => ({ m, c: list.filter((e) => e.payer_id === m.id).reduce((s, e) => s + e.amount_cents, 0), col: PIE_COLORS[i % PIE_COLORS.length] }));
     const sum = paid.reduce((s, x) => s + x.c, 0);
     const R = 15.9155; let off = 0;
-    const pie = sum ? `<div class="bgt-card bgt-pie"><h4 class="bgt-day" style="margin-top:6px">Qui a avancé l'argent</h4><div class="bgt-pierow">
+    const pie = `<div class="bgt-card bgt-pie"><h4 class="bgt-day" style="margin-top:6px">Qui a avancé l'argent</h4><div class="bgt-pierow">
       <svg viewBox="0 0 42 42" width="140" height="140" role="img" aria-label="Répartition des sommes avancées"><circle cx="21" cy="21" r="${R}" fill="none" stroke="rgba(128,128,128,.15)" stroke-width="7"/>
       ${paid.filter((x) => x.c).map((x) => { const p = 100 * x.c / sum, seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${x.col}" stroke-width="7" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${25 - off}"/>`; off += p; return seg; }).join('')}
       <text x="21" y="20.5" text-anchor="middle" font-size="4.6" font-weight="800" fill="currentColor">${esc(eur(sum))}</text><text x="21" y="26" text-anchor="middle" font-size="2.9" fill="currentColor" opacity=".6">avancés</text></svg>
-      <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${Math.round(100 * x.c / sum)} %</small></li>`).join('')}</ul></div></div>` : '';
+      <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${sum ? Math.round(100 * x.c / sum) : 0} %</small></li>`).join('')}</ul></div></div>`;
     body = `${pie}<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
       ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
   }
