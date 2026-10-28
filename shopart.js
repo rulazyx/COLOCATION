@@ -52,8 +52,7 @@ const persoSVG = () => NI(`
 
 const calNav = NI(`
   <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
-  <path d="M5 19h38M15 5v8M33 5v8"/>
-  <rect x="17" y="25" width="14" height="10" rx="2.5" class="y"/>`);
+  <path d="M5 19h38M15 5v8M33 5v8"/>`);
 const wallet = NI(`
   <path d="M8 13l24-8 4 8" />
   <rect x="5" y="13" width="38" height="28" rx="5" class="f"/>
