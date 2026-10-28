@@ -1154,3 +1154,5 @@ nav.tabs button:active{transform:scale(.82)}
 nav.tabs button.pulse{background:#ffe27a}
 @keyframes tabbounce{0%{transform:scale(.7) rotate(-8deg)}60%{transform:scale(1.2) rotate(4deg)}100%{transform:none}}
 @media (prefers-reduced-motion:reduce){nav.tabs button,nav.tabs button.active .ico{transition:none;animation:none}}
+nav.tabs{background:transparent!important;border-top:0!important;pointer-events:none}
+nav.tabs button{pointer-events:auto}
