@@ -924,3 +924,6 @@ nav.tabs.six button .tl{font-size:9px;letter-spacing:-.3px}
 
 nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:center}
 .wkcard{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:12px}.wkcard .wkt{margin-bottom:10px;font-size:14px}
+
+.hav.dot::after{content:'';position:absolute;top:-2px;left:-2px;width:12px;height:12px;border-radius:50%;background:var(--danger);border:2px solid var(--bg,#fff)}
+.kcard.dot .ktxt small{color:var(--danger);font-weight:700}

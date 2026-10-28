@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 69;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 70;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -807,9 +807,7 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${tab === 'me' ? '' : `<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="goperso" aria-label="Mon profil">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
-      <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
-      <button class="hcart ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${pulse('defis')}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>
+      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
       <span class="grow"></span>
       ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
       <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
@@ -826,7 +824,7 @@ function render() {
       ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
-      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche le livre « Quêtes », en haut' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
+      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Quêtes »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
     <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
@@ -1133,6 +1131,17 @@ function closeSheet() {
   render();
 }
 
+function headMenuHTML() {
+  const me = state.me, due = dailyDue() || statsOf(me.id).wheel_ready;
+  const item = (act, attrs, emo, title, sub, dot) => `<button class="kcard ${dot ? 'dot' : ''}" style="--c:var(--accent)" data-action="${act}" ${attrs}><span class="kemo">${emo}</span><span class="ktxt"><b>${title}</b><small>${sub}</small></span></button>`;
+  return sheetWrap(`
+    <div class="sh"><div><h2>${esc(me.name)}</h2><div class="when">Que veux-tu faire ?</div></div>${closeBtn}</div>
+    <div class="klist">
+      ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…')}
+      ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due)}
+      ${item('goperso', '', '🎨', 'Personnalisation', 'Ton personnage, titres, badges et réglages')}
+    </div>`);
+}
 function sheetHTML() {
   const s = currentSheet();
   if (!s) return '';
@@ -1143,6 +1152,7 @@ function sheetHTML() {
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
     case 'shop': return shopHTML(s);
+    case 'headmenu': return headMenuHTML();
     case 'exchange': return exchangeHTML();
     case 'crate': return crateHTML(s);
     case 'cal-new': return calNewHTML();
@@ -1773,6 +1783,7 @@ document.addEventListener('click', (e) => {
     case 'roll': rollDiceNow(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); window.scrollTo(0, 0); break;
+    case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
     case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); window.scrollTo(0, 0); questStep(5); questStep(6); markRead(); break;
     case 'bseg': state.budgetSeg = v; render(); break;
     case 'exp-new': state.sheet = newExpSheet(null); render(); break;
