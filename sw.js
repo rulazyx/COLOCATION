@@ -1,5 +1,5 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v70';
+const CACHE = 'coloc-v71';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './budget.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
@@ -29,8 +29,8 @@ self.addEventListener('push', (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title || 'La Kaz', {
       body: data.body || '',
-      icon: './icon-192-l.png',
-      badge: './icon-192-l.png',
+      icon: './icon-192-b.png',
+      badge: './icon-192-b.png',
       tag: data.tag,
     })
   );
