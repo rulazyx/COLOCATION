@@ -456,14 +456,14 @@ export function makeDemoApi() {
     },
     async events() { return (db.events ?? []).slice().sort((a, b) => a.starts_at.localeCompare(b.starts_at)).map((e) => ({ ...e })); },
     async eventVotes() { return (db.evvotes ?? []).map((v) => ({ ...v })); },
-    async createEvent(m, title, place, startsAt) {
+    async createEvent(m, title, place, startsAt, invitees = null) {
       const t = String(title ?? '').trim();
       if (t.length < 2) fail("Donne un titre à l'activité.");
       if (t.length > 60) fail('Titre trop long (60 caractères maximum).');
       const d = new Date(startsAt); if (isNaN(d) || d.getTime() < Date.now() - 864e5) fail('Date invalide.');
       db.events ??= []; db.evvotes ??= []; db.nextEv ??= 1;
       const id = db.nextEv++;
-      db.events.push({ id, creator_id: m, title: t, place: String(place ?? '').trim().slice(0, 60) || null, starts_at: d.toISOString(), created_at: now() });
+      db.events.push({ id, creator_id: m, title: t, place: String(place ?? '').trim().slice(0, 60) || null, starts_at: d.toISOString(), invitees: invitees?.length ? invitees : null, created_at: now() });
       db.evvotes.push({ event_id: id, member_id: m, vote: 'yes', updated_at: now() }); save(); return id;
     },
     async voteEvent(m, ev, vote) {

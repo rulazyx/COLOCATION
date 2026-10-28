@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 63;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 64;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -793,7 +793,7 @@ function render() {
   if (!state.me) {
     if (state.auth) { app.innerHTML = pinHTML(); return; }
     const btn = (m) => `<button data-action="pick" data-id="${m.id}">${esc(m.name)}</button>`;
-    app.innerHTML = `<div class="pick"><h1>🏠 Coloc</h1><p>Qui es-tu ?</p>${colocs().map(btn).join('')}
+    app.innerHTML = `<div class="pick"><h1>🏠 La Kaz</h1><p>Qui es-tu ?</p>${colocs().map(btn).join('')}
       ${copains().length ? `<h3 class="sec" style="text-align:center">Copains</h3>${copains().map(btn).join('')}` : ''}</div>`;
     return;
   }
@@ -829,7 +829,7 @@ function render() {
     <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
-      <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">CALENDRIER</span>${badge(evToAnswer())}</button>
+      <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">ACTIVITÉS</span>${badge(evToAnswer())}</button>
       <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
     </nav>
@@ -1566,15 +1566,18 @@ function shopHTML(s) {
     <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
     <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div>`, 'var(--gold)');
 }
-/* ---------- Calendrier : activités proposées + sondage de présence ---------- */
-const upcomingEvents = () => state.events.filter((e) => Date.parse(e.starts_at) >= Date.now() - 3 * 3600000);
+/* ---------- Activités proposées + sondage de présence ---------- */
+const evInvited = (e) => !e.invitees || e.creator_id === state.me?.id || e.invitees.includes(state.me?.id);
+const evGuests = (e) => (e.invitees ? [...new Set([e.creator_id, ...e.invitees])] : state.members.map((m) => m.id));
+const visibleEvents = () => state.events.filter(evInvited);
+const upcomingEvents = () => visibleEvents().filter((e) => Date.parse(e.starts_at) >= Date.now() - 3 * 3600000);
 const fmtEv = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
 function eventCardHTML(e, past) {
   const me = state.me, votes = state.evVotes.filter((v) => v.event_id === e.id), mine = votes.find((v) => v.member_id === me.id)?.vote;
-  const by = (k) => votes.filter((v) => v.vote === k), everyone = state.members.length, answered = votes.length;
+  const guests = evGuests(e), votes2 = votes.filter((v) => guests.includes(v.member_id)), by = (k) => votes2.filter((v) => v.vote === k), everyone = guests.length, answered = votes2.length;
   const btn = (k, l) => `<button class="evb ${k} ${mine === k ? 'on' : ''}" data-action="cal-vote" data-id="${e.id}" data-v="${k}" aria-pressed="${mine === k}">${l} <b>${by(k).length}</b></button>`;
   return `<div class="evcard ${past ? 'past' : ''}">
-    <div class="evtop"><div><b>${esc(e.title)}</b><small>${fmtEv(e.starts_at)}${e.place ? ` · ${esc(e.place)}` : ''}</small><small>Proposé par ${esc(nameOf(e.creator_id))}</small></div>
+    <div class="evtop"><div><b>${esc(e.title)}</b><small>${fmtEv(e.starts_at)}${e.place ? ` · ${esc(e.place)}` : ''}</small><small>Proposé par ${esc(nameOf(e.creator_id))}</small>${e.invitees ? `<span class="evinv">${guests.map((id) => `<span title="${esc(nameOf(id))}">${av(memberById(id), 20)}</span>`).join('')}</span>` : ''}</div>
       ${e.creator_id === me.id ? `<button class="evdel" data-action="cal-del" data-id="${e.id}" aria-label="Supprimer l'activité">✕</button>` : ''}</div>
     <div class="evvotes">${btn('yes', 'Présent')}${btn('maybe', 'Peut-être')}${btn('no', 'Absent')}</div>
     <div class="evwho">${by('yes').map((v) => `<span title="${esc(nameOf(v.member_id))}">${av(memberById(v.member_id), 24)}</span>`).join('')}${everyone > answered ? `<small>${everyone - answered} sans réponse</small>` : ''}</div>
@@ -1582,23 +1585,28 @@ function eventCardHTML(e, past) {
 }
 const evToAnswer = () => (state.me ? upcomingEvents().filter((e) => !state.evVotes.some((v) => v.event_id === e.id && v.member_id === state.me.id)).length : 0);
 function calendarHTML() {
-  const up = upcomingEvents(), past = state.events.filter((e) => !up.includes(e)).slice(-5).reverse();
+  const up = upcomingEvents(), past = visibleEvents().filter((e) => !up.includes(e)).slice(-5).reverse();
   return (`
-    <div class="sh"><div><h2>Calendrier</h2><div class="when">Propose une activité, chacun répond</div></div></div>
+    <div class="sh"><div><h2>Activités</h2><div class="when">Propose une activité, chacun répond</div></div></div>
     <button class="btn primary" style="width:100%;margin:4px 0 10px" data-action="cal-new">Proposer une activité</button>
     ${up.length ? up.map((e) => eventCardHTML(e, false)).join('') : '<div class="det">Aucune activité prévue pour le moment.</div>'}
     ${past.length ? `<h3 class="sec">Passées</h3>${past.map((e) => eventCardHTML(e, true)).join('')}` : ''}`);
 }
 function calNewHTML() {
+  const s = state.sheet, others = state.members.filter((m) => m.id !== state.me.id);
   const d = new Date(Date.now() + 86400000), pad = (n) => String(n).padStart(2, '0'), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   return sheetWrap(`
     <div class="sh"><div><h2>Nouvelle activité</h2><div class="when">Tout le monde pourra répondre</div></div>${closeBtn}</div>
-    <label class="evl">Quoi ?<input id="evtitle" class="evin" maxlength="60" placeholder="Ex. Soirée jeux de société"></label>
-    <label class="evl">Où ? <small>(facultatif)</small><input id="evplace" class="evin" maxlength="60" placeholder="Ex. Au salon"></label>
-    <div class="evrow"><label class="evl">Jour<input id="evday" class="evin" type="date" value="${day}"></label><label class="evl">Heure<input id="evtime" class="evin" type="time" value="20:00"></label></div>
+    <label class="evl">Quoi ?<input id="evtitle" class="evin" maxlength="60" placeholder="Ex. Soirée jeux de société" value="${esc(s.t ?? '')}"></label>
+    <label class="evl">Où ? <small>(facultatif)</small><input id="evplace" class="evin" maxlength="60" placeholder="Ex. Au salon" value="${esc(s.p ?? '')}"></label>
+    <div class="evrow"><label class="evl">Jour<input id="evday" class="evin" type="date" value="${s.d || day}"></label><label class="evl">Heure<input id="evtime" class="evin" type="time" value="${s.h || '20:00'}"></label></div>
+    <div class="evl">Qui invites-tu ? <small>(touche les têtes)</small></div>
+    <div class="bgt-chips"><button class="bgt-chip ${s.inv.length === others.length ? 'on' : ''}" data-action="cal-inv-all"><span>Tout le monde</span></button>${others.map((m) => `<button class="bgt-chip ${s.inv.includes(m.id) ? 'on' : ''}" data-action="cal-inv" data-id="${m.id}">${av(m, 26)}<span>${esc(m.name)}</span></button>`).join('')}</div>
     <button class="btn primary" style="width:100%;margin-top:10px" data-action="cal-create">Proposer</button>
     <button class="btn" style="width:100%;margin-top:6px" data-action="calendar">Retour</button>`, 'var(--accent)');
 }
+// garde ce qui est déjà saisi quand on touche une tête (la feuille est redessinée)
+function keepEv(s) { s.t = document.getElementById('evtitle')?.value ?? s.t; s.p = document.getElementById('evplace')?.value ?? s.p; s.d = document.getElementById('evday')?.value ?? s.d; s.h = document.getElementById('evtime')?.value ?? s.h; }
 async function calAct(fn, ok) {
   try { await fn(); await refresh(true); if (ok) ok(); } catch (e) { toast(e.message || 'Action impossible.'); refresh(true).catch(() => {}); }
 }
@@ -1766,12 +1774,15 @@ document.addEventListener('click', (e) => {
     case 'exp-part': if (s?.type === 'exp') { const n = Number(id); s.parts = s.parts.includes(n) ? s.parts.filter((x) => x !== n) : [...s.parts, n]; render(); } break;
     case 'exp-save': expSave(); break;
     case 'exp-pay': calAct(() => state.api.addTransfer(state.me.id, Number(el.dataset.from), Number(el.dataset.to), Number(el.dataset.c)), () => toast('Remboursement enregistré')); break;
-    case 'cal-new': state.sheet = { type: 'cal-new' }; render(); break;
+    case 'cal-new': state.sheet = { type: 'cal-new', inv: state.members.filter((m) => m.id !== state.me.id).map((m) => m.id) }; render(); break;
+    case 'cal-inv': if (s?.type === 'cal-new') { const n = Number(id); s.inv = s.inv.includes(n) ? s.inv.filter((x) => x !== n) : [...s.inv, n]; keepEv(s); render(); } break;
+    case 'cal-inv-all': if (s?.type === 'cal-new') { const all = state.members.filter((m) => m.id !== state.me.id).map((m) => m.id); s.inv = s.inv.length === all.length ? [] : all; keepEv(s); render(); } break;
     case 'cal-create': {
       const title = document.getElementById('evtitle')?.value ?? '', place = document.getElementById('evplace')?.value ?? '';
       const when = new Date(`${document.getElementById('evday')?.value}T${document.getElementById('evtime')?.value || '20:00'}`);
       if (isNaN(when)) { toast('Choisis un jour et une heure.'); break; }
-      calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString()), () => { state.sheet = null; state.tab = 'cal'; toast('Activité proposée !'); render(); });
+      const everyone = state.members.filter((m) => m.id !== state.me.id);
+      calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString(), s.inv.length === everyone.length ? null : s.inv), () => { state.sheet = null; state.tab = 'cal'; toast('Activité proposée !'); render(); });
       break;
     }
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;

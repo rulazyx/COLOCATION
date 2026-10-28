@@ -31,15 +31,8 @@ export function birdSVG(key, size = 64) {
 // Icônes d'onglets : traits fins (couleur du texte), fonds blancs, un seul accent jaune
 const NI = (inner) => `<svg class="nico" viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
 const cleaner = NI(`
-  <g transform="rotate(-14 24 31)">
-    <rect x="6" y="21" width="36" height="20" rx="8" class="f"/>
-    <path d="M14 26.5h20" stroke-width="1.6"/>
-    <rect x="9" y="23.5" width="30" height="4.5" rx="2.2" class="y" stroke="none"/>
-    <rect x="6" y="21" width="36" height="20" rx="8" fill="none"/>
-    <path d="M13 34h12" stroke-width="1.6"/>
-  </g>
-  <circle cx="14" cy="11" r="5" class="f"/><circle cx="27" cy="7" r="3.2" class="f"/><circle cx="36" cy="13" r="4.2" class="f"/>
-  <path d="M12.2 9.5a2.6 2.6 0 0 1 1.8-1.2M35 11.6a2 2 0 0 1 1.2-.8" stroke-width="1.2"/>`);
+  <rect x="5" y="22" width="38" height="20" rx="9" class="y" transform="rotate(-12 24 32)"/>
+  <circle cx="14" cy="11" r="5" class="f"/><circle cx="28" cy="8" r="3.4" class="f"/><circle cx="37" cy="15" r="4.2" class="f"/>`);
 const book = NI(`
   <path d="M5 11c6-3 13-3 19 1v28c-6-4-13-4-19-1z" class="f"/>
   <path d="M43 11c-6-3-13-3-19 1v28c6-4 13-4 19-1z" class="f"/>
@@ -47,16 +40,11 @@ const book = NI(`
   <path d="M33 5v17l4-3.4 4 3.4V8" class="y"/>
   <path d="M29 20h6M29 26h10" stroke-width="1.5"/>`);
 const navBird = NI(`
-  <path d="M14 14h20c6 0 9 4 11 12l2 9c1 5-3 8-7 6-3-1-5-4-7-6H15c-2 2-4 5-7 6-4 2-8-1-7-6l2-9c2-8 5-12 11-12z" class="f"/>
-  <path d="M15 21v8M11 25h8" stroke-width="2.4"/>
-  <circle cx="33" cy="22" r="2.2" class="y"/><circle cx="38" cy="27" r="2.2" class="y"/>
-  <path d="M22 24h4" stroke-width="2"/>
-  <path d="M20 14v-3h8v3" />`);
+  <path d="M14 14h20c6 0 9 4 11 12l2 9c1 5-3 8-7 6-3-1-5-4-7-6H15c-2 2-4 5-7 6-4 2-8-1-7-6l2-9c2-8 5-12 11-12z" class="f"/>`);
 const podium = NI(`
-  <rect x="4" y="26" width="12" height="16" rx="1.5" class="f"/>
-  <rect x="18" y="16" width="12" height="26" rx="1.5" class="y"/>
-  <rect x="32" y="31" width="12" height="11" rx="1.5" class="f"/>
-  <g stroke="none" fill="currentColor" font-family="system-ui,sans-serif" font-weight="800" font-size="10" text-anchor="middle"><text x="10" y="38">2</text><text x="24" y="31">1</text><text x="38" y="40">3</text></g>`);
+  <path d="M14 6h20v12a10 10 0 0 1-20 0z" class="y"/>
+  <path d="M14 10H7c0 7 3 10 8 10M34 10h7c0 7-3 10-8 10"/>
+  <path d="M24 28v8M15 42h18M18 36h12v6H18z" class="f"/>`);
 const persoSVG = () => NI(`
   <circle cx="24" cy="17" r="9" class="f"/>
   <path d="M6 43c1-10 8-15 18-15s17 5 18 15z" class="f"/>
@@ -65,7 +53,7 @@ const persoSVG = () => NI(`
 const calNav = NI(`
   <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
   <path d="M5 19h38M15 5v8M33 5v8"/>
-  <rect x="12" y="25" width="7" height="6" rx="1.5" class="y"/><rect x="21" y="25" width="7" height="6" rx="1.5"/><rect x="30" y="25" width="7" height="6" rx="1.5"/><rect x="12" y="34" width="7" height="5" rx="1.5"/><rect x="21" y="34" width="7" height="5" rx="1.5"/>`);
+  <rect x="17" y="25" width="14" height="10" rx="2.5" class="y"/>`);
 const wallet = NI(`
   <path d="M8 13l24-8 4 8" />
   <rect x="5" y="13" width="38" height="28" rx="5" class="f"/>

@@ -279,8 +279,9 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 - Correctif « impossible de charger les données » : l'appli pouvait mélanger des fichiers de deux versions pendant une mise à jour. Le cache est maintenant installé d'un bloc (plus de mise à jour fichier par fichier) et, si un mélange est détecté (`BUILD`), l'appli vide son cache et se recharge toute seule une fois.
 - Pour sortir une nouvelle version : `node tools/bump.mjs` (augmente le numéro partout), puis commit.
 
-## Notes v61
+## Notes v61–v64
 - Thème : Réglages → Thème (Auto / Clair / Sombre), clé `coloc-theme`.
 - Rafraîchissement ciblé : le temps réel ne relit que les données de la table modifiée ; relecture complète toutes les 60 s (filet).
 - Fichiers : `demo.js` (mode démo), `supabase/archive/` (anciennes migrations), icônes allégées `*-l.png` (les originaux restent dans le dépôt).
 - Notifications : la clé publique de `keys.js` doit correspondre à `VAPID_PUBLIC_KEY` des secrets de la fonction `notify`.
+- v64 : « Calendrier » devient « Activités » ; on choisit les invités par leur tête (events.invitees, null = tout le monde) ; barre du bas centrée, icônes simplifiées.

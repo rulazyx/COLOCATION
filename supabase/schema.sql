@@ -2138,7 +2138,9 @@ create table if not exists event_votes (
   primary key (event_id, member_id)
 );
 create index if not exists events_start on events (starts_at);
-create or replace function create_event(p_member int, p_title text, p_place text, p_starts timestamptz) returns bigint
+alter table events add column if not exists invitees int[];   -- null = tout le monde
+drop function if exists create_event(int, text, text, timestamptz);
+create or replace function create_event(p_member int, p_title text, p_place text, p_starts timestamptz, p_invitees int[] default null) returns bigint
 language plpgsql security definer set search_path = public as $$
 declare v_id bigint; v_title text := trim(p_title); v_place text := nullif(trim(coalesce(p_place, '')), '');
 begin
@@ -2150,7 +2152,7 @@ begin
   if (select count(*) from events where creator_id = p_member and created_at > now() - interval '1 day') >= 10 then
     raise exception 'Déjà 10 activités proposées aujourd''hui.';
   end if;
-  insert into events (creator_id, title, place, starts_at) values (p_member, v_title, v_place, p_starts) returning id into v_id;
+  insert into events (creator_id, title, place, starts_at, invitees) values (p_member, v_title, v_place, p_starts, case when coalesce(array_length(p_invitees, 1), 0) = 0 then null else p_invitees end) returning id into v_id;
   insert into event_votes (event_id, member_id, vote) values (v_id, p_member, 'yes');
   return v_id;
 end $$;
@@ -2169,7 +2171,7 @@ begin
   delete from events where id = p_event and creator_id = p_member;
   if not found then raise exception 'Seul l''organisateur peut supprimer cette activité.'; end if;
 end $$;
-grant execute on function create_event(int, text, text, timestamptz) to anon, authenticated;
+grant execute on function create_event(int, text, text, timestamptz, int[]) to anon, authenticated;
 grant execute on function vote_event(int, bigint, text)              to anon, authenticated;
 grant execute on function delete_event(int, bigint)                  to anon, authenticated;
 alter table events enable row level security; alter table event_votes enable row level security;
