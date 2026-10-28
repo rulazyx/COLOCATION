@@ -591,7 +591,15 @@ async function syncSub() {
   if (store.get('coloc-push') !== '1' || state.api.mode !== 'cloud' || !('serviceWorker' in navigator)) return;
   try {
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
+    let sub = await reg.pushManager.getSubscription();
+    // Abonnement créé avec une autre clé VAPID que l'actuelle : le serveur le refuse (VapidPkHashMismatch). On le recrée, sans redemander la permission.
+    if (sub && CONFIG.VAPID_PUBLIC_KEY && Notification.permission === 'granted') {
+      const cur = new Uint8Array(sub.options?.applicationServerKey ?? []), want = b64ToU8(CONFIG.VAPID_PUBLIC_KEY);
+      if (cur.length && (cur.length !== want.length || cur.some((v, i) => v !== want[i]))) {
+        await sub.unsubscribe();
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: want });
+      }
+    }
     if (sub) await state.api.saveSub(state.me.id, sub.toJSON());
   } catch (e) { console.warn(e); }
 }

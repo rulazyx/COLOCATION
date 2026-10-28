@@ -39,8 +39,8 @@ async function send(subs: Sub[], payload: { title: string; body: string; tag?: s
       sent++;
     } catch (e) {
       const code = (e as { statusCode?: number }).statusCode;
-      // Abonnement expiré (appli désinstallée…) : on le supprime
-      if (code === 404 || code === 410) await db.from("push_subs").delete().eq("endpoint", s.endpoint);
+      // Abonnement expiré (appli désinstallée…) ou créé avec une autre clé VAPID : on le supprime (l'appli le recrée à l'ouverture)
+      if (code === 404 || code === 410 || String((e as { body?: string }).body ?? "").includes("VapidPkHashMismatch")) await db.from("push_subs").delete().eq("endpoint", s.endpoint);
       else console.error("push error", code, e);
     }
   }));

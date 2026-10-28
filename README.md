@@ -258,3 +258,6 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 - Fenêtres surprise (table `popups`) : s'affichent une fois à l'ouverture de l'appli. Première : anniversaire de Zakaria, style jeu vidéo.
 - Notification : redéployer la fonction `notify`, puis lancer `supabase/send-popup.sql` (après avoir mis l'URL et le code secret).
 - `migration-v8.sql` peut être relancée sans erreur (corrigé pour les quêtes).
+
+## v36
+- Notifications : si l'abonnement d'un téléphone a été créé avec une autre clé VAPID que celle de `keys.js`, l'appli le recrée à l'ouverture. La fonction `notify` supprime les abonnements refusés pour `VapidPkHashMismatch`.
