@@ -11,7 +11,7 @@ create table members (
   hair   text not null default '#5b3a29',                                     -- couleur de cheveux
   outfit text not null default 'none'                                         -- tenue portée
 );
-insert into members (name) values ('Anthony'), ('Mathilde'), ('Lily'), ('Victor'), ('Zakaria');
+insert into members (name) values ('Anthony'), ('Mathilde'), ('Lily'), ('Victor'), ('Zak');
 
 -- Les tâches de chaque semaine (créées automatiquement par l'appli)
 create table tasks (

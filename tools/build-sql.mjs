@@ -42,5 +42,5 @@ const gen = (name) => {
 const v8 = gen('v8');
 writeFileSync(new URL('supabase/migration-v8.sql', root), v8);
 const sep = '\n\n\n';
-writeFileSync(new URL('supabase/schema.sql', root), [read('supabase/schema-v3.sql'), read('supabase/migration-v4.sql'), read('supabase/migration-v5.sql'), read('supabase/migration-v6.sql'), read('supabase/migration-v7.sql'), v8].map((x) => x.trimEnd()).join(sep) + '\n');
+writeFileSync(new URL('supabase/schema.sql', root), [read('supabase/archive/schema-v3.sql'), read('supabase/archive/migration-v4.sql'), read('supabase/archive/migration-v5.sql'), read('supabase/archive/migration-v6.sql'), read('supabase/archive/migration-v7.sql'), v8].map((x) => x.trimEnd()).join(sep) + '\n');
 console.log('ok');

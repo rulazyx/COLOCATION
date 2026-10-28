@@ -255,7 +255,7 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 - SQL : relancer `supabase/migration-v8.sql` (tables `game_quest_defs`, `game_quests`, fonction `game_quest`).
 
 ## v35
-- Fenêtres surprise (table `popups`) : s'affichent une fois à l'ouverture de l'appli. Première : anniversaire de Zakaria, style jeu vidéo.
+- Fenêtres surprise (table `popups`) : mécanisme générique conservé (une fenêtre affichée une fois à l’ouverture), aucune active.
 - Notification : redéployer la fonction `notify`, puis lancer `supabase/send-popup.sql` (après avoir mis l'URL et le code secret).
 - `migration-v8.sql` peut être relancée sans erreur (corrigé pour les quêtes).
 
@@ -278,3 +278,9 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 ## v40
 - Correctif « impossible de charger les données » : l'appli pouvait mélanger des fichiers de deux versions pendant une mise à jour. Le cache est maintenant installé d'un bloc (plus de mise à jour fichier par fichier) et, si un mélange est détecté (`BUILD`), l'appli vide son cache et se recharge toute seule une fois.
 - Pour sortir une nouvelle version : `node tools/bump.mjs` (augmente le numéro partout), puis commit.
+
+## Notes v61
+- Thème : Réglages → Thème (Auto / Clair / Sombre), clé `coloc-theme`.
+- Rafraîchissement ciblé : le temps réel ne relit que les données de la table modifiée ; relecture complète toutes les 60 s (filet).
+- Fichiers : `demo.js` (mode démo), `supabase/archive/` (anciennes migrations), icônes allégées `*-l.png` (les originaux restent dans le dépôt).
+- Notifications : la clé publique de `keys.js` doit correspondre à `VAPID_PUBLIC_KEY` des secrets de la fonction `notify`.

@@ -5,9 +5,9 @@ import {
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, QUEST_SVG, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
-import { makeCloudApi, makeDemoApi } from './api.js';
+import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 60;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 61;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -56,19 +56,6 @@ function b64ToU8(b64) {
 }
 
 const fmtDay = (d) => `${DAYS_SHORT[(d.getDay() + 6) % 7]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
-function relDay(d) {
-  const diff = Math.round((d - startOfToday()) / 86400000);
-  if (diff === 0) return "Aujourd'hui";
-  if (diff === 1) return 'Demain';
-  if (diff === -1) return 'Hier';
-  return fmtDay(d);
-}
-function fmtRange(monday) {
-  const sun = addDays(monday, 6);
-  return monday.getMonth() === sun.getMonth()
-    ? `du ${monday.getDate()} au ${sun.getDate()} ${MONTHS[sun.getMonth()]}`
-    : `du ${monday.getDate()} ${MONTHS[monday.getMonth()]} au ${sun.getDate()} ${MONTHS[sun.getMonth()]}`;
-}
 const outfitName = (id, gender) => { const o = OUTFITS[id] ?? OUTFITS.none; return gender === 'femme' && o.nameF ? o.nameF : o.name; };
 const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 
@@ -137,18 +124,32 @@ function computeInitials(members) {
   }
 }
 
-async function refresh(force = false) {
+// Table modifiée (temps réel) → données à relire
+const TABLE_KEYS = {
+  members: ['members', 'scores', 'balances', 'xp', 'chips', 'duelStats', 'spent'], products: ['products'], purchases: ['purchases'], tasks: ['scores', 'weekly', 'logs'],
+  duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
+  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
+  soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
+  events: ['events'], event_votes: ['evVotes'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
+};
+async function refresh(force = false, only = null) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
-  if (state.game && !force) { state.pendingRefresh = true; return; }
+  if (state.game && !force) { state.pendingRefresh = true; return; }   // (au retour du jeu : relecture complète)
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (state.me?.kind === 'coloc' && Date.now() - (state.recAt ?? 0) > 3600000) { state.recAt = Date.now(); state.api.runRecurring?.().then((n) => { if (n) refresh(true); }).catch(() => {}); }   // dépenses automatiques du 1er du mois
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups', 'msgs', 'expenses', 'expShares'];
-  const res = await Promise.allSettled([
-    state.api.members(),
-    state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(), state.api.popups(state.me?.id), state.me ? state.api.messages(state.me.id) : [], state.api.expenses(), state.api.expenseShares(),
-  ]);
+  const api = state.api;
+  const LOADERS = {
+    members: () => api.members(), scores: () => api.scores(), balances: () => api.balances(), products: () => api.products(), purchases: () => api.purchases(), duels: () => api.duels(),
+    stats: () => api.stats(), duelStats: () => api.duelStats(), unlocks: () => api.unlocks(), views: () => api.views(), xp: () => api.xp(), weekly: () => api.weekly(), logs: () => api.taskLogs(),
+    spent: () => api.soapSpent(), dice: () => api.diceRolls(), perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
+    farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
+    events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
+    expenses: () => api.expenses(), expShares: () => api.expenseShares(),
+  };
+  // `only` : si le temps réel dit quelles tables ont changé, on ne relit que ce qui en dépend (au lieu des ~30 requêtes à chaque fois)
+  const keys = only ? Object.keys(LOADERS).filter((k) => only.has(k)) : Object.keys(LOADERS);
+  const res = await Promise.allSettled(keys.map((k) => LOADERS[k]()));
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
   state.syncErr = failed.length ? failed[0] : null; if (!failed.length) state.syncAt = new Date();
@@ -226,6 +227,10 @@ async function healCaches() {
     location.reload(); return true;
   } catch { return false; }
 }
+function setTheme(t) {
+  store.set('coloc-theme', t);
+  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); else document.documentElement.removeAttribute('data-theme');
+}
 async function init() {
   if (APIMOD.BUILD !== BUILD && await healCaches()) return;
   let step = 'démarrage';
@@ -243,7 +248,7 @@ async function init() {
   try {
     const cloud = CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY;
     step = 'connexion'; sp(0.15);
-    state.api = cloud ? await makeCloudApi() : makeDemoApi();
+    state.api = cloud ? await makeCloudApi() : (await import('./demo.js')).makeDemoApi();
     state.members = await state.api.members(); sp(0.4);
     state.initials = computeInitials(state.members);
     // Session : reconnu seulement si le code secret a déjà été saisi sur cet appareil (et existe encore)
@@ -253,14 +258,21 @@ async function init() {
     sp(0.65);
     step = 'lecture des données (stats, défis…)';
     await refresh(); sp(1); window.splashDone?.();
-    state.api.onChange(debounce(() => refresh().catch(() => {}), 250));
+    {
+      const keys = new Set(); let all = false, timer = 0;
+      state.api.onChange((table) => {
+        if (TABLE_KEYS[table]) TABLE_KEYS[table].forEach((k) => keys.add(k)); else all = true;
+        clearTimeout(timer);
+        timer = setTimeout(() => { const only = all ? null : new Set(keys); keys.clear(); all = false; refresh(false, only).catch(() => {}); }, 250);
+      });
+    }
     document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh().catch(() => {}); });
-    // Filet de sécurité si le temps réel rate un message : on relit les données toutes les 15 s (sans gêner une saisie ou une fenêtre ouverte)
+    // Filet de sécurité si le temps réel rate un message : relecture complète toutes les 60 s (sans gêner une saisie ou une fenêtre ouverte)
     setInterval(() => {
       const ae = document.activeElement;
       if (document.hidden || state.game || state.sheet || !state.me || (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) return;
       refresh().catch(() => {});
-    }, 15000);
+    }, 60000);
     if (state.me) syncSub();
   } catch (e) {
     console.error(e);
@@ -420,19 +432,8 @@ async function confirmPerkNow(id) {
 /* ---------- Historiques (trophées, savons) ---------- */
 const REASONS = { start: 'Départ', daily: 'Récompense du jour', wheel: 'Roue de la fortune', blackjack: 'Blackjack', plateau: 'Plateau', 'duel-win': 'Chifoumi gagné', 'duel-loss': 'Chifoumi perdu' };
 const reasonLabel = (r) => (r?.startsWith('challenge:') ? `Défi : ${titleOf(r.slice(10)) ?? ''}` : REASONS[r] ?? r);
-async function openTrHist() {
-  state.sheet = { type: 'trhist', rows: null }; render();
-  try { const rows = await state.api.ledger(state.me.id); if (state.sheet?.type === 'trhist') { state.sheet.rows = rows; render(); } }
-  catch (e) { state.sheet = null; toast(e.message || 'Historique indisponible.'); render(); }
-}
 function histRow(label, when, amount, unit) {
   return `<div class="hrow"><div><b>${esc(label)}</b><small>${esc(when)}</small></div><span class="${amount > 0 ? 'plus' : 'minus'}">${amount > 0 ? '+' : ''}${amount} ${unit}</span></div>`;
-}
-function trHistHTML(s) {
-  return sheetWrap(`
-    <div class="sh"><div><h2>🏆 Historique des trophées</h2><div class="when">Solde : ${balanceOf(state.me.id)} 🏆</div></div>${closeBtn}</div>
-    ${s.rows == null ? '<div class="det">Chargement…</div>' : s.rows.length ? `<div class="hlist">${s.rows.map((r) => histRow(reasonLabel(r.reason), ago(r.created_at), r.amount, '🏆')).join('')}</div>` : '<div class="det">Aucun gain ni perte pour l\'instant.</div>'}
-    <div class="sact"><button class="btn" data-action="close">Fermer</button></div>`, 'var(--gold)');
 }
 function soapHistHTML() {
   const me = state.me.id;
@@ -608,11 +609,6 @@ async function autoClaim() {
 }
 
 const dailyDue = () => !!state.me && statsOf(state.me.id).last_login !== iso(new Date());
-function nextStreak() {
-  const s = statsOf(state.me.id);
-  const y = iso(addDays(startOfToday(), -1));
-  return s.last_login === y && s.streak < 7 ? s.streak + 1 : 1;
-}
 async function claimDailyNow() {
   try {
     const r = await state.api.claimDaily(state.me.id, iso(new Date()));
@@ -873,13 +869,6 @@ const introStep = () => {
   return INTRO_STEPS.find((x) => !(mask & (1 << (x.n - 1)))) ?? null;
 };
 
-// Tête du header : déroule les têtes de tous les colocs et copains (la tienne en premier)
-function headsHTML() {
-  const me = state.me;
-  const list = [me, ...colocs().filter((m) => m.id !== me.id), ...copains().filter((m) => m.id !== me.id)];
-  return `<div class="heads" role="menu">${list.map((m) => `
-    <button class="headb" data-action="head" data-id="${m.id}" role="menuitem">${av(m, 48)}<small>${m.id === me.id ? 'Moi' : esc(m.name)}</small>${m.kind === 'copain' ? '<i>copain</i>' : ''}</button>`).join('')}</div>`;
-}
 
 /* ---------- Onglet 1 : tâches (liste des tâches réalisables, stocks) ---------- */
 const HOUR = 3600000;
@@ -1291,10 +1280,6 @@ function farmStatus(p) {
   if (t > n) return 'grow';
   return n > t + FARM.witherH * 3600000 ? 'dead' : 'ready';
 }
-function fmtLeft(ms) {
-  const m = Math.max(1, Math.ceil(ms / 60000));
-  return m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}` : `${m} min`;
-}
 function farmReadyBadge() {
   const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
@@ -1414,17 +1399,6 @@ function featuredBadgeHTML(m) {
   return `<div class="featbadge"><span class="medal ${t == null ? 'none' : 't' + t}">${e}</span><div><b>${esc(shown ?? raw)}</b><small>${l}${t == null ? '' : ` · ${TIER_NAMES[t]}`}</small></div></div>`;
 }
 
-// Réglages du profil : titre affiché
-function profileEdit(m) {
-  const unlocked = CHALLENGES.filter((c) => unlockedKeys(m.id).has(c.key));
-  return `
-    <h3 class="sec">Titre affiché</h3>
-    <select class="dd" data-input="title" aria-label="Titre affiché">
-      <option value="">Aucun titre</option>
-      ${unlocked.map((c) => `<option value="${c.key}" ${m.title === c.key ? 'selected' : ''}>${c.emoji} ${esc(c.title)}</option>`).join('')}
-    </select>
-    ${unlocked.length ? '' : '<div class="det">Réussis un défi pour débloquer ton premier titre.</div>'}`;
-}
 
 function inboxHTML() {
   if (!state.msgs.length) return '<div class="det">Aucun message pour l\'instant. Les autres peuvent t\'en envoyer depuis ton profil.</div>';
@@ -1517,6 +1491,8 @@ function reglagesHTML() {
       <div class="swatches">${swatches(HAIR_COLORS, 'hair', me.hair)}</div>
       <h3 class="sec">Couleur de fond du profil</h3>
       <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>` : ''}
+    <h3 class="sec">Thème</h3>
+    <div class="seg" style="margin-bottom:10px">${[['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button class="${(store.get('coloc-theme') || 'auto') === k ? 'on' : ''}" data-action="theme" data-v="${k}">${l}</button>`).join('')}</div>
     <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Jumpy Cardinal) : activé' : 'Compteur FPS (Jumpy Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
@@ -1826,6 +1802,7 @@ document.addEventListener('click', (e) => {
     case 'task-no': case 'task-cancel': answerTaskNow(Number(id), false); break;
     case 'product': toggleProduct(Number(id)); break;
     case 'push': enablePush(); break;
+    case 'theme': setTheme(v); render(); break;
     case 'fps': store.set('coloc-fps', store.get('coloc-fps') === '1' ? '0' : '1'); render(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;

@@ -952,12 +952,9 @@ grant execute on function popup_seen(int, bigint) to anon, authenticated;
 do $$ begin
   begin alter publication supabase_realtime add table popups; exception when duplicate_object then null; end;
 end $$;
-insert into popups (key, to_id, title, body, theme)
-select 'zakaria-anniv-2026', id, 'Joyeux anniversaire ZakariYa',
-  E'Joyeux anniversaire en retard !\nBonne nouvelle : tu es convié à une soirée entre mecs, avec bière et nourriture à volonté pour toi, aux Toiles Noires ! https://lestoilesnoires.re/ Invite les copains de ton choix, sinon ça va finir en duo bot lol',
-  'gamer'
-from members where name = 'Zakaria' limit 1
-on conflict (key) do update set title = excluded.title, body = excluded.body where popups.seen_at is null;   -- texte mis à jour tant qu'il n'a pas été vu
+-- Zakaria s'appelle maintenant Zak ; la surprise d'anniversaire est supprimée
+update members set name = 'Zak' where name = 'Zakaria';
+delete from popups where key = 'zakaria-anniv-2026';
 
 
 -- ===== v35 : Budget (comme Tricount) : dépenses partagées entre colocs, parts égales =====
@@ -1086,7 +1083,7 @@ begin
   return n;
 end $$;
 grant execute on function run_recurring() to anon, authenticated;
--- Internet : 29,99 € payés par Zakaria, pour tout le monde, à partir du 1er novembre 2026
+-- Internet : 29,99 € payés par Zak, pour tout le monde, à partir du 1er novembre 2026
 insert into recurring_expenses (key, title, amount_cents, payer_id, start_on)
-select 'internet', 'Internet', 2999, id, date '2026-11-01' from members where name = 'Zakaria' limit 1
+select 'internet', 'Internet', 2999, id, date '2026-11-01' from members where name in ('Zak', 'Zakaria') limit 1
 on conflict (key) do nothing;

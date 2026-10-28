@@ -1,6 +1,6 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v60';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './budget.js', './manifest.webmanifest', './icon-192.png'];
+const CACHE = 'coloc-v61';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './budget.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   // cache:'reload' : on récupère vraiment les nouveaux fichiers (pas la copie gardée par le navigateur)
@@ -29,8 +29,8 @@ self.addEventListener('push', (e) => {
   e.waitUntil(
     self.registration.showNotification(data.title || 'Coloc', {
       body: data.body || '',
-      icon: './icon-192.png',
-      badge: './icon-192.png',
+      icon: './icon-192-l.png',
+      badge: './icon-192-l.png',
       tag: data.tag,
     })
   );
