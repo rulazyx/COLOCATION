@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 62;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 63;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -807,7 +807,7 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${tab === 'me' ? '' : tab === 'tasks' ? weekHeaderHTML() : `<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="goperso" aria-label="Mon profil">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span></button>
+      <button class="hav ${step?.tab === 'heads' ? 'pulse' : ''}" data-action="goperso" aria-label="Mon profil">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
       <button class="hcart" data-action="shop" data-slot="outfit" aria-label="Boutique" title="Boutique">${CART_SVG}</button>
       <button class="hcart ${dailyDue() || statsOf(me.id).wheel_ready ? 'dot' : ''} ${pulse('defis')}" data-action="tab" data-tab="defis" aria-label="Quêtes" title="Quêtes">${NAV_ICONS.defis()}</button>
       <span class="grow"></span>
@@ -825,14 +825,13 @@ function render() {
       ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
-      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : ta tête est visible partout sauf dans Profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche le livre « Quêtes », en haut' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
+      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche le livre « Quêtes », en haut' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
     <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
       <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">CALENDRIER</span>${badge(evToAnswer())}</button>
       <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
-      <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''} ${pulse('me')}"><span class="ico">${NAV_ICONS.me()}</span><span class="tl">PERSO</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
     </nav>
     ${sheetHTML()}`;
 }
