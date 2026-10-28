@@ -1145,13 +1145,6 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 .chal.ready{background:var(--accent-soft);outline:2px solid var(--accent)}
 .chal.ready .claimb{align-self:center;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 
-/* Écran fixe : seul #app défile, la barre du bas ne bouge plus (ni au défilement, ni sur les pages courtes) */
-html,body{height:100%;overflow:hidden;overscroll-behavior:none}
-body{position:fixed;inset:0;width:100%;padding-bottom:0!important}
-#app{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
-/* Écart écran / fenêtre (iPhone) : tout ce qui est collé en bas descend de --gap */
-nav.tabs{bottom:calc(-1 * var(--gap, 0px))!important}
-.gamelayer,.overlay{bottom:calc(-1 * var(--gap, 0px))}
-#app{bottom:calc(-1 * var(--gap, 0px))}
-html,body{background:var(--bg)}
-body{overflow:visible}
+/* Le document doit toujours pouvoir défiler (de 2 px au moins) : sinon iOS décale la barre du bas vers le haut sur les pages courtes */
+html{min-height:100%}
+body{min-height:calc(100vh + 2px)}

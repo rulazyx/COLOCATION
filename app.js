@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 84;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 85;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -658,7 +658,7 @@ const GAMES = {
 let gameHandle = null, gameScrollY = 0;
 // L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
 const appEl = () => document.getElementById('app');
-const scrollApp = (y = 0) => { const a = appEl(); if (a) a.scrollTop = y; };
+const scrollApp = (y = 0) => window.scrollTo(0, y);
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
@@ -885,7 +885,7 @@ async function openGame(id) {
   // Pas de flèche retour : un bouton Menu (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
   layer.innerHTML = `<div class="ghead"><button class="chip gmenu" data-gact="menu" aria-label="Menu">☰ Menu</button><span class="ghead-r"></span></div><div class="gbody"></div><div class="ghome"></div>
     <div class="gsplash"><div class="gs-art">${logoArt(id)}</div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
-  gameScrollY = appEl()?.scrollTop ?? 0; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
+  gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
@@ -2084,14 +2084,6 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !state.game && currentSheet()) closeSheet(); });
 
-// iPhone (appli installée) : la fenêtre peut être plus courte que l'écran → vide sous la barre. On mesure l'écart et on descend ce qui est collé en bas.
-function fitScreen() {
-  const standalone = navigator.standalone || (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches);
-  const gap = standalone ? Math.max(0, Math.round((screen.height || 0) - window.innerHeight)) : 0;
-  document.documentElement.style.setProperty('--gap', `${gap > 400 ? 0 : gap}px`);
-}
-fitScreen();
-['resize', 'orientationchange', 'pageshow', 'visibilitychange', 'focus'].forEach((ev) => window.addEventListener(ev, () => setTimeout(fitScreen, 60)));
 render();
 init();
 
