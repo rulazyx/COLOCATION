@@ -1,7 +1,7 @@
 // « Coucou » : un oiseau rouge qui bat des ailes entre des colonnes jaunes (mécanique classique, dessin original).
 // Le score = nombre de colonnes passées. Toucher l'écran / espace / ↑ = battre des ailes.
-import { SHOP, BIRD_CRATE, birdRarity } from '../config.js';
-import { birdSVG, CRATE_SVG } from '../shopart.js';
+import { SHOP } from '../config.js';
+import { gIcon } from '../gameart.js';
 export const W = 288, H = 480, GROUND = 64;
 const GRAVITY = 0.42, FLAP = -6.9, MAX_FALL = 9;
 const PIPE_W = 54, GAP = 128, SPEED = 2.3, SPACING = 176, BIRD_X = 78, BIRD_R = 12;
@@ -246,19 +246,15 @@ function makeAudio() {
     },
   };
 }
-const SPK_ON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/></svg>';
-const SPK_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>';
-const COIN = '<svg viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-3px"><circle cx="10" cy="10" r="9" fill="#f6b91d" stroke="#9a6209" stroke-width="1.6"/><circle cx="10" cy="10" r="5.4" fill="none" stroke="#fde68a" stroke-width="1.5"/></svg>';
+const SPK_ON = gIcon('sound'), SPK_OFF = gIcon('mute');
 
-export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest }) {
-  let skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
+export function mount(root, { onEnd, bird, fps, quest }) {
+  const skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   const snd = makeAudio();
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
-    <div class="gover" hidden><h2>Vous êtes mort</h2><p class="gscore"></p><div class="gwin"></div><button class="btn primary" data-act="again">Rejouer ?</button><button class="gquit" data-gact="close">Quitter</button></div>
-    <button class="gmute" data-act="mute" aria-label="Son">${snd.muted ? SPK_OFF : SPK_ON}</button>
-    ${crate ? `<button class="gcratebtn" data-act="crate" hidden>${COIN} <b>${BIRD_CRATE.price}</b> · Caisse mystère</button>` : ''}
-    <div class="gcrate" hidden></div>`;
-  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gover');
+    <div class="gend" hidden><h2>Partie terminée</h2><p class="gscore"></p><div class="gwin"></div><button class="gh-btn go" data-act="again">${gIcon('replay')}Rejouer</button><button class="gh-btn" data-gact="home">${gIcon('home')}Menu principal</button></div>
+    <button class="gmute" data-act="mute" aria-label="Son">${snd.muted ? SPK_OFF : SPK_ON}</button>`;
+  const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gend');
   // Compteur de performances (Réglages > Compteur FPS) : images par seconde, pires images, temps de calcul du jeu
   let hud = null, deltas = [], work = [], hudAt = 0, worstAll = 0, jankAll = 0, framesAll = 0;
   let hudTxt = [], jankAt = [], jankGaps = [];
@@ -284,37 +280,14 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
   const flushJumps = () => { if (jumps > 0) { quest?.('fl_jumps', jumps); jumps = 0; } };
   const flap = () => { if (g.dead) return; if (!g.started) quest?.('fl_games'); jumps++; g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
-  const crateBtn = root.querySelector('.gcratebtn'), muteBtn = root.querySelector('.gmute'), crateBox = root.querySelector('.gcrate');
-  let crating = false;
-  const syncCrate = () => {
-    if (!crateBtn) return;
-    const show = !g.started && !g.dead && !crating;
-    crateBtn.hidden = !show;
-    if (show) { const ok = (balance?.() ?? 0) >= BIRD_CRATE.price; crateBtn.disabled = !ok; crateBtn.classList.toggle('poor', !ok); }
-  };
+  const muteBtn = root.querySelector('.gmute');
   const onDown = (e) => { snd.unlock(); e.preventDefault(); flap(); };
   cv.addEventListener('pointerdown', onDown);
   window.addEventListener('keydown', onKey);
   root.addEventListener('click', (e) => {
     const a = e.target.closest('[data-act]')?.dataset.act;
     if (a === 'mute') { muteBtn.innerHTML = snd.toggle() ? SPK_OFF : SPK_ON; return; }
-    if (a === 'crate' && !crating) {
-      crating = true; crateBtn.hidden = true; snd.unlock();
-      crate().then((key) => {
-        const b = SHOP.bird.find((x) => x.key === key);
-        crateBox.innerHTML = `<div class="gcr-card"><div class="gcr-rar rar-${({ Commun: 'c', Rare: 'r', Épique: 'e', Légendaire: 'l' })[birdRarity(b?.w ?? 12)]}">${birdRarity(b?.w ?? 12)}</div>${birdSVG(key, 96)}<b>${b?.name ?? key}</b>
-          <button class="gbtn" data-act="cr-equip" data-key="${key}">Équiper</button><button class="gbtn ghost" data-act="cr-close">Continuer</button></div>`;
-        crateBox.hidden = false; snd.play('score');
-      }).catch((err) => { crating = false; crateBox.innerHTML = `<div class="gcr-card"><b>${(err && err.message) || 'Ouverture impossible.'}</b><button class="gbtn ghost" data-act="cr-close">OK</button></div>`; crateBox.hidden = false; });
-      return;
-    }
-    if (a === 'cr-equip') {
-      const key = e.target.closest('[data-act]').dataset.key;
-      Promise.resolve(equipBird?.(key)).catch(() => {});
-      skin = { ...BASE, ...(SHOP.bird.find((x) => x.key === key) ?? {}) };
-    }
-    if (a === 'cr-equip' || a === 'cr-close') { crateBox.hidden = true; crating = false; return; }
-    if (e.target.dataset.act === 'again') { g = createGame(); reported = false; sent20 = false; over.hidden = true; cv.classList.remove('gray'); }
+    if (a === 'again') { g = createGame(); reported = false; sent20 = false; over.hidden = true; }
   });
   function loop(ts) {
     if (destroyed) return;
@@ -326,10 +299,8 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
     for (const x of g.sfx.splice(0)) snd.play(x);
     if (!sent20 && g.score >= 20) { sent20 = true; quest?.('fl_score', g.score); }
     if (g.dead && jumps) flushJumps();
-    syncCrate();
     draw(ctx, g, frame, skin);
     if (hudTxt.length) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(4, 40, 262, 70); ctx.fillStyle = '#9dffb0'; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'; hudTxt.forEach((t, i) => ctx.fillText(t, 8, 54 + i * 13)); }
-    if (g.dead && g.deathT >= GROW_F + 38) cv.classList.add('gray');
     if (g.dead && !reported && g.deathT >= DEAD_F) {
       reported = true;
       over.querySelector('.gscore').textContent = `${g.score} colonne${g.score > 1 ? 's' : ''} passée${g.score > 1 ? 's' : ''}`;

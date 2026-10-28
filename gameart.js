@@ -19,12 +19,13 @@ const FARMER = `<svg viewBox="0 0 120 140" aria-hidden="true">
     <ellipse cx="60" cy="27" rx="38" ry="8" fill="#facc15" stroke="#a16207" stroke-width="2"/><path d="M42 27q0-24 18-24t18 24z" fill="#fde047" stroke="#a16207" stroke-width="2"/><rect x="42" y="21" width="36" height="6" fill="#dc2626"/>
   </g></svg>`;
 
+// Pierre, feuille, ciseaux dessinés en couleur (tuile, accueil du chifoumi, choix du coup, révélation)
 const MI = {
-  pierre: '<path d="M8 30c0-9 6-16 15-16s17 6 17 15-6 13-15 13-17-3-17-12z"/><path d="M17 25c3-3 8-4 12-1M21 35c3 1 7 0 10-3"/>',
-  feuille: '<path d="M11 6h19l8 8v28H11z"/><path d="M30 6v8h8M16 22h16M16 29h16M16 36h10"/>',
-  ciseaux: '<circle cx="14" cy="36" r="6"/><circle cx="34" cy="36" r="6"/><path d="M18 31L35 6M30 31L13 6"/>',
+  pierre: '<path d="M7 31l3-11 10-7 12 1 8 9 1 11-7 7-15 1-9-4z" fill="#9aa3ad" stroke="#4b5563" stroke-width="2.2" stroke-linejoin="round"/><path d="M10 20l10-7 12 1-4 7-11 2z" fill="#c3cad3"/><path d="M28 21l12 2M17 23l-4 12M30 30l-6 6" stroke="#6b7280" stroke-width="1.8" stroke-linecap="round" fill="none"/><path d="M15 16l5-3" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>',
+  feuille: '<g transform="rotate(-6 24 24)"><path d="M11 5h19l8 8v30H11z" fill="#fff" stroke="#64748b" stroke-width="2.2" stroke-linejoin="round"/><path d="M30 5v8h8z" fill="#e2e8f0" stroke="#64748b" stroke-width="2.2" stroke-linejoin="round"/><path d="M16 21h16M16 27h16M16 33h11" stroke="#94a3b8" stroke-width="2.4" stroke-linecap="round"/></g>',
+  ciseaux: '<path d="M17 30L36 5" stroke="#475569" stroke-width="5.5" stroke-linecap="round"/><path d="M17 30L36 5" stroke="#e2e8f0" stroke-width="3" stroke-linecap="round"/><path d="M31 30L12 5" stroke="#475569" stroke-width="5.5" stroke-linecap="round"/><path d="M31 30L12 5" stroke="#cbd5e1" stroke-width="3" stroke-linecap="round"/><circle cx="24" cy="21" r="2" fill="#475569"/><circle cx="14" cy="37" r="6.5" fill="none" stroke="#b91c1c" stroke-width="6"/><circle cx="14" cy="37" r="6.5" fill="none" stroke="#e5484d" stroke-width="3.6"/><circle cx="34" cy="37" r="6.5" fill="none" stroke="#b91c1c" stroke-width="6"/><circle cx="34" cy="37" r="6.5" fill="none" stroke="#e5484d" stroke-width="3.6"/>',
 };
-export const moveIcon = (k, size = 40) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${MI[k] ?? MI.pierre}</svg>`;
+export const moveIcon = (k, size = 40) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true">${MI[k] ?? MI.pierre}</svg>`;
 
 export function logoArt(id) {
   switch (id) {
@@ -34,10 +35,23 @@ export function logoArt(id) {
       return `<div class="gl-sudo">${d.map((v, i) => `<i style="--i:${i}">${v || ['1', '8', '4', '2'][i % 4]}</i>`).join('')}</div>`;
     }
     case 'chifoumi':
-      return `<div class="gl-chif">${['pierre', 'feuille', 'ciseaux'].map((k, i) => `<i style="--i:${i}">${moveIcon(k, 34)}</i>`).join('')}</div>`;
+      return `<div class="gl-chif">${['pierre', 'feuille', 'ciseaux'].map((k, i) => `<i style="--i:${i}">${moveIcon(k, 42)}</i>`).join('')}</div>`;
     case 'ferme': return `<div class="gl-farmer">${FARMER}</div>`;
     case 'blackjack':
       return `<div class="gl-cards"><div class="gl-card c1"><b>A</b><i>♠</i></div><div class="gl-card c2 red"><b>K</b><i>♥</i></div></div>`;
     default: return `<div class="gl-bird">${BIRD}</div>`;
   }
 }
+
+// Icônes des menus de jeux (trait simple, couleur du texte)
+const GI = {
+  menu: '<path d="M5 7h14M5 12h14M5 17h14"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z" fill="currentColor"/>',
+  replay: '<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/>',
+  home: '<path d="M4 11l8-6.5 8 6.5"/><path d="M6.5 9.5V19h11V9.5"/><path d="M10 19v-5h4v5"/>',
+  quit: '<path d="M14 4h4.5v16H14"/><path d="M10 8l-4 4 4 4M6 12h9"/>',
+  duel: '<path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 19l6-6M16 16l4 4M19 21l2-2M14.5 6.5L18 3h3v3l-3.5 3.5M5 14l4 4M7 17l-3 3M3 19l2 2"/>',
+  sound: '<path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M16.5 9a4 4 0 0 1 0 6M19 6.5a8 8 0 0 1 0 11"/>',
+  mute: '<path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/>',
+};
+export const gIcon = (k, size = 22) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${GI[k] ?? ''}</svg>`;
