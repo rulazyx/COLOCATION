@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 92;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 93;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -676,7 +676,7 @@ function farmCtx() {
 /* ---------- Jeux : écran d'accueil par jeu, panneaux (perso, classement…), menu pause ---------- */
 const GBOARD = { flappy: 'Classement', sudoku: 'Classement', blackjack: 'Classement victoires' };   // jeux qui ont un classement (icône trophée en haut à droite)
 const GHOME = {
-  flappy: ['play', 'perso', 'quit'],
+  flappy: ['play', 'quit'],   // le choix de l'oiseau se fait via l'icône cardinal en haut à droite
   sudoku: ['play', 'perso', 'intel', 'quit'],
   chifoumi: ['duel', 'hist', 'quit'],
   ferme: ['play', 'quit'],
@@ -691,6 +691,7 @@ function gHomeHTML(id) {
   const G = GAMES[id];
   return `<div class="gh-art">${logoArt(id)}</div><div class="gh-title">${esc(G.name)}</div>
     <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${GBTN[k]}</button>`).join('')}</div>
+    ${id === 'flappy' ? `<button class="gtrophy-home gbird-home" data-gh="perso" aria-label="Choisir ton oiseau">${birdSVG(null, 30)}</button>` : ''}
     ${GBOARD[id] ? `<button class="gtrophy-home" data-gh="board" aria-label="${GBOARD[id]}">${TROPHY_SVG(28)}</button>` : ''}`;
 }
 const gRows = (rows) => `<ol class="gp-rank">${rows.map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${r.pos}</span>${av(r.m, 34)}<b>${esc(r.m?.name ?? '?')}</b><em>${r.right}</em></li>`).join('') || '<li class="empty">Personne pour l\'instant</li>'}</ol>`;
@@ -765,7 +766,7 @@ function gShow(view) {
   const layer = glayer(), u = gameUI; if (!layer || !u) return;
   u.view = view;
   const home = layer.querySelector('.ghome');
-  layer.classList.add('onhome'); layer.classList.toggle('has-trophy', view === 'home' && !!GBOARD[u.id]);
+  layer.classList.add('onhome'); layer.classList.toggle('has-trophy', view === 'home' && !!GBOARD[u.id]); layer.classList.toggle('has-bird', view === 'home' && u.id === 'flappy');
   if (view === 'home') { home.className = 'ghome'; home.innerHTML = gHomeHTML(u.id); return; }
   const bodies = { perso: gPersoHTML, board: () => gBoardHTML(u.id), intel: gIntelHTML, duel: gDuelHTML, hist: gHistHTML, move: () => gMoveHTML(u.duel), result: () => gResultHTML(u.result),
     reveal: () => { const b = SHOP.bird.find((x) => x.key === u.crateKey); return `<div class="gp-won"><span class="rar ${RAR_CLS[birdRarity(b.w)]}">${birdRarity(b.w)}</span><div class="bigbird">${birdSVG(b.key, 140)}</div><h2>${esc(b.name)}</h2><small>Nouvel oiseau débloqué !</small>

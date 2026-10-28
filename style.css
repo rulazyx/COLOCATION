@@ -1203,3 +1203,5 @@ body{min-height:calc(100vh + 2px)}
 .gtrophy-home:active{transform:scale(.94)}
 .gamelayer.has-trophy .ghead-r{margin-right:52px}
 .gamelayer:not(.onhome) .gtrophy-home{display:none}
+.gbird-home{right:66px}
+.gamelayer.has-bird .ghead-r{margin-right:104px}
