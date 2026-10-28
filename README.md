@@ -261,3 +261,9 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 
 ## v36
 - Notifications : si l'abonnement d'un téléphone a été créé avec une autre clé VAPID que celle de `keys.js`, l'appli le recrée à l'ouverture. La fonction `notify` supprime les abonnements refusés pour `VapidPkHashMismatch`.
+
+## v37
+- Onglet **Budget** (copie de Tricount) : dépenses partagées à parts égales entre les colocs, soldes, « pour tout équilibrer », remboursements. Calculs dans `budget.js`.
+- Tâche « Vaisselle pour tout le monde » (+2 savons).
+- Alerte « Mise à jour disponible » ; démarrage plus rapide (écran d'accueil raccourci, appli servie depuis le cache, chargement des données en parallèle).
+- SQL : relancer `supabase/migration-v8.sql` (tables `expenses`, `expense_shares`).

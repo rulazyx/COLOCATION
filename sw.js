@@ -1,9 +1,10 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v56';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './manifest.webmanifest', './icon-192.png'];
+const CACHE = 'coloc-v57';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './budget.js', './manifest.webmanifest', './icon-192.png'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  // cache:'reload' : on récupère vraiment les nouveaux fichiers (pas la copie gardée par le navigateur)
+  e.waitUntil(caches.open(CACHE).then((c) => Promise.all(ASSETS.map((u) => c.add(new Request(u, { cache: 'reload' })).catch(() => {})))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -14,19 +15,16 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Réseau d'abord (toujours la dernière version), cache en secours si hors-ligne.
+// Cache d'abord, mise à jour en arrière-plan : l'appli s'ouvre tout de suite, même avec une mauvaise connexion.
+// Quand une nouvelle version est prête, l'appli propose « Actualiser » (voir app.js).
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  e.respondWith(
-    fetch(req)
-      .then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-        return res;
-      })
-      .catch(() => caches.match(req))
-  );
+  e.respondWith(caches.open(CACHE).then(async (c) => {
+    const hit = await c.match(req, { ignoreSearch: true });
+    const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
+    return hit || net;
+  }));
 });
 
 self.addEventListener('push', (e) => {

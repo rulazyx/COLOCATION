@@ -38,7 +38,7 @@
   /* le soleil qui s'élargit et recouvre tout l'écran */
   #grow{position:fixed;left:50%;top:var(--cy,45%);width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#ffc928;
     transform:scale(0);z-index:10000;pointer-events:none}
-  #grow.go{transition:transform .9s cubic-bezier(.6,0,.3,1);transform:scale(var(--s,400))}
+  #grow.go{transition:transform .55s cubic-bezier(.6,0,.3,1);transform:scale(var(--s,400))}
   #grow.fade{transition:opacity .6s;opacity:0}
   #replay{position:fixed;right:12px;bottom:12px;z-index:10001;padding:10px 14px;border-radius:20px;border:0;background:#2f9e6b;color:#fff;font:600 14px system-ui}
   @media (prefers-reduced-motion:reduce){.disc,.eye{animation:none}}
@@ -92,15 +92,15 @@
     grow.style.setProperty('--cy', (r.top + r.height / 2) + 'px');
     grow.style.setProperty('--s', Math.ceil(Math.hypot(innerWidth, innerHeight) / 5) + 20);
     void grow.offsetWidth; grow.classList.add('go');
-    setTimeout(function () { splash.classList.add('out'); grow.classList.add('fade'); }, 1000);
-    setTimeout(function () { splash.remove(); grow.remove(); }, 1800);
+    setTimeout(function () { splash.classList.add('out'); grow.classList.add('fade'); }, 550);
+    setTimeout(function () { splash.remove(); grow.remove(); }, 1100);
   }
   // l'affichage rattrape la progression réelle à vitesse limitée : les rayons se voient même si tout charge très vite
   function tick(now) {
     var dt = now - last; last = now;
-    shown = Math.min(target, shown + dt * 0.0008);
+    shown = Math.min(target, shown + dt * 0.003);
     show(shown);
-    if (finished && shown >= 1) return setTimeout(end, 400);
+    if (finished && shown >= 1) return setTimeout(end, 120);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
@@ -109,6 +109,7 @@
   setTimeout(window.splashDone, 15000); // sécurité : on ne bloque jamais l'appli
 })();
 </script>
+  <link rel="modulepreload" href="config.js"><link rel="modulepreload" href="util.js"><link rel="modulepreload" href="challenges.js"><link rel="modulepreload" href="avatar.js"><link rel="modulepreload" href="shopart.js"><link rel="modulepreload" href="budget.js"><link rel="modulepreload" href="api.js"><link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm" crossorigin>
   <script type="module" src="app.js"></script>
 </body>
 </html>

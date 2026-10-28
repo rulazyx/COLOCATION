@@ -2063,7 +2063,8 @@ insert into task_kinds (kind, soap, cooldown_h) values
   ('poub_portail', 1, 12),
   ('poub_remplace', 1, 12),
   ('cuis_patisserie', 4, 24),
-  ('cuis_repas', 8, 24)
+  ('cuis_repas', 8, 24),
+  ('cuis_vaisselle', 2, 12)
 on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;
 
 -- ---------- RÉINITIALISATION GÉNÉRALE (une seule fois) : niveaux, pièces, savons, tâches, cultures, achats… ----------
@@ -2298,3 +2299,90 @@ select 'zakaria-anniv-2026', id, 'Joyeux anniversaire ZakariYa',
   'gamer'
 from members where name = 'Zakaria' limit 1
 on conflict (key) do update set title = excluded.title, body = excluded.body where popups.seen_at is null;   -- texte mis à jour tant qu'il n'a pas été vu
+
+
+-- ===== v35 : Budget (comme Tricount) : dépenses partagées entre colocs, parts égales =====
+create table if not exists expenses (
+  id           bigserial primary key,
+  creator_id   int  not null references members(id) on delete cascade,
+  payer_id     int  not null references members(id) on delete cascade,
+  title        text not null check (char_length(title) between 1 and 60),
+  amount_cents int  not null check (amount_cents between 1 and 10000000),
+  spent_on     date not null default current_date,
+  kind         text not null default 'expense' check (kind in ('expense', 'transfer')),
+  created_at   timestamptz not null default now()
+);
+create table if not exists expense_shares (
+  expense_id bigint not null references expenses(id) on delete cascade,
+  member_id  int    not null references members(id) on delete cascade,
+  primary key (expense_id, member_id)
+);
+create index if not exists expenses_day on expenses (spent_on desc, id desc);
+alter table expenses enable row level security; alter table expense_shares enable row level security;
+drop policy if exists "expenses lecture" on expenses; create policy "expenses lecture" on expenses for select using (true);
+drop policy if exists "expense_shares lecture" on expense_shares; create policy "expense_shares lecture" on expense_shares for select using (true);
+grant select on expenses, expense_shares to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table expenses; exception when duplicate_object then null; end;
+  begin alter publication supabase_realtime add table expense_shares; exception when duplicate_object then null; end;
+end $$;
+
+-- Vérifie que tous les noms donnés sont des colocs
+create or replace function _budget_check(p_member int, p_payer int, p_parts int[]) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Le budget est réservé aux colocs.'; end if;
+  if not exists (select 1 from members where id = p_payer and kind = 'coloc') then raise exception 'Payeur invalide.'; end if;
+  if p_parts is null or coalesce(array_length(p_parts, 1), 0) = 0 then raise exception 'Choisis au moins une personne concernée.'; end if;
+  if (select count(*) from members where id = any(p_parts) and kind = 'coloc') <> (select count(distinct x) from unnest(p_parts) x) then raise exception 'Participants invalides.'; end if;
+end $$;
+
+create or replace function add_expense(p_member int, p_title text, p_amount_cents int, p_payer int, p_day date, p_parts int[]) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint; v_title text := trim(p_title);
+begin
+  perform _budget_check(p_member, p_payer, p_parts);
+  if v_title is null or char_length(v_title) = 0 then raise exception 'Donne un nom à la dépense.'; end if;
+  if char_length(v_title) > 60 then raise exception 'Nom trop long (60 caractères maximum).'; end if;
+  if p_amount_cents is null or p_amount_cents < 1 or p_amount_cents > 10000000 then raise exception 'Montant invalide.'; end if;
+  insert into expenses (creator_id, payer_id, title, amount_cents, spent_on) values (p_member, p_payer, v_title, p_amount_cents, coalesce(p_day, current_date)) returning id into v_id;
+  insert into expense_shares (expense_id, member_id) select v_id, x from (select distinct unnest(p_parts) x) t;
+  return v_id;
+end $$;
+
+create or replace function update_expense(p_member int, p_id bigint, p_title text, p_amount_cents int, p_payer int, p_day date, p_parts int[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_title text := trim(p_title);
+begin
+  perform _budget_check(p_member, p_payer, p_parts);
+  if not exists (select 1 from expenses where id = p_id and kind = 'expense') then raise exception 'Dépense introuvable.'; end if;
+  if v_title is null or char_length(v_title) = 0 or char_length(v_title) > 60 then raise exception 'Nom invalide.'; end if;
+  if p_amount_cents is null or p_amount_cents < 1 or p_amount_cents > 10000000 then raise exception 'Montant invalide.'; end if;
+  update expenses set title = v_title, amount_cents = p_amount_cents, payer_id = p_payer, spent_on = coalesce(p_day, spent_on) where id = p_id;
+  delete from expense_shares where expense_id = p_id;
+  insert into expense_shares (expense_id, member_id) select p_id, x from (select distinct unnest(p_parts) x) t;
+end $$;
+
+create or replace function delete_expense(p_member int, p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Le budget est réservé aux colocs.'; end if;
+  delete from expenses where id = p_id;
+end $$;
+
+-- Remboursement : p_from a donné p_cents à p_to (enregistré comme une dépense « Remboursement » qui ne concerne que p_to)
+create or replace function add_transfer(p_member int, p_from int, p_to int, p_cents int) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint;
+begin
+  perform _budget_check(p_member, p_from, array[p_to]);
+  if p_from = p_to then raise exception 'Choisis deux personnes différentes.'; end if;
+  if p_cents is null or p_cents < 1 or p_cents > 10000000 then raise exception 'Montant invalide.'; end if;
+  insert into expenses (creator_id, payer_id, title, amount_cents, kind) values (p_member, p_from, 'Remboursement', p_cents, 'transfer') returning id into v_id;
+  insert into expense_shares (expense_id, member_id) values (v_id, p_to);
+  return v_id;
+end $$;
+grant execute on function add_expense(int, text, int, int, date, int[]) to anon, authenticated;
+grant execute on function update_expense(int, bigint, text, int, int, date, int[]) to anon, authenticated;
+grant execute on function delete_expense(int, bigint) to anon, authenticated;
+grant execute on function add_transfer(int, int, int, int) to anon, authenticated;

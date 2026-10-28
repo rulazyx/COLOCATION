@@ -132,6 +132,12 @@ export async function makeCloudApi() {
     },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
+    async expenses() { return check(await sb.from('expenses').select('*').order('spent_on', { ascending: false }).order('id', { ascending: false }).limit(500)); },
+    async expenseShares() { return check(await sb.from('expense_shares').select('*')); },
+    async addExpense(m, title, cents, payer, day, parts) { return check(await sb.rpc('add_expense', { p_member: m, p_title: title, p_amount_cents: cents, p_payer: payer, p_day: day, p_parts: parts })); },
+    async updateExpense(m, id, title, cents, payer, day, parts) { check(await sb.rpc('update_expense', { p_member: m, p_id: id, p_title: title, p_amount_cents: cents, p_payer: payer, p_day: day, p_parts: parts })); },
+    async deleteExpense(m, id) { check(await sb.rpc('delete_expense', { p_member: m, p_id: id })); },
+    async addTransfer(m, from, to, cents) { return check(await sb.rpc('add_transfer', { p_member: m, p_from: from, p_to: to, p_cents: cents })); },
     async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
     async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
     async gameQuests(id) { return check(await sb.from('game_quests').select('quest,progress,done').eq('member_id', id).eq('day', reunionDay())); },
@@ -139,7 +145,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, cb).subscribe();
       }
     },
@@ -307,6 +313,34 @@ export function makeDemoApi() {
       if (s.quest_mask === 63 && old !== 63 && !db.xp.some((x) => x.member_id === id && x.reason === 'intro')) addXp(id, X.introXp, 'intro');
       save(); return s.quest_mask;
     },
+    async expenses() { return (db.exp ?? []).slice().sort((x, y) => y.spent_on.localeCompare(x.spent_on) || y.id - x.id).map((e) => ({ ...e })); },
+    async expenseShares() { return (db.expsh ?? []).map((s) => ({ ...s })); },
+    ...(() => {
+      const chk = (m, payer, parts, title, cents) => {
+        if (!isColoc(m)) fail('Le budget est réservé aux colocs.');
+        if (!isColoc(payer)) fail('Payeur invalide.');
+        if (!parts?.length) fail('Choisis au moins une personne concernée.');
+        if (!parts.every(isColoc)) fail('Participants invalides.');
+        if (title !== null) { const t = String(title ?? '').trim(); if (!t) fail('Donne un nom à la dépense.'); if (t.length > 60) fail('Nom trop long (60 caractères maximum).'); }
+        if (!Number.isInteger(cents) || cents < 1 || cents > 10000000) fail('Montant invalide.');
+      };
+      const put = (id, parts) => { db.expsh = (db.expsh ?? []).filter((s) => s.expense_id !== id).concat([...new Set(parts)].map((member_id) => ({ expense_id: id, member_id }))); };
+      return {
+        async addExpense(m, title, cents, payer, day, parts) {
+          chk(m, payer, parts, title, cents); db.exp ??= []; db.nextExp ??= 1; const id = db.nextExp++;
+          db.exp.push({ id, creator_id: m, payer_id: payer, title: String(title).trim(), amount_cents: cents, spent_on: day || iso(new Date()), kind: 'expense', created_at: now() }); put(id, parts); save(); return id;
+        },
+        async updateExpense(m, id, title, cents, payer, day, parts) {
+          chk(m, payer, parts, title, cents); const e = (db.exp ?? []).find((x) => x.id === id && x.kind === 'expense'); if (!e) fail('Dépense introuvable.');
+          Object.assign(e, { title: String(title).trim(), amount_cents: cents, payer_id: payer, spent_on: day || e.spent_on }); put(id, parts); save();
+        },
+        async deleteExpense(m, id) { if (!isColoc(m)) fail('Le budget est réservé aux colocs.'); db.exp = (db.exp ?? []).filter((x) => x.id !== id); db.expsh = (db.expsh ?? []).filter((s) => s.expense_id !== id); save(); },
+        async addTransfer(m, from, to, cents) {
+          chk(m, from, [to], null, cents); if (from === to) fail('Choisis deux personnes différentes.'); db.exp ??= []; db.nextExp ??= 1; const id = db.nextExp++;
+          db.exp.push({ id, creator_id: m, payer_id: from, title: 'Remboursement', amount_cents: cents, spent_on: iso(new Date()), kind: 'transfer', created_at: now() }); put(id, [to]); save(); return id;
+        },
+      };
+    })(),
     async popups(id) { db.popups ??= [{ id: 1, key: 'zakaria-anniv-2026', to_id: 5, title: 'Joyeux anniversaire ZakariYa', theme: 'gamer', seen_at: null, body: "Joyeux anniversaire en retard !\nBonne nouvelle : tu es convié à une soirée entre mecs, avec bière et nourriture à volonté pour toi, aux Toiles Noires ! https://lestoilesnoires.re/ Invite les copains de ton choix, sinon ça va finir en duo bot lol" }]; return db.popups.filter((p) => p.to_id === id && !p.seen_at).map((p) => ({ ...p })); },
     async popupSeen(id, popup) { const p = (db.popups ?? []).find((x) => x.id === popup && x.to_id === id); if (p) { p.seen_at = now(); save(); } },
     async gameQuests(id) { const day = reunionDay(); return (db.gq ?? []).filter((r) => r.member_id === id && r.day === day).map(({ quest, progress, done }) => ({ quest, progress, done })); },

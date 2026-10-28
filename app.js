@@ -2,6 +2,7 @@ import {
   CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, GAME_QUESTS,
 } from './config.js';
+import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, QUEST_SVG, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
@@ -75,7 +76,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'tasks', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -138,18 +139,18 @@ async function refresh(force = false) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
-  if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups'];
+  if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups', 'msgs', 'expenses', 'expShares'];
   const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(), state.api.popups(state.me?.id),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(), state.api.popups(state.me?.id), state.me ? state.api.messages(state.me.id) : [], state.api.expenses(), state.api.expenseShares(),
   ]);
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
   state.syncErr = failed.length ? failed[0] : null; if (!failed.length) state.syncAt = new Date();
   if (failed.length && !state.members?.length) throw new Error(failed[0]);
-  try { state.msgs = state.me ? await state.api.messages(state.me.id) : []; } catch (e) { state.msgs = state.msgs ?? []; state.syncErr ??= `messages: ${e.message}`; }
+  state.msgs ??= [];
   if (state.me) state.me = memberById(state.me.id) ?? null;
   state.initials = computeInitials(state.members);
   checkNewResults();
@@ -187,10 +188,28 @@ function checkNewResults() {
   }
 }
 
+function showUpdateBar() {
+  if (document.getElementById('updbar')) return;
+  const el = document.createElement('div');
+  el.id = 'updbar'; el.setAttribute('role', 'status');
+  el.innerHTML = '<span><b>Mise à jour disponible</b><small>Une nouvelle version de l\'appli est prête.</small></span><button class="btn" id="updgo">Actualiser</button><button class="updx" id="updx" aria-label="Plus tard">✕</button>';
+  document.body.appendChild(el);
+  el.querySelector('#updgo').onclick = () => location.reload();
+  el.querySelector('#updx').onclick = () => el.remove();
+}
 async function init() {
   let step = 'démarrage';
   const sp = (p) => window.splashProgress?.(p);
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if ('serviceWorker' in navigator) {
+    // Alerte de mise à jour : quand une nouvelle version prend le relais, on propose d'actualiser (sans jamais couper une partie)
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadController) showUpdateBar(); });
+    navigator.serviceWorker.register('./sw.js').then((reg) => {
+      const check = () => reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+      setInterval(check, 30 * 60 * 1000);
+    }).catch(() => {});
+  }
   try {
     const cloud = CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY;
     step = 'connexion'; sp(0.15);
@@ -395,6 +414,99 @@ function soapHistHTML() {
     <div class="sh"><div><h2>🧼 Historique des savons</h2><div class="when">Disponibles : ${soapOf(me)} 🧼 · gagnés en tout : ${earnedSoap(me)}</div></div>${closeBtn}</div>
     ${rows.length ? `<div class="hlist">${rows.map((r) => histRow(r.label, ago(r.t), r.amount, '🧼')).join('')}</div>` : '<div class="det">Aucun mouvement pour l\'instant.</div>'}
     <div class="sact"><button class="btn" data-action="close">Fermer</button></div>`, 'var(--gold)');
+}
+
+
+/* ---------- Budget (comme Tricount) ---------- */
+const budgetIds = () => state.members.filter((m) => m.kind === 'coloc').map((m) => m.id);
+const budgetBal = () => budgetBalances(state.expenses, state.expShares, budgetIds());
+const budgetMine = () => (state.me ? budgetBal()[state.me.id] ?? 0 : 0);
+const sharesOf = (e) => state.expShares.filter((s) => s.expense_id === e.id).map((s) => s.member_id);
+const dayLabel = (iso) => {
+  const t = new Date(); const d0 = (x) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  const y = new Date(Date.now() - 864e5);
+  if (iso === d0(t)) return "Aujourd'hui"; if (iso === d0(y)) return 'Hier';
+  const l = new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  return l.charAt(0).toUpperCase() + l.slice(1);
+};
+const signed = (c) => (c > 0 ? '+' : c < 0 ? '−' : '') + eur(Math.abs(c));
+function budgetHTML() {
+  const me = state.me;
+  if (me.kind !== 'coloc') return '<div class="empty-msg" style="padding:30px 0">Le budget est réservé aux colocs.</div>';
+  const bal = budgetBal(), mine = bal[me.id] ?? 0, seg = state.budgetSeg === 'bal' ? 'bal' : 'exp';
+  const list = state.expenses.filter((e) => e.kind === 'expense'), total = list.reduce((a, e) => a + e.amount_cents, 0);
+  const myCost = list.reduce((a, e) => a + (splitCents(e.amount_cents, sharesOf(e), e.id)[me.id] ?? 0), 0);
+  const hero = `<div class="bgt-hero ${mine > 0 ? 'pos' : mine < 0 ? 'neg' : ''}">
+    <small>Ton solde</small><b>${mine === 0 ? eur(0) : signed(mine)}</b>
+    <span>${mine > 0 ? 'On te doit de l\'argent' : mine < 0 ? 'Tu dois de l\'argent' : 'Tu es à jour'}</span>
+    <div class="bgt-sum"><div><small>Dépensé par la coloc</small><b>${eur(total)}</b></div><div><small>Ta part</small><b>${eur(myCost)}</b></div></div></div>`;
+  const segs = `<div class="seg" style="margin:12px 0">${[['exp', 'Dépenses'], ['bal', 'Soldes']].map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="bseg" data-v="${k}">${l}</button>`).join('')}</div>`;
+  let body = '';
+  if (seg === 'exp') {
+    if (!state.expenses.length) body = '<div class="empty-msg" style="padding:26px 0">Aucune dépense pour l\'instant.<br>Ajoute la première avec le bouton ci-dessous.</div>';
+    else {
+      let lastDay = '';
+      body = state.expenses.map((e) => {
+        const head = e.spent_on !== lastDay ? `<h4 class="bgt-day">${esc(dayLabel(e.spent_on))}</h4>` : ''; lastDay = e.spent_on;
+        const parts = sharesOf(e), my = splitCents(e.amount_cents, parts, e.id)[me.id] ?? 0;
+        const sub = e.kind === 'transfer' ? `${esc(nameOf(e.payer_id))} → ${esc(nameOf(parts[0]))}` : `Payé par ${esc(nameOf(e.payer_id))} · pour ${parts.length} pers.`;
+        const mineTxt = e.kind === 'transfer' ? '' : my ? `<small>Ta part ${eur(my)}</small>` : '<small>Pas concerné</small>';
+        return `${head}<button class="bgt-row ${e.kind}" data-action="exp-open" data-id="${e.id}"><span class="bgt-av">${av(memberById(e.payer_id), 38)}</span>
+          <span class="bgt-t"><b>${esc(e.title)}</b><small>${sub}</small></span><span class="bgt-a"><b>${eur(e.amount_cents)}</b>${mineTxt}</span></button>`;
+      }).join('');
+    }
+  } else {
+    const max = Math.max(1, ...Object.values(bal).map(Math.abs));
+    const rows = state.members.filter((m) => m.kind === 'coloc').map((m) => {
+      const c = bal[m.id] ?? 0, w = Math.round(50 * Math.abs(c) / max);
+      return `<div class="bgt-bal"><span class="bgt-av">${av(m, 34)}</span><b>${esc(m.name)}</b><div class="bgt-bar"><i class="${c >= 0 ? 'p' : 'n'}" style="${c >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%`}"></i></div><em class="${c > 0 ? 'p' : c < 0 ? 'n' : ''}">${c === 0 ? eur(0) : signed(c)}</em></div>`;
+    }).join('');
+    const sets = budgetSettle(bal);
+    body = `<div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
+      ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
+  }
+  return `${hero}${segs}${body}<button class="bgt-fab" data-action="exp-new"><span>+</span> Ajouter une dépense</button>`;
+}
+function newExpSheet(e) {
+  const ids = budgetIds(), today = iso(new Date());
+  return e ? { type: 'exp', id: e.id, title: e.title, amount: String(e.amount_cents / 100).replace('.', ','), payer: e.payer_id, day: e.spent_on, parts: sharesOf(e) }
+    : { type: 'exp', id: null, title: '', amount: '', payer: state.me.id, day: today, parts: ids };
+}
+function expPreview(s) {
+  const c = parseEuros(s.amount);
+  return c > 0 && s.parts.length ? `Soit environ ${eur(Math.round(c / s.parts.length))} par personne` : '';
+}
+function expFormHTML(s) {
+  const cs = state.members.filter((m) => m.kind === 'coloc');
+  return sheetWrap(`
+    <div class="sh"><div><h2>${s.id ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2><div class="when">Partagée à parts égales</div></div>${closeBtn}</div>
+    <label class="evl">Pour quoi ?<input class="evin" data-input="exp-title" maxlength="60" placeholder="Ex. Courses, internet…" value="${esc(s.title)}"></label>
+    <div class="evrow"><label class="evl">Montant (€)<input class="evin" data-input="exp-amount" inputmode="decimal" placeholder="0,00" value="${esc(s.amount)}"></label>
+      <label class="evl">Date<input class="evin" type="date" data-input="exp-day" value="${esc(s.day)}"></label></div>
+    <label class="evl">Payé par<select class="evin" data-input="exp-payer">${cs.map((m) => `<option value="${m.id}" ${m.id === s.payer ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select></label>
+    <div class="evl">Pour qui ?</div>
+    <div class="bgt-chips">${cs.map((m) => `<button class="bgt-chip ${s.parts.includes(m.id) ? 'on' : ''}" data-action="exp-part" data-id="${m.id}">${av(m, 26)}<span>${esc(m.name)}</span></button>`).join('')}</div>
+    <div class="det" id="exppv" style="margin-top:8px">${expPreview(s)}</div>
+    <button class="btn primary" style="width:100%;margin-top:10px" data-action="exp-save">${s.id ? 'Enregistrer' : 'Ajouter'}</button>`, 'var(--accent)');
+}
+function expDetailHTML(s) {
+  const e = state.expenses.find((x) => x.id === s.id);
+  if (!e) return sheetWrap(`<div class="sh"><h2>Dépense supprimée</h2>${closeBtn}</div>`);
+  const parts = sharesOf(e), split = splitCents(e.amount_cents, parts, e.id), tr = e.kind === 'transfer';
+  return sheetWrap(`
+    <div class="sh"><div><h2>${esc(e.title)}</h2><div class="when">${esc(dayLabel(e.spent_on))} · ${eur(e.amount_cents)}</div></div>${closeBtn}</div>
+    <div class="det">${tr ? `${esc(nameOf(e.payer_id))} a remboursé ${esc(nameOf(parts[0]))}.` : `Payé par <b>${esc(nameOf(e.payer_id))}</b>.`}</div>
+    ${tr ? '' : `<div class="bgt-card" style="margin-top:8px">${parts.map((id) => `<div class="bgt-bal"><span class="bgt-av">${av(memberById(id), 30)}</span><b>${esc(nameOf(id))}</b><span class="grow"></span><em>${eur(split[id] ?? 0)}</em></div>`).join('')}</div>`}
+    <div class="sact two">${tr ? '' : `<button class="btn" data-action="exp-edit" data-id="${e.id}">Modifier</button>`}<button class="btn ${s.confirm ? 'primary' : ''}" style="${s.confirm ? 'background:var(--danger)' : ''}" data-action="exp-del" data-id="${e.id}">${s.confirm ? 'Confirmer la suppression' : 'Supprimer'}</button></div>`, 'var(--accent)');
+}
+function expSave() {
+  const s = state.sheet; if (!s || s.type !== 'exp') return;
+  const cents = parseEuros(s.amount);
+  if (!s.title.trim()) { toast('Donne un nom à la dépense.'); return; }
+  if (!(cents > 0)) { toast('Entre un montant valide.'); return; }
+  if (!s.parts.length) { toast('Choisis au moins une personne.'); return; }
+  const done = () => { state.sheet = null; toast(s.id ? 'Dépense modifiée' : 'Dépense ajoutée'); render(); };
+  calAct(() => (s.id ? state.api.updateExpense(state.me.id, s.id, s.title, cents, s.payer, s.day, s.parts) : state.api.addExpense(state.me.id, s.title, cents, s.payer, s.day, s.parts)), done);
 }
 
 /* ---------- Plateau, messages ---------- */
@@ -677,15 +789,16 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
       <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : la tête est visible partout sauf dans Profil' : '👆 Touche ta tête, en haut à gauche') : `👇 Touche l'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
-    <nav class="tabs">
+    <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       <button data-action="tab" data-tab="defis" class="${tab === 'defis' ? 'active' : ''} ${pulse('defis')}"><span class="ico">${NAV_ICONS.defis()}</span><span class="tl">QUÊTES</span>${badge(dailyDue() || statsOf(me.id).wheel_ready ? 1 : 0, 'var(--danger)')}</button>
       <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
+      ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
       <button data-action="tab" data-tab="me" class="${tab === 'me' ? 'active' : ''} ${pulse('me')}"><span class="ico">${NAV_ICONS.me()}</span><span class="tl">PERSO</span>${badge(unreadCount() + perksOwed().length, 'var(--danger)')}</button>
     </nav>
     ${sheetHTML()}`;
@@ -996,6 +1109,8 @@ function sheetHTML() {
     case 'task-do': return taskConfirmHTML(s);
     case 'task-group': return taskGroupHTML(s);
     case 'levelup': return levelUpSheetHTML();
+    case 'exp': return expFormHTML(s);
+    case 'expd': return expDetailHTML(s);
     case 'popup': return popupHTML(state.popups[0]);
     case 'duel-pick': return duelPickHTML();
     case 'duel-new': return duelNewHTML(s);
@@ -1631,6 +1746,14 @@ document.addEventListener('click', (e) => {
     case 'roll': rollDiceNow(); break;
     case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
     case 'calendar': state.heads = false; state.sheet = { type: 'cal' }; render(); break;
+    case 'bseg': state.budgetSeg = v; render(); break;
+    case 'exp-new': state.sheet = newExpSheet(null); render(); break;
+    case 'exp-open': state.sheet = { type: 'expd', id: Number(id), confirm: false }; render(); break;
+    case 'exp-edit': { const e = state.expenses.find((x) => x.id === Number(id)); if (e) { state.sheet = newExpSheet(e); render(); } break; }
+    case 'exp-del': if (s?.type === 'expd' && !s.confirm) { s.confirm = true; render(); } else calAct(() => state.api.deleteExpense(state.me.id, Number(id)), () => { state.sheet = null; toast('Dépense supprimée'); render(); }); break;
+    case 'exp-part': if (s?.type === 'exp') { const n = Number(id); s.parts = s.parts.includes(n) ? s.parts.filter((x) => x !== n) : [...s.parts, n]; render(); } break;
+    case 'exp-save': expSave(); break;
+    case 'exp-pay': calAct(() => state.api.addTransfer(state.me.id, Number(el.dataset.from), Number(el.dataset.to), Number(el.dataset.c)), () => toast('Remboursement enregistré')); break;
     case 'cal-new': state.sheet = { type: 'cal-new' }; render(); break;
     case 'cal-create': {
       const title = document.getElementById('evtitle')?.value ?? '', place = document.getElementById('evplace')?.value ?? '';
@@ -1706,10 +1829,17 @@ document.addEventListener('click', (e) => {
 // Saisie libre de la mise (on ne redessine pas pour ne pas perdre le focus)
 document.addEventListener('change', (e) => {
   const k = e.target.dataset?.input;
-  if (k === 'opp') state.opp = Number(e.target.value);       // pas de redessin : on garde la liste ouverte
+  if (k === 'exp-payer' && state.sheet?.type === 'exp') state.sheet.payer = Number(e.target.value);
+  else if (k === 'opp') state.opp = Number(e.target.value);       // pas de redessin : on garde la liste ouverte
   else if (k === 'title') saveTitle(e.target.value);
 });
 document.addEventListener('input', (e) => {
+  const ek = e.target.dataset?.input;
+  if (ek && ek.startsWith('exp-') && state.sheet?.type === 'exp') {
+    const s = state.sheet;
+    if (ek === 'exp-title') s.title = e.target.value; else if (ek === 'exp-amount') s.amount = e.target.value; else if (ek === 'exp-day') s.day = e.target.value;
+    const pv = document.getElementById('exppv'); if (pv) pv.textContent = expPreview(s);
+  }
   if (e.target.dataset?.input === 'msg' && state.sheet?.type === 'msg') {
     state.sheet.text = e.target.value;
     const c = document.getElementById('msgcount'); if (c) c.textContent = `${e.target.value.length}/${MESSAGE_MAX}`;

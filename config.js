@@ -138,6 +138,7 @@ export const TASK_KINDS = {
   poub_remplace:  { group: 'poub', room: 'Remplacer le sac', label: 'Remplacer la poubelle', short: 'Sac remplacé', emoji: '🛍️', soap: 1, cooldownH: 12, detail: 'Mettre un sac propre' },
   cuis_patisserie: { group: 'cuis', room: 'Pâtisseries', label: 'Pâtisseries pour tout le monde', short: 'Pâtisseries', emoji: '🧁', soap: 4, cooldownH: 24, detail: 'Gâteau, cookies… pour toute la coloc' },
   cuis_repas:      { group: 'cuis', room: 'Repas', label: 'Cuisiner pour tout le monde', short: 'Repas pour tous', emoji: '🍲', soap: 8, cooldownH: 24, detail: 'Un vrai repas pour toute la coloc' },
+  cuis_vaisselle:  { group: 'cuis', room: 'Vaisselle', label: 'Vaisselle pour tout le monde', short: 'Vaisselle pour tous', emoji: '🍽️', soap: 2, cooldownH: 12, detail: 'La vaisselle de toute la coloc' },
   ...LEGACY_KINDS,
 };
 Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g.key === K.group)?.color; });
