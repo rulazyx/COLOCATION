@@ -1,6 +1,6 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
@@ -519,7 +519,7 @@ function expPreview(s) {
 }
 function expFormHTML(s) {
   const cs = state.members.filter((m) => m.kind === 'coloc');
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>${s.id ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2><div class="when">Payée par ${esc(nameOf(s.payer))} · partagée à parts égales</div></div>${closeBtn}</div>
     <label class="evl">Pour quoi ?<input class="evin" data-input="exp-title" maxlength="60" placeholder="Ex. Courses, internet…" value="${esc(s.title)}"></label>
     <label class="evl">Montant (€)<input class="evin" data-input="exp-amount" inputmode="decimal" placeholder="0,00" value="${esc(s.amount)}"></label>
@@ -992,9 +992,8 @@ function render() {
     ${`<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
       <span class="grow"></span>
-      ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
-      <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
-      <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
+      <span class="hwrap"><button class="hchip cur-cc" data-action="hint" data-v="cc" title="Colocoins">🪙 ${chipsOf(me.id)}</button>${state.hint === 'cc' ? '<div class="hbub">Joue aux jeux pour gagner des pièces ou gagne la course !</div>' : ''}</span>
+      <span class="hwrap"><button class="hchip cur-soap" data-action="hint" data-v="soap" title="Savons">🧼 ${soapOf(me.id)}</button>${state.hint === 'soap' ? '<div class="hbub">Accomplis des tâches pour gagner des savons !</div>' : ''}</span>
           </header>
     `}
     <main class="${anim ? 'pg' : ''}">
@@ -1300,6 +1299,12 @@ const defisTabHTML = () => dailyCardHTML() + `<h3 class="sec">Défis ${unlockedK
 function sheetWrap(inner, color = 'var(--accent)') {
   return `<div class="overlay" data-action="close"><div class="sheet" role="dialog" aria-modal="true" style="--c:${color}">${inner}</div></div>`;
 }
+// Fenêtre en bulle au milieu de l'écran (dépense, activité, profil) : l'animation ne joue qu'à l'ouverture
+function popWrap(inner, color = 'var(--accent)') {
+  const s = currentSheet(), fresh = state.popShown !== s;
+  state.popShown = s;
+  return `<div class="overlay mid" data-action="close"><div class="sheet bubble ${fresh ? 'popin' : ''}" role="dialog" aria-modal="true" style="--c:${color}">${inner}</div></div>`;
+}
 const closeBtn = '<button class="close" data-action="close" aria-label="Fermer">✕</button>';
 
 // Feuille affichée : celle ouverte à la main, sinon (hors jeu) les défis réussis, sinon la récompense du jour
@@ -1342,7 +1347,6 @@ function sheetHTML() {
     case 'gboards': return gBoardsSheetHTML();
     case 'shop': return shopHTML(s);
     case 'headmenu': return headMenuHTML();
-    case 'exchange': return exchangeHTML();
     case 'crate': return crateHTML(s);
     case 'cal-new': return calNewHTML();
     case 'soaphist': return soapHistHTML();
@@ -1752,7 +1756,7 @@ function calendarHTML() {
 function calNewHTML() {
   const s = state.sheet, others = state.members.filter((m) => m.id !== state.me.id);
   const d = new Date(Date.now() + 86400000), pad = (n) => String(n).padStart(2, '0'), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>Nouvelle activité</h2><div class="when">Tout le monde pourra répondre</div></div>${closeBtn}</div>
     <label class="evl">Quoi ?<input id="evtitle" class="evin" maxlength="60" placeholder="Ex. Soirée jeux de société" value="${esc(s.t ?? '')}"></label>
     <label class="evl">Où ? <small>(facultatif)</small><input id="evplace" class="evin" maxlength="60" placeholder="Ex. Au salon" value="${esc(s.p ?? '')}"></label>
@@ -1768,22 +1772,6 @@ async function calAct(fn, ok) {
   try { await fn(); await refresh(true); if (ok) ok(); } catch (e) { toast(e.message || 'Action impossible.'); refresh(true).catch(() => {}); }
 }
 
-function exchangeHTML() {
-  const me = state.me, have = soapOf(me.id), coloc = me.kind === 'coloc';
-  return sheetWrap(`
-    <div class="sh"><div><h2>Échange</h2><div class="when">Tu as ${have} 🧼 · ${chipsOf(me.id)} 🪙</div></div>${closeBtn}</div>
-    <div class="det">Change tes savons contre des colocoins : plus tu en échanges d'un coup, plus c'est avantageux.</div>
-    ${SOAP_EXCHANGE.map((o) => `<div class="up"><div class="txt"><b>${o.soap} 🧼 → ${o.coins} 🪙</b><small>${o.coins / o.soap} colocoins par savon</small></div>
-      <button class="mini ok" data-action="exchange-do" data-id="${o.soap}" ${coloc && have >= o.soap ? '' : 'disabled'}>Échanger</button></div>`).join('')}
-    ${coloc ? '' : '<div class="det">Seuls les colocataires gagnent des savons.</div>'}`, 'var(--gold)');
-}
-async function exchangeNow(soap) {
-  try {
-    const r = await state.api.exchangeSoap(state.me.id, soap);
-    await refresh(true);
-    toast(`+${r.coins} colocoins !`);
-  } catch (e) { toast(e.message || 'Échange impossible.'); refresh(true).catch(() => {}); }
-}
 async function shopBuy(slot, key) {
   try {
     await state.api.buyShop(state.me.id, `${slot}:${key}`);
@@ -1824,7 +1812,7 @@ function profileSheetHTML(s) {
   const t = titleLabel(m);
   const unlocked = CHALLENGES.filter((c) => unlockedKeys(m.id).has(c.key));
   const last = state.logs.filter((l) => l.status === 'validated' && l.doer_id === m.id).slice(0, 3);
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
     <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${nameHTML(m)}</b></div>
@@ -1903,6 +1891,7 @@ function wheelSheetHTML(s) {
    ========================================================= */
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
+  if (state.hint && el?.dataset.action !== 'hint') { state.hint = null; if (!el) { render(); return; } }   // toucher ailleurs ferme la bulle
   if (!el) return;
   const { action, id, tab, d, v, seg } = el.dataset;
   const s = state.sheet;
@@ -1947,8 +1936,7 @@ document.addEventListener('click', (e) => {
     }
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;
     case 'cal-del': calAct(() => state.api.deleteEvent(state.me.id, Number(id))); break;
-    case 'exchange': state.heads = false; state.sheet = { type: 'exchange' }; render(); break;
-    case 'exchange-do': exchangeNow(Number(id)); break;
+    case 'hint': state.hint = state.hint === v ? null : v; render(); break;
     case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
     case 'crate-open': crateOpen(); break;
