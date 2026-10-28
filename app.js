@@ -3,7 +3,7 @@ import {
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
@@ -649,11 +649,11 @@ async function openProfile(id) {
 
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
-  chifoumi: { name: 'Chifoumi', cls: 'chif', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
-  flappy: { name: 'Jumpy Cardinal', cls: 'flap', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
-  blackjack: { name: 'Blackjack', cls: 'blk', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
-  ferme: { name: 'Colo-Ferme', cls: 'ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
-  sudoku: { name: 'Sudoku', cls: 'sudo', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
+  chifoumi: { name: 'Chifoumi', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
+  flappy: { name: 'Jumpy Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
+  blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
+  sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
 // L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
@@ -677,13 +677,13 @@ function farmCtx() {
 const GBOARD = { flappy: 'Classement', sudoku: 'Classement', blackjack: 'Classement victoires' };   // jeux qui ont un classement (icône trophée en haut à droite)
 const GHOME = {
   flappy: ['play', 'quit'],   // le choix de l'oiseau se fait via l'icône cardinal en haut à droite
-  sudoku: ['play', 'perso', 'intel', 'quit'],
-  chifoumi: ['duel', 'hist', 'quit'],
+  sudoku: ['play', 'quit'],   // les niveaux se consultent en touchant « Niveau N » en haut
+  chifoumi: ['duel', 'quit'],   // l'historique s'ouvre via l'icône livre en haut à droite
   ferme: ['play', 'quit'],
   blackjack: ['play', 'quit'],
 };
 const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
-const GTITLE = { perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique' };
+const GTITLE = { perso: 'Perso', board: 'Classement', intel: 'Niveaux', duel: 'Défier un joueur', hist: 'Historique' };
 let gameUI = null;                       // { id, view, mod, handle… } du jeu ouvert
 const glayer = () => document.getElementById('gamelayer');
 
@@ -692,6 +692,7 @@ function gHomeHTML(id) {
   return `<div class="gh-art">${logoArt(id)}</div><div class="gh-title">${esc(G.name)}</div>
     <div class="gh-menu">${GHOME[id].map((k) => `<button class="gh-btn ${k === 'quit' ? 'quit' : ''}" data-gh="${k}">${GBTN[k]}</button>`).join('')}</div>
     ${id === 'flappy' ? `<button class="gtrophy-home gbird-home" data-gh="perso" aria-label="Choisir ton oiseau">${birdSVG(null, 30)}</button>` : ''}
+    ${id === 'chifoumi' ? `<button class="gtrophy-home" data-gh="hist" aria-label="Historique">${BOOK_SVG(28)}</button>` : ''}
     ${GBOARD[id] ? `<button class="gtrophy-home" data-gh="board" aria-label="${GBOARD[id]}">${TROPHY_SVG(28)}</button>` : ''}`;
 }
 const gRows = (rows) => `<ol class="gp-rank">${rows.map((r) => `<li class="${r.me ? 'me' : ''}"><span class="pos">${r.pos}</span>${av(r.m, 34)}<b>${esc(r.m?.name ?? '?')}</b><em>${r.right}</em></li>`).join('') || '<li class="empty">Personne pour l\'instant</li>'}</ol>`;
@@ -711,7 +712,7 @@ function gPersoHTML() {
 function gIntelHTML() {
   const st = statsOf(state.me.id), { lvl, n } = intelOf(st);
   const part = (q, k, label) => (q[k] ? `<span class="${n[k] >= q[k] ? 'ok' : ''}">${Math.min(n[k], q[k])}/${q[k]} ${label}</span>` : '');
-  return `<div class="gp-intel">Niveau <b>${lvl}</b> <small>· ${n.e} faciles · ${n.m} moyennes · ${n.h} expert</small></div>
+  return `<div class="gp-intel">Niveau <b>${lvl}</b> <small>${n.e} faciles · ${n.m} moyennes · ${n.h} expert</small></div>
     <ol class="gp-quests">${SUDOKU_INTEL.map((q, i) => `<li class="${i < lvl ? 'done' : i === lvl ? 'cur' : ''}"><b>Niveau ${i + 1}</b><div>${part(q, 'e', 'faciles')}${part(q, 'm', 'moyennes')}${part(q, 'h', 'expert')}</div><em>${i < lvl ? 'Terminé' : i === lvl ? 'En cours' : 'À venir'}</em></li>`).join('')}</ol>`;
 }
 function gBoardHTML(id) {
@@ -724,7 +725,7 @@ function gBoardHTML(id) {
   if (id === 'sudoku') {
     const rows = state.members.map((m) => ({ m, ...intelOf(statsOf(m.id)) })).sort((a, b) => b.lvl - a.lvl || (b.n.e + b.n.m + b.n.h) - (a.n.e + a.n.m + a.n.h));
     return `<div class="gp-sub">Grille de la semaine</div><div id="gp-week"><small>Chargement…</small></div>
-      <div class="gp-sub">Niveau d'intelligence</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i + 1, m: r.m, right: `Niveau ${r.lvl}` })));
+      <div class="gp-sub">Niveaux</div>` + gRows(rows.map((r, i) => ({ me: r.m.id === state.me.id, pos: i + 1, m: r.m, right: `Niveau ${r.lvl}` })));
   }
   return '';
 }
@@ -766,7 +767,7 @@ function gShow(view) {
   const layer = glayer(), u = gameUI; if (!layer || !u) return;
   u.view = view;
   const home = layer.querySelector('.ghome');
-  layer.classList.add('onhome'); layer.classList.toggle('has-trophy', view === 'home' && !!GBOARD[u.id]); layer.classList.toggle('has-bird', view === 'home' && u.id === 'flappy');
+  layer.classList.add('onhome'); layer.classList.toggle('has-trophy', view === 'home' && (!!GBOARD[u.id] || u.id === 'chifoumi')); layer.classList.toggle('has-bird', view === 'home' && u.id === 'flappy');
   if (view === 'home') { home.className = 'ghome'; home.innerHTML = gHomeHTML(u.id); return; }
   const bodies = { perso: gPersoHTML, board: () => gBoardHTML(u.id), intel: gIntelHTML, duel: gDuelHTML, hist: gHistHTML, move: () => gMoveHTML(u.duel), result: () => gResultHTML(u.result),
     reveal: () => { const b = SHOP.bird.find((x) => x.key === u.crateKey); return `<div class="gp-won"><span class="rar ${RAR_CLS[birdRarity(b.w)]}">${birdRarity(b.w)}</span><div class="bigbird">${birdSVG(b.key, 140)}</div><h2>${esc(b.name)}</h2><small>Nouvel oiseau débloqué !</small>
@@ -785,7 +786,8 @@ function gShow(view) {
 }
 function gBadge() {
   const el = glayer()?.querySelector('.ghead-r'); if (!el) return;
-  el.innerHTML = gameUI?.id === 'sudoku' ? `<span class="glvl">Niveau ${intelOf(statsOf(state.me.id)).lvl}</span>` : '';
+  el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir les niveaux">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>`
+    : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
   if (gameUI?.id === 'ferme') return closeGame();
@@ -813,7 +815,7 @@ async function gPlay() {
         report: async (mode, secs) => {
           const before = intelOf(statsOf(state.me.id)).lvl;
           const r = await state.api.reportSudoku(state.me.id, mode, secs);
-          refresh(true).then(() => { gBadge(); const after = intelOf(statsOf(state.me.id)).lvl; if (after > before) toast(`Niveau d'intelligence ${after} !`); }).catch(() => {});
+          refresh(true).then(() => { gBadge(); const after = intelOf(statsOf(state.me.id)).lvl; if (after > before) toast(`Sudoku : niveau ${after} !`); }).catch(() => {});
           return r;
         },
       } } : {}),
@@ -822,7 +824,7 @@ async function gPlay() {
           if (id === 'blackjack') await state.api.reportBlackjack(state.me.id, r.bet, r.net, r.hands, r.wins, r.blackjack);
           else if (id === 'flappy') { const g = await state.api.reportFlappy(state.me.id, r.score); refresh(true).catch(() => {}); return g; }
           else await state.api.reportGame(state.me.id, id, r.score);
-          await refresh(true);
+          await refresh(true); gBadge();
         } catch (e) { console.error(e); toast("Score non enregistré : " + (e.message || 'erreur réseau')); }
       },
     });
@@ -1440,7 +1442,6 @@ function gamesListHTML() {
   const me = state.me;
   const received = pendingForMe();
   const sent = state.duels.filter((d) => d.status === 'pending' && d.challenger_id === me.id);
-  const hist = state.duels.filter((d) => d.status === 'done').slice(0, 8);
   return `
     ${received.length ? `<h3 class="sec" style="margin-top:0">Défis reçus</h3>${received.map((d) => {
       const ch = memberById(d.challenger_id);
@@ -1450,24 +1451,14 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
-      <button class="gtile g-${g.cls}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? `<span class="paidbadge" title="Payant (colocoins)">${COIN_SVG}</span>` : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
+      <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
 
     ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
       <div class="up"><div class="mini-av">${av(memberById(d.opponent_id), 44)}</div>
         <div class="txt"><b>En attente de ${esc(nameOf(d.opponent_id))}</b><small>ton coup est secret</small></div>
-        <button class="mini" data-action="duel-cancel" data-id="${d.id}">Annuler</button></div>`).join('')}` : ''}
-
-    <h3 class="sec">Derniers duels</h3>
-    ${hist.length ? hist.map((d) => {
-      const ch = memberById(d.challenger_id), op = memberById(d.opponent_id);
-      const w = d.winner_id ? nameOf(d.winner_id) : null;
-      const mineD = d.challenger_id === me.id || d.opponent_id === me.id;
-      return `<div class="up hist ${mineD ? 'mine' : ''}"><div class="vs-av">${av(ch, 38)}${av(op, 38)}</div>
-        <div class="txt"><b>${esc(ch?.name)} ${moveEmoji(d.challenger_move)} vs ${moveEmoji(d.opponent_move)} ${esc(op?.name)}</b>
-        <small>${w ? `${esc(w)} gagne` : 'Égalité'}</small></div></div>`;
-    }).join('') : '<div class="empty-msg" style="padding:16px 0">Aucun duel pour l\'instant. Lance le premier !</div>'}`;
+        <button class="mini" data-action="duel-cancel" data-id="${d.id}">Annuler</button></div>`).join('')}` : ''}`;
 }
 
 
@@ -1484,51 +1475,8 @@ function farmReadyBadge() {
   const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
 }
-function farmArt() {
-  return `<svg class="gart" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-    <defs><linearGradient id="fsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc8f2"/><stop offset="1" stop-color="#d8f0ff"/></linearGradient></defs>
-    <rect width="400" height="150" fill="url(#fsky)"/><circle cx="335" cy="34" r="20" fill="#ffd84a"/>
-    <path d="M0 78 Q70 40 140 74 T290 70 T400 62 V150 H0Z" fill="#4c9a5b"/><path d="M0 92 Q100 64 200 90 T400 84 V150 H0Z" fill="#6cbc6a"/>
-    <path d="M0 110 H400 V150 H0Z" fill="#8a5a2c"/>
-    <g stroke="#6b4420" stroke-width="3"><path d="M0 122 H400 M0 136 H400"/></g>
-    <g stroke="#3a2412" stroke-width="1.6"><circle cx="40" cy="112" r="8" fill="#e4891c"/><circle cx="100" cy="112" r="8" fill="#e63b2e"/><circle cx="160" cy="112" r="8" fill="#f3b51d"/><circle cx="220" cy="112" r="8" fill="#35602a"/><circle cx="280" cy="112" r="8" fill="#d02a4c"/><circle cx="340" cy="112" r="8" fill="#f2a52b"/></g>
-    <g fill="#c0392b"><rect x="40" y="38" width="46" height="34"/><path d="M34 40 L63 18 L92 40Z" fill="#8a2b20"/></g><rect x="56" y="52" width="14" height="20" fill="#f5e6c8"/>
-  </svg>`;
-}
-
-// Décors des tuiles de jeux (dessins originaux en SVG, sans texte : le nom est ajouté par-dessus)
-function gameArt(cls) {
-  const head = (w, h, inner) => `<svg class="gart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${inner}</svg>`;
-  if (cls === 'chif') return head(200, 174, `
-    <defs><linearGradient id="gc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff7a59"/><stop offset="1" stop-color="#b5379b"/></linearGradient></defs><rect width="200" height="174" fill="url(#gc)"/>
-    <path d="M18 100 l14-30 l34-8 l18 24 l-6 32 l-34 8 z" fill="#8b929c" stroke="#4a4f57" stroke-width="3" stroke-linejoin="round"/><path d="M34 74 l22-4 l10 14" fill="none" stroke="#c4c9d0" stroke-width="4" stroke-linecap="round"/>
-    <g transform="rotate(-6 100 76)"><rect x="76" y="34" width="50" height="64" rx="4" fill="#fff" stroke="#d6dbe3" stroke-width="3"/><path d="M114 34 l12 12 h-12z" fill="#e3e8ef"/><path d="M85 56h30M85 67h30M85 78h22" stroke="#9aa3b2" stroke-width="3" stroke-linecap="round"/></g>
-    <g transform="translate(150 70)"><path d="M-22 -40 L10 8 M22 -40 L-10 8" stroke="#dfe5ee" stroke-width="9" stroke-linecap="round"/><path d="M-22 -40 L10 8 M22 -40 L-10 8" stroke="#8b95a5" stroke-width="3" stroke-linecap="round"/><circle cx="-16" cy="22" r="12" fill="none" stroke="#ffd166" stroke-width="7"/><circle cx="16" cy="22" r="12" fill="none" stroke="#ffd166" stroke-width="7"/></g>`);
-  if (cls === 'flap') return head(200, 174, `
-    <defs><linearGradient id="gf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6cc8ff"/><stop offset="1" stop-color="#c9efff"/></linearGradient></defs><rect width="200" height="174" fill="url(#gf)"/>
-    <ellipse cx="40" cy="30" rx="26" ry="9" fill="#fff" opacity=".8"/><ellipse cx="150" cy="22" rx="20" ry="7" fill="#fff" opacity=".7"/>
-    <rect x="122" y="-4" width="42" height="64" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/><rect x="116" y="52" width="54" height="18" rx="4" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/>
-    <rect x="122" y="112" width="42" height="70" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/><rect x="116" y="100" width="54" height="18" rx="4" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/>
-    <rect x="28" y="-4" width="34" height="40" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/><rect x="23" y="30" width="44" height="14" rx="4" fill="#ffd23f" stroke="#c98a00" stroke-width="3"/>
-    <g transform="rotate(-12 80 80)"><ellipse cx="80" cy="82" rx="24" ry="20" fill="#e5252a"/><path d="M58 84 q-14 -6 -16 6 q10 2 18 -2z" fill="#a8141a"/><ellipse cx="76" cy="90" rx="12" ry="8" fill="#a8141a"/><circle cx="90" cy="74" r="7" fill="#fff"/><circle cx="92" cy="74" r="3" fill="#222"/><path d="M98 80 l14 4 l-14 6z" fill="#ff9f1c"/><path d="M72 62 l-4 -10 l9 5 l3 -9 l4 10z" fill="#a8141a"/></g>`);
-  if (cls === 'raid') return head(200, 174, `
-    <defs><linearGradient id="gr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff9a5a"/><stop offset="1" stop-color="#ffd8a0"/></linearGradient></defs><rect width="200" height="174" fill="url(#gr)"/>
-    <circle cx="150" cy="38" r="16" fill="#fff3c4"/><circle cx="92" cy="26" r="12" fill="#6b5a5a" opacity=".5"/><circle cx="104" cy="12" r="9" fill="#6b5a5a" opacity=".35"/>
-    <path d="M10 174 L78 44 L108 44 L190 174z" fill="#4a3a3a"/><path d="M78 44 L108 44 L112 52 L74 52z" fill="#ff5a1f"/><path d="M84 52 l-8 40 l10 -6 l4 30 l8 -34 l6 18 l4 -48z" fill="#ff7a2f"/><path d="M60 80 L50 174 H70z" fill="#3a2c2c" opacity=".6"/>
-    <rect y="146" width="200" height="28" fill="#2f9bbf"/><path d="M0 154 q25 -8 50 0 t50 0 t50 0 t50 0" fill="none" stroke="#bfeaff" stroke-width="3"/>`);
-  if (cls === 'sudo') return head(200, 174, `
-    <defs><linearGradient id="gs" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f46e5"/><stop offset="1" stop-color="#8b3cf0"/></linearGradient></defs><rect width="200" height="174" fill="url(#gs)"/>
-    <g stroke="#fff" opacity=".55" stroke-width="2"><path d="M0 58H200M0 116H200M66 0V174M133 0V174"/></g><g stroke="#fff" opacity=".25"><path d="M0 29H200M0 87H200M0 145H200M33 0V174M100 0V174M166 0V174"/></g>
-    <g fill="#fff" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="26" text-anchor="middle"><text x="16" y="24">5</text><text x="83" y="24" opacity=".6">3</text><text x="150" y="82">7</text><text x="50" y="82">1</text><text x="116" y="82" opacity=".6">9</text><text x="16" y="140">8</text><text x="83" y="140">6</text><text x="183" y="140" opacity=".6">2</text><text x="183" y="24">4</text><text x="116" y="24" opacity=".6">2</text><text x="150" y="140">3</text></g>`);
-  return head(400, 174, `
-    <defs><radialGradient id="gb" cx=".5" cy=".4" r=".8"><stop offset="0" stop-color="#1f9a5e"/><stop offset="1" stop-color="#0a3b25"/></radialGradient></defs><rect width="400" height="174" fill="url(#gb)"/>
-    <g transform="rotate(-9 150 80)"><rect x="100" y="14" width="100" height="136" rx="10" fill="#fff" stroke="#d6dbe3" stroke-width="3"/>
-      <text x="112" y="52" font-family="Georgia,serif" font-weight="700" font-size="38" fill="#111">A</text>
-      <path d="M150 62 c-26 22 -26 40 -4 40 c-2 8 -6 12 -10 16 h28 c-4 -4 -8 -8 -10 -16 c22 0 22 -18 -4 -40z" fill="#111" transform="translate(0 -2)"/></g>
-    <g transform="rotate(8 260 80)"><rect x="210" y="14" width="100" height="136" rx="10" fill="#fff" stroke="#d6dbe3" stroke-width="3"/>
-      <text x="222" y="52" font-family="Georgia,serif" font-weight="700" font-size="38" fill="#d92d2d">K</text>
-      <path d="M260 120 c-30 -18 -30 -42 -10 -42 c6 0 10 4 10 8 c0 -4 4 -8 10 -8 c20 0 20 24 -10 42z" fill="#d92d2d"/></g>`);
-}
+// Botte de paille de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
+const FARM_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#7a4b0c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="14" width="36" height="24" rx="4" fill="#f5c84c"/><path d="M10 21h8M22 21h6M32 21h6M10 27h4M18 27h10M32 27h6M10 33h8M22 33h6M32 33h6" stroke="#c98f1c" stroke-width="2"/><path d="M15 14v24M33 14v24" stroke="#b5452a" stroke-width="3"/><path d="M9 14l-2-4M14 14l1-5M24 14l-1-5M29 14l2-4M38 14l2-4"/></svg>';
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
 function duelPickHTML() {

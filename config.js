@@ -272,10 +272,11 @@ export const FARM = {
 // Demander à un coloc d'acheter quelque chose : récompense en savons pour celui qui l'achète (confirmé par le demandeur)
 export const SHOP_REQ = { soap: 2, maxOpen: 5, itemMax: 80 };
 
-// Niveau d'intelligence (Sudoku) : chaque palier demande un cumul de grilles réussies. Les premiers ne demandent que des grilles faciles, puis faciles + moyennes, puis les trois.
+// Niveaux du Sudoku : chaque palier demande un cumul de grilles réussies. Les premiers ne demandent que quelques grilles faciles, puis faciles + moyennes, puis les trois.
 export const SUDOKU_INTEL = [
-  { e: 3 }, { e: 8 }, { e: 15 }, { e: 20, m: 3 }, { e: 25, m: 8 }, { e: 30, m: 15 },
-  { e: 35, m: 20, h: 3 }, { e: 40, m: 25, h: 8 }, { e: 50, m: 30, h: 15 }, { e: 60, m: 40, h: 25 },
+  { e: 1 }, { e: 2 }, { e: 4 }, { e: 6 }, { e: 8, m: 1 }, { e: 10, m: 2 }, { e: 12, m: 4 }, { e: 15, m: 6 },
+  { e: 18, m: 8, h: 1 }, { e: 20, m: 10, h: 2 }, { e: 24, m: 13, h: 4 }, { e: 28, m: 16, h: 6 }, { e: 32, m: 20, h: 8 }, { e: 36, m: 24, h: 11 },
+  { e: 40, m: 28, h: 14 }, { e: 45, m: 32, h: 18 }, { e: 50, m: 37, h: 22 }, { e: 56, m: 42, h: 27 }, { e: 63, m: 48, h: 33 }, { e: 70, m: 55, h: 40 },
 ];
 export const intelOf = (st = {}) => {
   const n = { e: Number(st.sudoku_easy) || 0, m: Number(st.sudoku_mid) || 0, h: Number(st.sudoku_hard) || 0 };
