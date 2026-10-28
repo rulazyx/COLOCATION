@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 83;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 84;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -2084,6 +2084,14 @@ document.addEventListener('input', (e) => {
 });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !state.game && currentSheet()) closeSheet(); });
 
+// iPhone (appli installée) : la fenêtre peut être plus courte que l'écran → vide sous la barre. On mesure l'écart et on descend ce qui est collé en bas.
+function fitScreen() {
+  const standalone = navigator.standalone || (typeof matchMedia === 'function' && matchMedia('(display-mode: standalone)').matches);
+  const gap = standalone ? Math.max(0, Math.round((screen.height || 0) - window.innerHeight)) : 0;
+  document.documentElement.style.setProperty('--gap', `${gap > 400 ? 0 : gap}px`);
+}
+fitScreen();
+['resize', 'orientationchange', 'pageshow', 'visibilitychange', 'focus'].forEach((ev) => window.addEventListener(ev, () => setTimeout(fitScreen, 60)));
 render();
 init();
 

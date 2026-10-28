@@ -1149,3 +1149,9 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 html,body{height:100%;overflow:hidden;overscroll-behavior:none}
 body{position:fixed;inset:0;width:100%;padding-bottom:0!important}
 #app{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-y:contain;padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+/* Écart écran / fenêtre (iPhone) : tout ce qui est collé en bas descend de --gap */
+nav.tabs{bottom:calc(-1 * var(--gap, 0px))!important}
+.gamelayer,.overlay{bottom:calc(-1 * var(--gap, 0px))}
+#app{bottom:calc(-1 * var(--gap, 0px))}
+html,body{background:var(--bg)}
+body{overflow:visible}
