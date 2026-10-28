@@ -3,12 +3,12 @@ import {
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 90;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 91;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1447,7 +1447,7 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
-    <button class="gboards-btn" data-action="gboards">Classement des jeux</button>
+    <div class="gtop"><button class="gtrophy" data-action="gboards" aria-label="Classement des jeux">${TROPHY_SVG(30)}</button></div>
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${farmArt()}<span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${g.cls}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${gameArt(g.cls)}${g.paid || g.duel ? `<span class="paidbadge" title="Payant (colocoins)">${COIN_SVG}</span>` : ''}<span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>

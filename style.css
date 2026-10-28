@@ -1196,3 +1196,6 @@ body{min-height:calc(100vh + 2px)}
 @keyframes sdkrot{to{transform:rotate(360deg)}}
 .gp-quests li em,.gp-rank em{font-style:normal}.gp-quests li em{font-size:12px;font-weight:700;color:var(--muted)}
 .gp-sub{font-family:inherit}
+.gtop{display:flex;justify-content:flex-end;margin:0 0 8px}
+.gtrophy{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.gtrophy:active{transform:scale(.94)}

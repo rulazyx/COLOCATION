@@ -96,3 +96,6 @@ export const PX_PAD = px(12, 10, [[1,3,10,5,'#7c4dff'],[0,4,1,3,'#7c4dff'],[11,4
 export const PX_GIFT = px(10, 10, [[1,4,8,5,'#ff4d6d'],[0,3,10,2,'#ff7a93'],[4,3,2,6,'#ffd23f'],[3,1,2,2,'#ffd23f'],[5,1,2,2,'#ffd23f']]);
 export const PX_FISH = px(12, 10, [[2,3,6,4,'#4cc9f0'],[1,4,1,2,'#4cc9f0'],[8,2,2,2,'#2aa3d1'],[8,6,2,2,'#2aa3d1'],[3,4,1,1,'#fff'],[3,4,1,1,'#06243a'],[5,5,2,1,'#2aa3d1']]);
 export const PX_MASK = px(12, 10, [[1,3,10,5,'#1b8fd1'],[2,4,3,3,'#bdeaff'],[7,4,3,3,'#bdeaff'],[5,5,2,1,'#0d5c8a'],[0,5,1,2,'#0d5c8a'],[11,5,1,2,'#0d5c8a']]);
+
+// Trophée jaune (classement des jeux)
+export const TROPHY_SVG = (size = 30) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" fill="none" stroke="#9a6a00" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M14 6h20v12a10 10 0 0 1-20 0z" fill="#facc15"/><path d="M14 10H7c0 7 3 10 8 10M34 10h7c0 7-3 10-8 10"/><path d="M24 28v8" /><path d="M16 42h16v-6H16z" fill="#facc15"/></svg>`;
