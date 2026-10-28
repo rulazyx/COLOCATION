@@ -249,3 +249,12 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 ## v33
 - Écran de chargement : « KOMAN IL É ».
 - Jumpy Cardinal : bouton « Caisse mystère · 150 » sur l'écran « Touche pour voler » (révélation + Équiper), sons synthétisés (battement d'ailes, point, choc, explosion) avec bouton muet, et le point est compté pile quand l'oiseau atteint le milieu de la colonne.
+
+## v34
+- Quêtes journalières par jeu (3 par jeu, récompense en colocoins), visibles seulement dans le jeu via le bouton « Quêtes ». Config : `GAME_QUESTS` dans `config.js`. Jour = heure de La Réunion.
+- SQL : relancer `supabase/migration-v8.sql` (tables `game_quest_defs`, `game_quests`, fonction `game_quest`).
+
+## v35
+- Fenêtres surprise (table `popups`) : s'affichent une fois à l'ouverture de l'appli. Première : anniversaire de Zakaria, style jeu vidéo.
+- Notification : redéployer la fonction `notify`, puis lancer `supabase/send-popup.sql` (après avoir mis l'URL et le code secret).
+- `migration-v8.sql` peut être relancée sans erreur (corrigé pour les quêtes).

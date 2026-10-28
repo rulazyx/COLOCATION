@@ -42,7 +42,8 @@ const TABLE_ARC = `<svg class="bj-arc" viewBox="0 0 300 60" aria-hidden="true"><
 const chipStack = (n) => (n > 0 ? `<span class="chipstack" aria-hidden="true"><i></i><i></i><i></i><b>${n}</b></span>` : '');
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export function mount(root, { onEnd, balance }) {
+export function mount(root, { onEnd, balance, quest }) {
+  let streak = 0;
   let bal = Math.max(0, balance?.() ?? 0), bet = 1, deck = [], hands = [], dealer = [], active = 0, phase = 'bet', msg = '';
   let hideDealer = false, fresh = null, destroyed = false, busy = false, split = false;
   const stake = () => hands.reduce((a, h) => a + h.bet, 0);
@@ -147,6 +148,9 @@ export function mount(root, { onEnd, balance }) {
       else if (d > 21 || t > d) { net += h.bet; wins++; h.result = `gagné +${h.bet}`; }
       else h.result = 'égalité';
     }
+    if (blackjack) quest?.('bj_bj');
+    if (wins > losses) { streak++; quest?.('bj_streak', streak); } else streak = 0;
+    if (hands.some((h) => h.result?.startsWith('gagné') && total(h.cards) <= 16)) quest?.('bj_low');
     msg = blackjack ? 'Blackjack !' : wins > losses ? 'Gagné !' : losses > wins ? (hands.every((h) => total(h.cards) > 21) ? 'Tu dépasses 21' : 'Perdu…') : 'Égalité';
     // la mise de base est celle choisie avant de doubler
     const betBase = bet;

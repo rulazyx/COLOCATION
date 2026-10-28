@@ -296,7 +296,7 @@ function drawSign(c, txt, sub, cx, y) {
   c.font = '800 15px system-ui, sans-serif'; c.textAlign = 'center'; c.fillStyle = '#3a2412'; c.fillText(txt, cx, y + 17); c.font = '700 10.5px system-ui, sans-serif'; c.fillStyle = '#5b3a1a'; c.fillText(sub, cx, y + 31); c.restore();
 }
 
-export function mount(root, ctx) {
+export function mount(root, ctx) {   // ctx.quest(clé, n) : quêtes du jour
   root.innerHTML = `<div class="fgame">
       <div class="fhud"><span class="fcoins"></span><span class="fcap"></span></div>
       <div class="fstage"><canvas class="fcv" width="${W}" height="${H}" aria-label="Colo-Ferme"></canvas>
@@ -331,9 +331,9 @@ export function mount(root, ctx) {
     tabs.classList.toggle('paper', tab === 'grange'); root.querySelector('.fstage').style.background = tab === 'champs' ? '#6a4326' : tab === 'grange' ? '#ecd5a0' : '#6fbd4a';
     if (tab === 'grange') renderGrange();
   }
-  function setTab(k) { tab = k; if (k === 'grange') owner = ctx.meId; renderHud(); }
+  function setTab(k) { tab = k; if (k === 'grange') { owner = ctx.meId; ctx.quest?.('fe_barn'); } renderHud(); }
   tabs.addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
-  visit.addEventListener('click', (e) => { const b = e.target.closest('[data-owner]'); if (b) { owner = Number(b.dataset.owner); renderHud(); } });
+  visit.addEventListener('click', (e) => { const b = e.target.closest('[data-owner]'); if (b) { owner = Number(b.dataset.owner); if (owner !== ctx.meId) ctx.quest?.('fe_visit'); renderHud(); } });
 
   /* ----- Grange : stock, vente, bonus ----- */
   function renderGrange() {
@@ -375,7 +375,7 @@ export function mount(root, ctx) {
       if (e.target.closest('[data-x]') || e.target === over) { over.hidden = true; return; }
       const b = e.target.closest('[data-crop]'); if (!b) return;
       over.hidden = true; const key = b.dataset.crop, r = fieldRect(slot);
-      act(() => ctx.plant(slot, key), () => { burst(r.x + r.w / 2, r.y + r.h * 0.8, 'dirt', 12); pulse['f' + slot] = performance.now(); });
+      act(() => ctx.plant(slot, key), () => { burst(r.x + r.w / 2, r.y + r.h * 0.8, 'dirt', 12); pulse['f' + slot] = performance.now(); if (key === 'curcuma') ctx.quest?.('fe_plant'); });
     };
   }
   function openBuildPicker(spot) {

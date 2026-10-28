@@ -888,3 +888,73 @@ begin
   return v_key;
 end $$;
 grant execute on function open_bird_crate(int) to anon, authenticated;
+
+
+-- ===== v33 : quêtes journalières par jeu (récompense en colocoins) =====
+create table if not exists game_quest_defs (key text primary key, game text not null, target int not null, reward int not null, mode text not null check (mode in ('add', 'max')));
+insert into game_quest_defs (key, game, target, reward, mode) values
+__GAME_QUESTS__
+on conflict (key) do update set game = excluded.game, target = excluded.target, reward = excluded.reward, mode = excluded.mode;
+create table if not exists game_quests (
+  member_id int not null references members(id) on delete cascade,
+  day date not null,
+  quest text not null references game_quest_defs(key),
+  progress int not null default 0,
+  done boolean not null default false,
+  primary key (member_id, day, quest)
+);
+alter table game_quest_defs enable row level security;
+alter table game_quests enable row level security;
+drop policy if exists "game_quest_defs lecture" on game_quest_defs; create policy "game_quest_defs lecture" on game_quest_defs for select using (true);
+drop policy if exists "game_quests lecture" on game_quests; create policy "game_quests lecture" on game_quests for select using (true);
+create or replace function game_quest(p_member int, p_quest text, p_amount int) returns json
+language plpgsql security definer set search_path = public as $$
+declare d game_quest_defs; v_day date := (now() at time zone 'Indian/Reunion')::date; v_new int; v_old game_quests; v_just boolean := false;
+begin
+  if not exists (select 1 from members where id = p_member) then raise exception 'Membre inconnu.'; end if;
+  select * into d from game_quest_defs where key = p_quest;
+  if not found then raise exception 'Quête inconnue.'; end if;
+  p_amount := least(greatest(coalesce(p_amount, 0), 0), d.target);          -- un appel ne peut jamais dépasser l'objectif
+  perform pg_advisory_xact_lock(hashtext('gq:' || p_member));
+  insert into game_quests (member_id, day, quest) values (p_member, v_day, p_quest) on conflict do nothing;
+  select * into v_old from game_quests where member_id = p_member and day = v_day and quest = p_quest for update;
+  if v_old.done then return json_build_object('progress', d.target, 'target', d.target, 'done', true, 'just', false, 'reward', d.reward); end if;
+  v_new := least(d.target, case when d.mode = 'max' then greatest(v_old.progress, p_amount) else v_old.progress + p_amount end);
+  if v_new >= d.target then
+    v_just := true;
+    insert into chip_ledger (member_id, amount, reason) values (p_member, d.reward, 'quete:' || p_quest);
+  end if;
+  update game_quests set progress = v_new, done = v_just where member_id = p_member and day = v_day and quest = p_quest;
+  return json_build_object('progress', v_new, 'target', d.target, 'done', v_just, 'just', v_just, 'reward', d.reward);
+end $$;
+grant execute on function game_quest(int, text, int) to anon, authenticated;
+
+
+-- ===== v34 : fenêtres surprise (affichées une fois à l'ouverture de l'appli) =====
+create table if not exists popups (
+  id          bigint generated always as identity primary key,
+  key         text unique,
+  to_id       int  not null references members(id) on delete cascade,
+  title       text not null,
+  body        text not null,
+  theme       text not null default 'gamer',
+  created_at  timestamptz not null default now(),
+  seen_at     timestamptz,
+  notified_at timestamptz
+);
+alter table popups enable row level security;
+drop policy if exists "popups lecture" on popups; create policy "popups lecture" on popups for select using (true);
+create or replace function popup_seen(p_member int, p_id bigint) returns void
+language sql security definer set search_path = public as $$
+  update popups set seen_at = now() where id = p_id and to_id = p_member and seen_at is null;
+$$;
+grant execute on function popup_seen(int, bigint) to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table popups; exception when duplicate_object then null; end;
+end $$;
+insert into popups (key, to_id, title, body, theme)
+select 'zakaria-anniv-2026', id, 'Joyeux anniversaire ZakariYa',
+  E'Joyeux anniversaire en retard !\nBonne nouvelle : tu es convié à une soirée entre mecs, avec bière et nourriture à volonté pour toi, aux Toiles Noires ! https://lestoilesnoires.re/ Invite les copains de ton choix, sinon ça va finir en duo bot lol',
+  'gamer'
+from members where name = 'Zakaria' limit 1
+on conflict (key) do update set title = excluded.title, body = excluded.body where popups.seen_at is null;   -- texte mis à jour tant qu'il n'a pas été vu

@@ -2,6 +2,7 @@
 //  - {type:"stock", productId}  → prévient TOUS les colocs qu'un produit est en rupture
 //  - {type:"task", event, logId} → tâche à confirmer / confirmée
 //  - {type:"message", messageId} → prévient le destinataire d'un message court
+//  - {type:"popup", popupId}   → notification d'une fenêtre surprise (code secret requis)
 //  - {type:"reminder"}          → (appelée chaque soir par pg_cron) rappelle les tâches qui attendent une confirmation
 //
 // Secrets à définir (Edge Functions > Secrets) :
@@ -58,7 +59,7 @@ function today() {
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
-  let body: { type?: string; productId?: number; duelId?: number; messageId?: number; event?: string } = {};
+  let body: { type?: string; productId?: number; duelId?: number; messageId?: number; popupId?: number; event?: string } = {};
   try { body = await req.json(); } catch { return json({ error: "bad json" }, 400); }
 
   if (body.type === "stock") {
@@ -115,6 +116,16 @@ Deno.serve(async (req) => {
     const from = (await db.from("members").select("name").eq("id", m.from_id).single()).data?.name ?? "?";
     const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", m.to_id);
     return json({ sent: await send((subs ?? []) as Sub[], { title: `Message de ${from}`, body: String(m.body).slice(0, 140), tag: `msg-${m.id}` }) });
+  }
+
+  if (body.type === "popup") {
+    // {type:"popup", popupId} : prévient le destinataire qu'une fenêtre surprise l'attend (une seule fois, réservé au code secret)
+    if (req.headers.get("x-cron-secret") !== Deno.env.get("CRON_SECRET")) return json({ error: "forbidden" }, 403);
+    const { data: p } = await db.from("popups").select("*").eq("id", body.popupId).single();
+    if (!p || p.notified_at) return json({ sent: 0 });
+    await db.from("popups").update({ notified_at: new Date().toISOString() }).eq("id", p.id);
+    const { data: subs } = await db.from("push_subs").select("endpoint,sub").eq("member_id", p.to_id);
+    return json({ sent: await send((subs ?? []) as Sub[], { title: "JOYEUX ANNIVERSAIRE EN RETARD", body: "Une surprise t'attend dans l'appli. Ouvre-la !", tag: `popup-${p.id}` }) });
   }
 
   if (body.type === "task") {

@@ -250,7 +250,7 @@ const SPK_ON = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stro
 const SPK_OFF = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5v5h4l5 4v-13l-5 4z"/><path d="M17 9.5l5 5M22 9.5l-5 5"/></svg>';
 const COIN = '<svg viewBox="0 0 20 20" width="16" height="16" style="vertical-align:-3px"><circle cx="10" cy="10" r="9" fill="#f6b91d" stroke="#9a6209" stroke-width="1.6"/><circle cx="10" cy="10" r="5.4" fill="none" stroke="#fde68a" stroke-width="1.5"/></svg>';
 
-export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
+export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest }) {
   let skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   const snd = makeAudio();
   root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
@@ -280,7 +280,9 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
       `total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`, `écart médian entre saccades : ${gap.toFixed(0)} ms (${near500} % vers 500 ms)`];
   }
   let g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
-  const flap = () => { if (!g.dead) g.flap(); };
+  let jumps = 0, sent20 = false;
+  const flushJumps = () => { if (jumps > 0) { quest?.('fl_jumps', jumps); jumps = 0; } };
+  const flap = () => { if (g.dead) return; if (!g.started) quest?.('fl_games'); jumps++; g.flap(); };
   const onKey = (e) => { if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); flap(); } };
   const crateBtn = root.querySelector('.gcratebtn'), muteBtn = root.querySelector('.gmute'), crateBox = root.querySelector('.gcrate');
   let crating = false;
@@ -312,7 +314,7 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
       skin = { ...BASE, ...(SHOP.bird.find((x) => x.key === key) ?? {}) };
     }
     if (a === 'cr-equip' || a === 'cr-close') { crateBox.hidden = true; crating = false; return; }
-    if (e.target.dataset.act === 'again') { g = createGame(); reported = false; over.hidden = true; cv.classList.remove('gray'); }
+    if (e.target.dataset.act === 'again') { g = createGame(); reported = false; sent20 = false; over.hidden = true; cv.classList.remove('gray'); }
   });
   function loop(ts) {
     if (destroyed) return;
@@ -321,6 +323,8 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
     let k = dt / (1000 / 60);                          // temps réel écoulé, en images à 60 Hz
     while (k > 0.001) { const kk = Math.min(k, 1.2); g.step(kk); k -= kk; frame += kk; }   // pas de 1,2 max : les collisions restent fiables après un à-coup
     for (const x of g.sfx.splice(0)) snd.play(x);
+    if (!sent20 && g.score >= 20) { sent20 = true; quest?.('fl_score', g.score); }
+    if (g.dead && jumps) flushJumps();
     syncCrate();
     draw(ctx, g, frame, skin);
     if (hudTxt.length) { ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(4, 40, 262, 70); ctx.fillStyle = '#9dffb0'; ctx.font = '10px ui-monospace,Menlo,monospace'; ctx.textAlign = 'left'; hudTxt.forEach((t, i) => ctx.fillText(t, 8, 54 + i * 13)); }
@@ -335,5 +339,5 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird }) {
     raf = requestAnimationFrame(loop);
   }
   raf = requestAnimationFrame(loop);
-  return { destroy() { destroyed = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); } };
+  return { destroy() { flushJumps(); destroyed = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); } };
 }

@@ -1,8 +1,8 @@
 import {
   CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity,
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, GAME_QUESTS,
 } from './config.js';
-import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, CRATE_SVG, birdSVG } from './shopart.js';
+import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, QUEST_SVG, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
@@ -139,11 +139,11 @@ async function refresh(force = false) {
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); try { await state.api.settlePlateau(); } catch {} }
-  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes'];
+  const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups'];
   const res = await Promise.allSettled([
     state.api.members(),
     state.api.scores(), state.api.balances(), state.api.products(), state.api.purchases(), state.api.duels(),
-    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(),
+    state.api.stats(), state.api.duelStats(), state.api.unlocks(), state.api.views(), state.api.xp(), state.api.weekly(), state.api.taskLogs(), state.api.soapSpent(), state.api.diceRolls(), state.api.perks(), state.api.perkConfirms(), state.api.chips(), state.api.plateauWeeks(), state.api.farm(), state.api.farmState(), state.api.farmDay(), state.api.farmStock(), state.api.farmBuilds(), state.api.events(), state.api.eventVotes(), state.api.popups(state.me?.id),
   ]);
   const failed = [];
   res.forEach((r, i) => { if (r.status === 'fulfilled') state[keys[i]] = r.value; else failed.push(`${keys[i]}: ${r.reason?.message || r.reason}`); });
@@ -526,18 +526,44 @@ async function openGame(id) {
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id}`;
   // Une fois le jeu lancé, il ne reste que la flèche retour (le nom ne s'affiche que sur l'écran jaune d'ouverture)
-  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button></div><div class="gbody"></div>
+  layer.innerHTML = `<div class="ghead"><button class="chip" data-gact="close" aria-label="Retour">‹</button><button class="chip gqbtn" data-gact="quests" hidden></button></div><div class="gqpanel" hidden></div><div class="gbody"></div>
     <div class="gsplash"><span>${esc(G.name)}</span></div>`;
   gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
-  layer.addEventListener('click', (e) => { if (e.target.closest('[data-gact="close"]')) closeGame(); });
+  const qs = GAME_QUESTS[id] ?? [], gq = {};
+  const qBtn = layer.querySelector('.gqbtn'), qPanel = layer.querySelector('.gqpanel');
+  const qDraw = () => {
+    if (!qs.length) return;
+    const n = qs.filter((q) => gq[q.key]?.done).length;
+    qBtn.hidden = false; qBtn.innerHTML = `${QUEST_SVG}<span>Quêtes ${n}/${qs.length}</span>`;
+    qPanel.innerHTML = `<div class="gqh"><b>Quêtes du jour</b><small>Reviennent demain</small></div>` + qs.map((q) => {
+      const r = gq[q.key] ?? { progress: 0, done: false }, pc = Math.round(100 * Math.min(r.progress, q.target) / q.target);
+      return `<div class="gqi ${r.done ? 'ok' : ''}"><div class="gql"><span>${esc(q.label)}</span><em>${r.done ? 'Fait' : `${r.progress}/${q.target}`}</em></div><div class="gqbar"><i style="width:${r.done ? 100 : pc}%"></i></div><div class="gqr">+${q.reward} ${COIN_SVG}</div></div>`;
+    }).join('');
+  };
+  const quest = (key, amount = 1) => {
+    const q = qs.find((x) => x.key === key); if (!q || gq[key]?.done) return;
+    const r = gq[key] ??= { progress: 0, done: false };
+    r.progress = Math.min(q.target, q.mode === 'max' ? Math.max(r.progress, amount) : r.progress + amount);   // affichage immédiat, la base fait foi
+    qDraw();
+    state.api.gameQuest(state.me.id, key, amount).then((res) => {
+      Object.assign(r, { progress: res.progress, done: res.done || r.done }); qDraw();
+      if (res.just) { r.done = true; qDraw(); toast(`Quête réussie : ${q.label} · +${res.reward} colocoins`, 4500); refresh(true).catch(() => {}); }
+    }).catch((e) => console.warn(e));
+  };
+  state.api.gameQuests(state.me.id).then((rows) => { rows.forEach((x) => { const q = qs.find((y) => y.key === x.quest); if (q) gq[x.quest] = { progress: Math.max(x.progress, gq[x.quest]?.progress ?? 0), done: x.done }; }); qDraw(); }).catch(() => qDraw());
+  layer.addEventListener('click', (e) => {
+    if (e.target.closest('[data-gact="close"]')) closeGame();
+    else if (e.target.closest('[data-gact="quests"]')) qPanel.hidden = !qPanel.hidden;
+    else if (!qPanel.hidden && !e.target.closest('.gqpanel')) qPanel.hidden = true;
+  });
   setTimeout(() => layer.querySelector('.gsplash')?.remove(), 1150);
   try {
     const mod = await import(G.mod);
     await new Promise((r) => setTimeout(r, 700)); // le jeu démarre quand l'écran jaune s'efface
     if (state.game !== id) return;
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
-      balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
+      quest, balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
       crate: async () => { const key = await state.api.openBirdCrate(state.me.id); await refresh(true); return key; },
       equipBird: (key) => saveProfile({ bird: key }), ...(id === 'ferme' ? farmCtx() : {}),
       async onEnd(r) {
@@ -932,12 +958,14 @@ function currentSheet() {
   if (state.game || !state.me) return null;
   if (state.won.length) return { type: 'won' };
   if (state.levelUps.length) return { type: 'levelup' };
+  if (state.popups?.length) return { type: 'popup' };
   return null;
 }
 function closeSheet() {
   if (state.sheet) state.sheet = null;
   else if (state.won.length) state.won = [];
   else if (state.levelUps.length) state.levelUps = [];
+  else if (state.popups?.length) { const [x] = state.popups.splice(0, 1); state.api.popupSeen(state.me.id, x.id).catch(() => {}); }
   render();
 }
 
@@ -960,6 +988,7 @@ function sheetHTML() {
     case 'task-do': return taskConfirmHTML(s);
     case 'task-group': return taskGroupHTML(s);
     case 'levelup': return levelUpSheetHTML();
+    case 'popup': return popupHTML(state.popups[0]);
     case 'duel-pick': return duelPickHTML();
     case 'duel-new': return duelNewHTML(s);
     case 'duel-play': return duelPlayHTML(s);
@@ -968,6 +997,23 @@ function sheetHTML() {
   }
 }
 
+// Fenêtre surprise « jeu vidéo » (une fois par message)
+const linkify = (h) => h.replace(/https:\/\/[^\s<]+/g, (u) => `<a class="pxlink" href="${u}" target="_blank" rel="noopener noreferrer">${u.replace(/^https:\/\//, '').replace(/\/$/, '')}</a>`);
+function popupHTML(pp) {
+  const [hero, ...rest] = String(pp.body).split('\n'), last = rest.length ? rest.pop() : null;
+  const confetti = Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i % 9) * 0.35}s;background:${['#ffd23f', '#ff4d6d', '#3be8b0', '#4cc9f0', '#b388ff'][i % 5]}"></i>`).join('');
+  return `<div class="overlay popov" data-action="noop"><div class="pxwin" role="dialog" aria-modal="true">
+    <div class="pxconf" aria-hidden="true">${confetti}</div>
+    <div class="pxtop"><span>★ ÉVÉNEMENT SPÉCIAL ★</span></div>
+    <div class="pxcake" aria-hidden="true">${PX_CAKE}</div>
+    <h2 class="pxtitle">${esc(pp.title)}</h2>
+    <div class="pxlvl"><b>${esc(hero)}</b><span>NIVEAU +1</span></div>
+    ${rest.map((t, i) => `<div class="pxdlg"><em>${i ? 'LOG' : 'MESSAGE'}</em>${esc(t)}</div>`).join('')}
+    ${last ? `<div class="pxquest"><div class="pxqh"><span>NOUVELLE QUÊTE</span><small>Multijoueur</small></div><p>${linkify(esc(last))}</p>
+      <div class="pxrew"><span>${PX_MUG}Bière à volonté</span><span>${PX_FOOD}Buffet à volonté</span><span>${PX_PAD}Invite ta team</span></div></div>` : ''}
+    <button class="pxbtn" data-action="close">APPUIE SUR START</button>
+  </div></div>`;
+}
 function levelUpSheetHTML() {
   const l = state.levelUps[state.levelUps.length - 1];
   const p = levelProgress(xpOf(state.me.id));

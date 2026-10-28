@@ -1,9 +1,10 @@
 // Accès aux données — 2 implémentations avec la même interface
 //   - cloud : Supabase (partagé entre colocs, temps réel)
 //   - démo  : localStorage (pour essayer sans rien configurer)
-import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
+import { CONFIG, SKIN_COLORS, HAIR_COLORS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM, ALL_QUESTS } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
+const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
 // Qui gagne ? renvoie 'c' (challenger), 'o' (opponent) ou null (égalité)
 const duelWinner = (cm, om) => (cm === om ? null : MOVES[cm]?.beats === om ? 'c' : 'o');
@@ -131,6 +132,10 @@ export async function makeCloudApi() {
     },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
+    async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
+    async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
+    async gameQuests(id) { return check(await sb.from('game_quests').select('quest,progress,done').eq('member_id', id).eq('day', reunionDay())); },
+    async gameQuest(id, key, amount) { return check(await sb.rpc('game_quest', { p_member: id, p_quest: key, p_amount: Math.floor(amount) })); },
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
@@ -301,6 +306,20 @@ export function makeDemoApi() {
       const s = statsOf(id), old = s.quest_mask; s.quest_mask = (s.quest_mask | (1 << (step - 1))) & 63;
       if (s.quest_mask === 63 && old !== 63 && !db.xp.some((x) => x.member_id === id && x.reason === 'intro')) addXp(id, X.introXp, 'intro');
       save(); return s.quest_mask;
+    },
+    async popups(id) { db.popups ??= [{ id: 1, key: 'zakaria-anniv-2026', to_id: 5, title: 'Joyeux anniversaire ZakariYa', theme: 'gamer', seen_at: null, body: "Joyeux anniversaire en retard !\nBonne nouvelle : tu es convié à une soirée entre mecs, avec bière et nourriture à volonté pour toi, aux Toiles Noires ! https://lestoilesnoires.re/ Invite les copains de ton choix, sinon ça va finir en duo bot lol" }]; return db.popups.filter((p) => p.to_id === id && !p.seen_at).map((p) => ({ ...p })); },
+    async popupSeen(id, popup) { const p = (db.popups ?? []).find((x) => x.id === popup && x.to_id === id); if (p) { p.seen_at = now(); save(); } },
+    async gameQuests(id) { const day = reunionDay(); return (db.gq ?? []).filter((r) => r.member_id === id && r.day === day).map(({ quest, progress, done }) => ({ quest, progress, done })); },
+    async gameQuest(id, key, amount) {
+      const d = ALL_QUESTS.find((q) => q.key === key); if (!d) fail('Quête inconnue.');
+      db.gq ??= []; const day = reunionDay();
+      let r = db.gq.find((x) => x.member_id === id && x.day === day && x.quest === key);
+      if (!r) db.gq.push(r = { member_id: id, day, quest: key, progress: 0, done: false });
+      if (r.done) return { progress: d.target, target: d.target, done: true, just: false, reward: d.reward };
+      amount = Math.min(Math.max(Math.floor(amount) || 0, 0), d.target);
+      r.progress = Math.min(d.target, d.mode === 'max' ? Math.max(r.progress, amount) : r.progress + amount);
+      const just = r.progress >= d.target; if (just) { r.done = true; addChips(id, d.reward, 'quete:' + key); }
+      save(); return { progress: r.progress, target: d.target, done: just, just, reward: d.reward };
     },
     async launchGame(id) {
       if (db.xp.some((x) => x.member_id === id && x.reason === 'first_game')) return 0;

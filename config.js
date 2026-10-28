@@ -264,3 +264,23 @@ export const FARM = {
   ],
 };
 
+
+// Quêtes journalières par jeu : visibles seulement dans le jeu. mode 'add' = on cumule, 'max' = on garde le meilleur chiffre du jour.
+export const GAME_QUESTS = {
+  flappy: [
+    { key: 'fl_games', label: 'Lance 3 parties', target: 3, reward: 20, mode: 'add' },
+    { key: 'fl_score', label: 'Atteins 20', target: 20, reward: 40, mode: 'max' },
+    { key: 'fl_jumps', label: 'Saute 100 fois', target: 100, reward: 30, mode: 'add' },
+  ],
+  ferme: [
+    { key: 'fe_plant', label: 'Plante du curcuma', target: 1, reward: 20, mode: 'add' },
+    { key: 'fe_visit', label: "Regarde la ferme d'un autre joueur", target: 1, reward: 20, mode: 'add' },
+    { key: 'fe_barn', label: 'Clique sur ta grange', target: 1, reward: 20, mode: 'add' },
+  ],
+  blackjack: [
+    { key: 'bj_bj', label: 'Fais un blackjack', target: 1, reward: 40, mode: 'add' },
+    { key: 'bj_streak', label: 'Gagne 2 parties d\'affilée', target: 2, reward: 30, mode: 'max' },
+    { key: 'bj_low', label: 'Gagne une main avec 16 ou moins', target: 1, reward: 30, mode: 'add' },
+  ],
+};
+export const ALL_QUESTS = Object.entries(GAME_QUESTS).flatMap(([game, l]) => l.map((q) => ({ ...q, game })));
