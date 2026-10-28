@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 71;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 72;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1133,14 +1133,12 @@ function closeSheet() {
 
 function headMenuHTML() {
   const me = state.me, due = dailyDue() || statsOf(me.id).wheel_ready;
-  const item = (act, attrs, emo, title, sub, dot) => `<button class="kcard ${dot ? 'dot' : ''}" style="--c:var(--accent)" data-action="${act}" ${attrs}><span class="kemo">${emo}</span><span class="ktxt"><b>${title}</b><small>${sub}</small></span></button>`;
-  return sheetWrap(`
-    <div class="sh"><div><h2>${esc(me.name)}</h2><div class="when">Que veux-tu faire ?</div></div>${closeBtn}</div>
-    <div class="klist">
-      ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…')}
-      ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due)}
-      ${item('goperso', '', '🎨', 'Personnalisation', 'Ton personnage, titres, badges et réglages')}
-    </div>`);
+  const item = (act, attrs, emo, title, sub, dot, i) => `<button class="hmi ${dot ? 'dot' : ''}" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
+  return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
+    ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', false, 0)}
+    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due, 1)}
+    ${item('goperso', '', '🎨', 'Personnalisation', 'Personnage, titres, badges, réglages', false, 2)}
+  </div></div>`;
 }
 function sheetHTML() {
   const s = currentSheet();

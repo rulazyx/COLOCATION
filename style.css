@@ -927,3 +927,19 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 
 .hav.dot::after{content:'';position:absolute;top:-2px;left:-2px;width:12px;height:12px;border-radius:50%;background:var(--danger);border:2px solid var(--bg,#fff)}
 .kcard.dot .ktxt small{color:var(--danger);font-weight:700}
+
+/* Menu de la tête : une bulle qui sort de l'icône */
+.overlay.hmov{background:rgba(0,0,0,.18);align-items:flex-start;justify-content:flex-start;animation:hmfade .2s ease}
+@keyframes hmfade{from{opacity:0}}
+.hmenu{position:absolute;top:calc(env(safe-area-inset-top) + 66px);left:10px;width:min(310px,88vw);background:var(--card);border-radius:22px;padding:8px;box-shadow:0 14px 40px rgba(0,0,0,.28);
+  transform-origin:34px -18px;animation:hmpop .38s cubic-bezier(.2,1.5,.4,1) both}
+.hmenu::before{content:'';position:absolute;top:-8px;left:26px;width:18px;height:18px;background:var(--card);transform:rotate(45deg);border-radius:4px}
+@keyframes hmpop{0%{transform:scale(.08);opacity:0;border-radius:50%}60%{opacity:1}100%{transform:scale(1);opacity:1}}
+.hmi{position:relative;display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:11px 12px;border-radius:16px;animation:hmin .35s ease both;animation-delay:calc(.16s + var(--i) * .07s)}
+@keyframes hmin{from{opacity:0;transform:translateY(-10px) scale(.96)}}
+.hmi:active{background:var(--accent-soft);transform:scale(.98)}
+.hme{font-size:26px;width:38px;height:38px;display:grid;place-items:center;background:var(--accent-soft);border-radius:12px;flex:none}
+.hmt{display:flex;flex-direction:column}.hmt b{font-size:15px}.hmt small{color:var(--muted);font-size:12px}
+.hmi.dot .hmt small{color:var(--danger);font-weight:700}
+.hav{transition:transform .2s}
+@media (prefers-reduced-motion:reduce){.hmenu,.hmi,.overlay.hmov{animation:none}}
