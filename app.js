@@ -776,7 +776,7 @@ function gShow(view) {
   const title = view === 'move' ? 'Chifoumi' : view === 'result' ? 'Résultat' : view === 'reveal' ? 'Caisse mystère' : (view === 'board' && u.id === 'blackjack' ? 'Classement victoires' : GTITLE[view]);
   const back = view === 'move' || view === 'result' ? 'duel' : view === 'reveal' ? 'perso' : 'home';
   home.className = `ghome gpanel v-${view}`;
-  home.innerHTML = `<div class="gp-head"><button class="gh-btn mini ghost" data-gh="${back}">‹ ${back === 'home' ? 'Accueil' : 'Retour'}</button><h2>${esc(title)}</h2></div><div class="gp-card">${bodies[view]()}</div>`;
+  home.innerHTML = `<div class="gp-head"><button class="gh-btn mini ghost" data-gh="${back}">‹ ${back === 'home' ? 'Menu principal' : 'Retour'}</button><h2>${esc(title)}</h2></div><div class="gp-card">${bodies[view]()}</div>`;
   if (view === 'board' && u.id === 'sudoku') {
     Promise.resolve(state.api.sudokuWeek(currentWeek())).then((rows) => {
       const el = home.querySelector('#gp-week'); if (!el || gameUI !== u) return;
@@ -834,7 +834,7 @@ function gPauseOpen() {
   const layer = glayer(); if (!layer || layer.querySelector('.gpause')) return;
   try { gameHandle?.pause?.(); } catch { /* rien */ }
   const o = document.createElement('div'); o.className = 'gpause';
-  o.innerHTML = `<div class="gpbox"><h2>Pause</h2><button class="gh-btn go" data-gact="resume">${gIcon('play')}Reprendre</button>${gameUI?.id === 'ferme' ? '' : `<button class="gh-btn" data-gact="home">${gIcon('home')}Accueil</button>`}<button class="gh-btn quit" data-gact="close">${gIcon('quit')}Quitter</button></div>`;
+  o.innerHTML = `<div class="gpbox"><h2>Pause</h2><button class="gh-btn go" data-gact="resume">${gIcon('play')}Reprendre</button>${gameUI?.id === 'ferme' ? '' : `<button class="gh-btn" data-gact="home">${gIcon('home')}Menu principal</button>`}<button class="gh-btn quit" data-gact="close">${gIcon('quit')}Quitter</button></div>`;
   layer.appendChild(o);
 }
 function gPauseClose() { glayer()?.querySelector('.gpause')?.remove(); try { gameHandle?.resume?.(); } catch { /* rien */ } }
