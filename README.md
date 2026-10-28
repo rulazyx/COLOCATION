@@ -274,3 +274,7 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 
 ## v39
 - Mise à jour automatique : dès qu'une nouvelle version est prête, l'appli se recharge toute seule quand rien n'est en cours (pas de partie, de fenêtre ni de saisie). Sinon la bannière « Actualiser » s'affiche, puis l'appli se recharge dès qu'elle est libre.
+
+## v40
+- Correctif « impossible de charger les données » : l'appli pouvait mélanger des fichiers de deux versions pendant une mise à jour. Le cache est maintenant installé d'un bloc (plus de mise à jour fichier par fichier) et, si un mélange est détecté (`BUILD`), l'appli vide son cache et se recharge toute seule une fois.
+- Pour sortir une nouvelle version : `node tools/bump.mjs` (augmente le numéro partout), puis commit.

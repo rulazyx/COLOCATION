@@ -1,5 +1,5 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v59';
+const CACHE = 'coloc-v60';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './budget.js', './manifest.webmanifest', './icon-192.png'];
 
 self.addEventListener('install', (e) => {
@@ -15,16 +15,12 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Cache d'abord, mise à jour en arrière-plan : l'appli s'ouvre tout de suite, même avec une mauvaise connexion.
-// Quand une nouvelle version est prête, l'appli propose « Actualiser » (voir app.js).
+// Cache d'abord, sans aller rechercher fichier par fichier : tous les fichiers d'une version sont mis en cache ensemble à l'installation,
+// donc l'appli ne mélange jamais deux versions. Une nouvelle version arrive avec un nouveau sw.js (voir app.js : « Actualiser » / rechargement automatique).
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  e.respondWith(caches.open(CACHE).then(async (c) => {
-    const hit = await c.match(req, { ignoreSearch: true });
-    const net = fetch(req).then((res) => { if (res.ok) c.put(req, res.clone()); return res; }).catch(() => hit);
-    return hit || net;
-  }));
+  e.respondWith(caches.open(CACHE).then(async (c) => (await c.match(req, { ignoreSearch: true })) || fetch(req)));
 });
 
 self.addEventListener('push', (e) => {

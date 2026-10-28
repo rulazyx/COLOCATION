@@ -6,6 +6,8 @@ import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budg
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, QUEST_SVG, COIN_SVG, CRATE_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi, makeDemoApi } from './api.js';
+import * as APIMOD from './api.js';
+const BUILD = 60;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -139,7 +141,7 @@ async function refresh(force = false) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
   if (state.game && !force) { state.pendingRefresh = true; return; }
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
-  if (state.me?.kind === 'coloc' && Date.now() - (state.recAt ?? 0) > 3600000) { state.recAt = Date.now(); state.api.runRecurring().then((n) => { if (n) refresh(true); }).catch(() => {}); }   // dépenses automatiques du 1er du mois
+  if (state.me?.kind === 'coloc' && Date.now() - (state.recAt ?? 0) > 3600000) { state.recAt = Date.now(); state.api.runRecurring?.().then((n) => { if (n) refresh(true); }).catch(() => {}); }   // dépenses automatiques du 1er du mois
   if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
   const keys = ['members', 'scores', 'balances', 'products', 'purchases', 'duels', 'stats', 'duelStats', 'unlocks', 'views', 'xp', 'weekly', 'logs', 'spent', 'dice', 'perks', 'pconf', 'chips', 'pweeks', 'farm', 'farmSt', 'farmDay', 'farmStock', 'farmBuilds', 'events', 'evVotes', 'popups', 'msgs', 'expenses', 'expShares'];
   const res = await Promise.allSettled([
@@ -214,7 +216,18 @@ function showUpdateBar() {
   el.querySelector('#updgo').onclick = () => location.reload();
   el.querySelector('#updx').onclick = () => el.remove();
 }
+// Fichiers de deux versions mélangés (mise à jour en cours de route) : on vide le cache et on recharge, une seule fois
+async function healCaches() {
+  try {
+    if (Date.now() - Number(sessionStorage.getItem('coloc-heal') || 0) < 60000) return false;
+    sessionStorage.setItem('coloc-heal', String(Date.now()));
+    for (const k of await caches.keys()) await caches.delete(k);
+    for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    location.reload(); return true;
+  } catch { return false; }
+}
 async function init() {
+  if (APIMOD.BUILD !== BUILD && await healCaches()) return;
   let step = 'démarrage';
   const sp = (p) => window.splashProgress?.(p);
   if ('serviceWorker' in navigator) {
