@@ -1039,3 +1039,105 @@ nav.tabs{display:flex}nav.tabs button{flex:1 1 0;min-width:0;justify-content:cen
 .gwin span{font-weight:900;font-size:22px;padding:4px 14px;border-radius:99px;animation:sdkgain .5s cubic-bezier(.2,1.6,.4,1) both}
 .gwin .gx{background:#fde68a;color:#7c4a03;text-shadow:none}.gwin .gc{background:#fef3c7;color:#92400e;text-shadow:none;animation-delay:.15s}
 .sdk-gain span,.gwin span{white-space:nowrap}
+
+/* ---------- Jeux v2 : accueil par jeu, menu pause, chargements thématiques ---------- */
+.gboards-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;margin-bottom:12px;border-radius:14px;background:var(--card);border:2px solid var(--line);font-weight:800;font-size:16px;text-align:center}
+.g-flappy{--gbg:linear-gradient(#7ad0ff,#bfeaff);background:var(--gbg)}
+.g-sudoku{--gbg:linear-gradient(135deg,#4f46e5,#7c3aed);background:var(--gbg)}
+.g-chifoumi{--gbg:linear-gradient(135deg,#e5484d,#9b2c5a);background:var(--gbg)}
+.g-ferme{--gbg:#8fd27a;background:var(--gbg)}
+.g-blackjack{--gbg:radial-gradient(ellipse at 50% 30%,#23995f 0,#0f5c38 55%,#07301f 100%)}
+.gbody.sdk-root{background:transparent!important}
+.gsplash{background:var(--gbg,#fff4d6)!important}
+.gs-art{display:flex;flex-direction:column;align-items:center;min-height:150px;justify-content:flex-end}
+.gs-name,.gh-title{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive!important;font-weight:400!important;color:#fff!important;text-shadow:0 4px 0 rgba(0,0,0,.28);letter-spacing:.04em}
+.gs-bar{background:rgba(255,255,255,.3)!important}.gs-bar i{background:#fff!important}
+
+.gamelayer .ghead-r{margin-left:auto;pointer-events:auto}
+.gmenu,.gbadge{font-family:'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;font-size:16px;font-weight:400;width:auto!important;height:auto!important;padding:6px 12px;border-radius:12px;background:#fff;color:#1e1b4b;border:2px solid #1e1b4b;box-shadow:0 3px 0 #1e1b4b;display:inline-block}
+.gbadge{background:#ffd23f}
+.gamelayer.onhome .gmenu{display:none}
+.gamelayer:not(.onhome) .ghome{display:none}
+.ghome{position:absolute;inset:0;z-index:4;background:var(--gbg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:calc(64px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));overflow-y:auto}
+.gh-art{display:flex;flex-direction:column;align-items:center;min-height:150px;justify-content:flex-end}
+.gh-title{font-size:clamp(32px,10vw,46px);line-height:1;text-align:center;margin-bottom:6px}
+.gh-menu{display:flex;flex-direction:column;gap:12px;align-items:center;width:100%}
+.gh-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:min(78vw,300px);padding:13px 18px;background:#fff;color:#1e1b4b;border:3px solid #1e1b4b;border-radius:14px;box-shadow:0 5px 0 #1e1b4b;font:400 20px 'Lilita One','Chalkboard SE','Marker Felt','Comic Sans MS',cursive;text-align:center;transition:transform .08s,box-shadow .08s}
+.gh-btn:active{transform:translateY(4px);box-shadow:0 1px 0 #1e1b4b}
+.gh-btn.quit{background:#fecaca}.gh-btn.go{background:#ffd23f}.gh-btn.ghost{background:#f1f5f9}
+.gh-btn.mini{width:auto;padding:6px 12px;font-size:15px;border-width:2px;box-shadow:0 3px 0 #1e1b4b}
+.gh-btn:disabled{opacity:.45}
+.ghome.gpanel{justify-content:flex-start;gap:12px}
+.gp-head{display:flex;align-items:center;gap:12px;width:min(100%,460px)}
+.gp-head h2{margin:0;font:400 26px 'Lilita One','Chalkboard SE',cursive;color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.28)}
+.gp-card{width:min(100%,460px);background:var(--card);color:var(--text);border-radius:18px;padding:14px;border:3px solid #1e1b4b;box-shadow:0 5px 0 #1e1b4b;display:flex;flex-direction:column;gap:10px;font-size:15px}
+.gp-sub{font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.gp-rank,.gp-quests{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.gp-rank li{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:10px;background:var(--bg)}
+.gp-rank li.me{background:var(--accent-soft);font-weight:800}.gp-rank li.empty{justify-content:center;color:var(--muted)}
+.gp-rank b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gp-rank em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums}.gp-rank .pos{width:26px;text-align:center}
+.gp-row{display:flex;align-items:center;gap:10px;padding:8px;border-radius:12px;background:var(--bg)}.gp-row b{flex:1}.gp-row.mine{background:var(--accent-soft)}.gp-row small{display:block;color:var(--muted)}.gp-row>div{flex:1}
+.gp-vsm{display:flex}.gp-vsm>*+*{margin-left:-10px}
+.gp-heads{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gp-head-b,.gp-heads .gp-head{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:var(--bg);text-align:center;width:auto}
+.gp-heads .gp-head small{font-weight:700}.gp-heads .gp-head i{font-size:11px;color:var(--muted);font-style:normal}
+.gp-crate{display:flex;gap:12px;align-items:center;padding:8px;border-radius:14px;background:var(--bg)}.gp-crate>div{display:flex;flex-direction:column;gap:6px;align-items:flex-start}.gp-crate small{color:var(--muted)}
+.gp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gp-bird{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:12px;background:var(--bg);border:2px solid transparent;text-align:center;position:relative}
+.gp-bird small{font-weight:700;font-size:12px}.gp-bird.eq{border-color:var(--accent)}.gp-bird em{font-style:normal;font-size:11px;font-weight:800;color:var(--accent-ink)}
+.gp-bird.lock svg{filter:grayscale(1) brightness(.55);opacity:.55}.gp-bird.lock{opacity:.8}
+.gp-intel{text-align:center;font-size:18px}.gp-intel small{display:block;color:var(--muted);font-size:13px}
+.gp-quests li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--bg)}
+.gp-quests li>div{flex:1;display:flex;flex-wrap:wrap;gap:4px 10px;color:var(--muted);font-size:13px}.gp-quests li span.ok{color:#16a34a;font-weight:800}
+.gp-quests li.cur{background:var(--accent-soft);outline:2px solid var(--accent)}.gp-quests li.done{opacity:.6}
+.gp-vs{display:flex;justify-content:center;align-items:center;gap:14px;font-size:22px}
+.gp-moves{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.gp-move{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px 4px;border-radius:16px;background:var(--bg);border:3px solid transparent;text-align:center}
+.gp-move span{font-size:44px}.gp-move small{font-weight:800}.gp-move.sel{border-color:var(--accent);background:var(--accent-soft);animation:gpjig .5s ease}
+@keyframes gpjig{30%{transform:rotate(-8deg) scale(1.08)}60%{transform:rotate(6deg) scale(1.08)}}
+.gp-card .gh-btn.go{width:100%}
+.gp-reveal{display:flex;align-items:center;justify-content:space-around;padding:6px 0}
+.rv-side{display:flex;flex-direction:column;align-items:center;gap:4px}
+.rv-hand{position:relative;width:76px;height:76px;font-size:60px;display:grid;place-items:center}
+.rv-hand u{text-decoration:none;position:absolute;animation:rvshake .42s ease-in-out 3,rvout .2s ease 1.3s forwards}
+.rv-hand span{opacity:0;animation:rvin .35s cubic-bezier(.2,1.6,.4,1) 1.35s forwards}
+.rv-vs{font:400 22px 'Lilita One',cursive}
+.gp-verdict{text-align:center;opacity:0;animation:rvin .4s ease 1.75s forwards}.gp-verdict h2{margin:0;font:400 30px 'Lilita One',cursive}.gp-verdict p{margin:4px 0 10px;color:var(--muted)}
+@keyframes rvshake{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-16px) rotate(-10deg)}}
+@keyframes rvout{to{opacity:0}}@keyframes rvin{from{opacity:0;transform:scale(.4)}to{opacity:1;transform:none}}
+.gp-won{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}.gp-won h2{margin:0}.gp-two{display:flex;gap:8px;width:100%}.gp-two .gh-btn{flex:1;width:auto}
+.gpause{position:absolute;inset:0;z-index:30;background:rgba(15,10,40,.62);display:grid;place-items:center;animation:fade .15s}
+.gpbox{display:flex;flex-direction:column;gap:12px;align-items:center;background:#e0e7ff;border:3px solid #1e1b4b;border-radius:20px;box-shadow:0 6px 0 #1e1b4b;padding:20px 18px;width:min(86vw,330px)}
+.gpbox h2{margin:0;font:400 28px 'Lilita One',cursive;color:#1e1b4b}.gpbox .gh-btn{width:100%}
+
+/* Logos animés */
+.gl-bird{width:min(36vw,140px);animation:gshop .7s cubic-bezier(.3,0,.4,1) infinite;transform-origin:50% 100%}.gl-bird svg{display:block;width:100%;height:auto;overflow:visible}
+.gl-shadow{width:min(20vw,80px);height:10px;border-radius:50%;background:rgba(0,0,0,.18);margin-top:4px;animation:gshad .7s cubic-bezier(.3,0,.4,1) infinite}
+.gl-sudo{display:grid;grid-template-columns:repeat(3,46px);border:3px solid #1e1b4b;border-radius:8px;background:#fff;box-shadow:0 5px 0 #1e1b4b;overflow:hidden}
+.gl-sudo i{width:46px;height:46px;display:grid;place-items:center;font:normal 28px 'Lilita One',cursive;color:#4338ca;border:1px solid #c7d2fe;animation:glpulse 1.8s ease-in-out infinite;animation-delay:calc(var(--i)*.15s)}
+@keyframes glpulse{0%,60%,100%{transform:scale(1);background:#fff}30%{transform:scale(1.2);background:#fde68a}}
+.gl-chif{display:flex;gap:10px}
+.gl-chif i{font-style:normal;width:64px;height:64px;border-radius:50%;background:#fff;border:3px solid #1e1b4b;box-shadow:0 5px 0 #1e1b4b;display:grid;place-items:center;font-size:34px;animation:glhop 1.2s ease-in-out infinite;animation-delay:calc(var(--i)*.2s)}
+@keyframes glhop{0%,60%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-16px) rotate(-12deg)}}
+.gl-farmer{width:112px}.gl-farmer svg{display:block;width:100%;height:auto;overflow:visible}
+.fm-body{animation:fmbob 1s ease-in-out infinite;transform-origin:60px 134px}
+@keyframes fmbob{50%{transform:scaleY(.97) translateY(2px)}}
+.fm-arm-r{transform-origin:91px 64px;animation:fmwave 1s ease-in-out infinite}.fm-arm-l{transform-origin:29px 64px;animation:fmwave 1s ease-in-out infinite reverse}
+@keyframes fmwave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(10deg)}}
+.gl-cards{position:relative;width:150px;height:120px}
+.gl-card{position:absolute;bottom:0;width:72px;height:100px;background:#fff;border:3px solid #1e1b4b;border-radius:10px;box-shadow:0 4px 0 #1e1b4b;color:#111;font-family:'Lilita One',cursive;display:flex;flex-direction:column;align-items:center;justify-content:center;transform-origin:50% 100%}
+.gl-card b{font-weight:400;font-size:34px;line-height:1}.gl-card i{font-style:normal;font-size:34px;line-height:1}.gl-card.red{color:#dc2626}
+.gl-card.c1{left:8px;animation:glc1 1.6s ease-in-out infinite}.gl-card.c2{right:8px;animation:glc2 1.6s ease-in-out infinite}
+@keyframes glc1{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(-24deg) translateX(-8px)}}
+@keyframes glc2{0%,100%{transform:rotate(8deg)}50%{transform:rotate(24deg) translateX(8px) scaleX(.2)}}
+@media (prefers-reduced-motion:reduce){.gl-bird,.gl-shadow,.gl-sudo i,.gl-chif i,.fm-body,.fm-arm-r,.fm-arm-l,.gl-card{animation:none}}
+
+/* Sudoku : plateau toujours clair (même en mode sombre) et sans lignes dans le fond */
+.sdk-ui .sgrid{background:#fff;border-color:#1e1b4b}
+.sdk-ui .sc{background:#fff;color:#4338ca;border-color:#c7d2fe}
+.sdk-ui .sc.g{background:#eef2ff;color:#1e1b4b}
+.sdk-ui .sc.rb{border-right:2px solid #1e1b4b}.sdk-ui .sc.bb{border-bottom:2px solid #1e1b4b}
+.sdk-ui .sc.pe{background:#e0e7ff}.sdk-ui .sc.same{background:#c7d2fe}.sdk-ui .sc.sel{background:#fde68a}
+.sdk-ui .sc.bad{color:#dc2626}
+.sdk-ui .spad button{background:#fff}.sdk-ui .spad .era{background:#fecaca;color:#7f1d1d}
+.sdk-over{background:#fff;color:#1e1b4b}.sdk-over p{color:#4c4a7a}.sdk-over .btn{background:#e0e7ff;color:#1e1b4b}.sdk-over .btn.primary{background:#4f46e5;color:#fff}

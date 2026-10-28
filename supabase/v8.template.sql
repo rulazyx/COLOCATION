@@ -533,6 +533,9 @@ alter table farm_crops add column if not exists sell int not null default 1;
 insert into farm_crops (key, hours, cost, gain, level, sell) values
 __FARM_CROPS__
 on conflict (key) do update set hours = excluded.hours, cost = excluded.cost, gain = excluded.gain, level = excluded.level, sell = excluded.sell;
+alter table member_stats add column if not exists sudoku_easy int not null default 0;   -- grilles faciles réussies (niveau d'intelligence ; la grille de la semaine compte comme facile)
+alter table member_stats add column if not exists sudoku_mid  int not null default 0;
+alter table member_stats add column if not exists sudoku_hard int not null default 0;
 alter table member_stats add column if not exists farm_harvests int not null default 0;
 alter table member_stats add column if not exists farm_coins    int not null default 0;
 alter table member_stats add column if not exists farm_waters   int not null default 0;
@@ -1220,11 +1223,11 @@ begin
     elsif p_seconds < v_prev then
       v_record := true; update sudoku_weekly set seconds = p_seconds, updated_at = now() where member_id = p_member and week = v_week;
     end if;
-    update member_stats set sudoku_done = sudoku_done + 1, sudoku_best = least(coalesce(sudoku_best, p_seconds), p_seconds) where member_id = p_member;
+    update member_stats set sudoku_done = sudoku_done + 1, sudoku_easy = sudoku_easy + 1, sudoku_best = least(coalesce(sudoku_best, p_seconds), p_seconds) where member_id = p_member;
   else
     v_xp := case p_mode when 'easy' then 10 when 'mid' then 25 else 50 end;
     v_coins := case p_mode when 'easy' then 1 when 'mid' then 2 else 4 end;
-    update member_stats set sudoku_done = sudoku_done + 1 where member_id = p_member;
+    update member_stats set sudoku_done = sudoku_done + 1, sudoku_easy = sudoku_easy + (case when p_mode = 'easy' then 1 else 0 end), sudoku_mid = sudoku_mid + (case when p_mode = 'mid' then 1 else 0 end), sudoku_hard = sudoku_hard + (case when p_mode = 'hard' then 1 else 0 end) where member_id = p_member;
     if exists (select 1 from members where id = p_member and kind = 'coloc') then
       select coalesce(sum(amount), 0) into v_today from chip_ledger
         where member_id = p_member and reason like 'sudoku:%' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;

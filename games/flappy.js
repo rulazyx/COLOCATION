@@ -279,7 +279,7 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
     hudTxt = [`${Math.round(1000 / (sum / dd.length))} FPS · écran ~${Math.round(1000 / med)} Hz`, `pire image ${worst.toFixed(0)} ms · >25 ms : ${jank}`, `jeu moy ${avgW.toFixed(2)} ms · max ${maxW.toFixed(1)} ms`,
       `total : ${framesAll} images, ${jankAll} saccades, pire ${worstAll.toFixed(0)} ms`, `écart médian entre saccades : ${gap.toFixed(0)} ms (${near500} % vers 500 ms)`];
   }
-  let g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
+  let paused = false, g = createGame(), raf = 0, last = 0, frame = 0, reported = false, destroyed = false;
   let jumps = 0, sent20 = false;
   const flushJumps = () => { if (jumps > 0) { quest?.('fl_jumps', jumps); jumps = 0; } };
   const flap = () => { if (g.dead) return; if (!g.started) quest?.('fl_games'); jumps++; g.flap(); };
@@ -318,6 +318,7 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
   });
   function loop(ts) {
     if (destroyed) return;
+    if (paused) { last = ts; raf = requestAnimationFrame(loop); return; }
     const w0 = hud ? performance.now() : 0;
     const dt = Math.min(ts - (last || ts), 50); last = ts;
     let k = dt / (1000 / 60);                          // temps réel écoulé, en images à 60 Hz
@@ -346,5 +347,5 @@ export function mount(root, { onEnd, bird, fps, balance, crate, equipBird, quest
     raf = requestAnimationFrame(loop);
   }
   raf = requestAnimationFrame(loop);
-  return { destroy() { flushJumps(); destroyed = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); } };
+  return { pause() { paused = true; }, resume() { paused = false; }, destroy() { flushJumps(); destroyed = true; cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); } };
 }

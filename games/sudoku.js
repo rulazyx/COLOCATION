@@ -65,7 +65,7 @@ export const conflicts = (grid) => {
 
 // Modes : « givens » = chiffres déjà donnés (moins = plus dur). Les gains (coins / xp) sont validés côté serveur : ici ils ne servent qu'à l'affichage.
 export const MODES = {
-  week: { label: 'Sudoku de la semaine', givens: 30 },
+  week: { label: 'Grille de la semaine', givens: 40 },
   easy: { label: 'Facile', givens: 40, coins: 1, emoji: '🌱' },
   mid:  { label: 'Moyen', givens: 32, coins: 2, emoji: '🔥' },
   hard: { label: 'Expert', givens: 25, coins: 4, emoji: '💀' },
@@ -138,8 +138,6 @@ export function mount(root, ctx = {}) {
       <button class="sdk-mode week" data-act="mode" data-m="week"><span class="sdk-e">📅</span><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
       <h3 class="sdk-h">Grilles aléatoires</h3>
       ${['easy', 'mid', 'hard'].map((k) => `<button class="sdk-mode ${k}" data-act="mode" data-m="${k}"><span class="sdk-e">${MODES[k].emoji}</span><span><b>${MODES[k].label}</b><small>+${MODES[k].coins} 🪙 par grille réussie</small></span></button>`).join('')}
-      <h3 class="sdk-h">Classement de la semaine</h3>
-      <div class="sdk-board">${board == null ? '<small>Chargement…</small>' : board.length ? board.slice(0, 5).map((r, i) => `<div class="${r.member_id === S.me ? 'me' : ''}"><span>${['🥇', '🥈', '🥉'][i] ?? i + 1}</span><b>${esc(S.name?.(r.member_id) ?? '?')}</b><em>${fmt(r.seconds)}</em></div>`).join('') : '<small>Personne n\'a encore terminé la grille de la semaine.</small>'}</div>
     </div>`;
   }
   function loadBoard() { Promise.resolve(S.board?.()).then((rows) => { if (destroyed) return; board = rows ?? []; if (view === 'menu') drawMenu(); }).catch(() => { board = []; }); }
@@ -185,11 +183,11 @@ export function mount(root, ctx = {}) {
     }
     const hearts = [0, 1, 2].map((i) => `<i class="${i < lives ? 'on' : ''} ${f?.lose === i ? 'lose' : ''}">♥</i>`).join('');
     ui.innerHTML = `
-      <div class="sbar"><button class="sdk-back" data-act="menu" aria-label="Retour au menu">←</button><span class="sdk-title">${m.emoji ?? '📅'} ${m.label}</span><span>⏱ <b class="stime">${fmt(elapsed)}</b></span><span class="lives" aria-label="${lives} vies">${hearts}</span></div>
+      <div class="sbar"><span class="sdk-title">${m.emoji ?? '📅'} ${m.label}</span>${mode === 'week' ? `<span>⏱ <b class="stime">${fmt(elapsed)}</b></span>` : ''}<span class="lives" aria-label="${lives} vies">${hearts}</span></div>
       <div class="sgrid ${f?.err !== undefined ? 'gshake' : ''}">${cells}</div>
       <div class="spad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="0" class="era">⌫</button></div>
-      ${lost ? `<div class="sdk-over"><h2>Plus de vies 💔</h2><p>Trois erreurs : la grille est perdue.</p>${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Réessayer la grille de la semaine</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Menu</button></div>` : ''}
-      ${finished ? `<div class="sdk-over win"><h2>Bravo ! 🎉</h2><p>Terminé en <b>${fmt(elapsed)}</b></p>${resultHTML()}${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Retenter pour battre ton temps</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Menu</button></div>${confetti}` : ''}`;
+      ${lost ? `<div class="sdk-over"><h2>Plus de vies 💔</h2><p>Trois erreurs : la grille est perdue.</p>${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Réessayer la grille de la semaine</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>` : ''}
+      ${finished ? `<div class="sdk-over win"><h2>Bravo ! 🎉</h2>${mode === 'week' ? `<p>Terminé en <b>${fmt(elapsed)}</b></p>` : '<p>Grille terminée !</p>'}${resultHTML()}${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Retenter pour battre ton temps</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>${confetti}` : ''}`;
   }
   function resultHTML() {
     if (!result) return '<div class="sdk-gain"><small>Calcul des gains…</small></div>';
@@ -257,5 +255,6 @@ export function mount(root, ctx = {}) {
   document.addEventListener('visibilitychange', onVis);
   timer = setInterval(tick, 500);
   drawMenu(); loadBoard();
-  return { destroy() { destroyed = true; stopBg(); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointerup', onLeave); root.removeEventListener('pointerleave', onLeave); clearInterval(timer); window.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); } };
+  let pausedAt = 0;
+  return { pause() { if (!pausedAt) pausedAt = Date.now(); }, resume() { if (pausedAt && started) started += Date.now() - pausedAt; pausedAt = 0; }, destroy() { destroyed = true; stopBg(); root.removeEventListener('pointermove', onMove); root.removeEventListener('pointerdown', onDown); root.removeEventListener('pointerup', onLeave); root.removeEventListener('pointerleave', onLeave); clearInterval(timer); window.removeEventListener('keydown', onKey); document.removeEventListener('visibilitychange', onVis); } };
 }

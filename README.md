@@ -286,3 +286,6 @@ Si la barre du haut reste jaune : supprimer l icone de l ecran d accueil puis la
 - Notifications : la clé publique de `keys.js` doit correspondre à `VAPID_PUBLIC_KEY` des secrets de la fonction `notify`.
 - v64 : « Calendrier » devient « Activités » ; on choisit les invités par leur tête (events.invitees, null = tout le monde) ; barre du bas centrée, icônes simplifiées.
 - v74 : Sudoku (grille de la semaine chronométrée, grilles aléatoires facile/moyen/expert, animations, fond interactif), gains XP/pièces affichés (Sudoku, Jumpy), quêtes de jeux supprimées, écran d'ouverture d'un jeu = animation La Kaz au nom du jeu. SQL : patch-v73 puis patch-v74.
+
+### v75 — Refonte des jeux
+Chaque jeu a un chargement thématique (logo animé + nom) puis un écran d'accueil (Jouer / Perso / Classement / Niveau d'intelligence / Défier / Historique / Quitter selon le jeu). Plus de flèche retour : un bouton Menu met le jeu en pause (Reprendre, Accueil, Quitter). Hub : bouton « Classement des jeux ». Sudoku : grille de la semaine en niveau facile, pas de chrono hors semaine, plateau lisible en mode sombre, niveau d'intelligence (config `SUDOKU_INTEL`). SQL : `supabase/patch-v75.sql` (à lancer après v73 et v74).

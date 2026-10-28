@@ -271,3 +271,15 @@ export const FARM = {
 
 // Demander à un coloc d'acheter quelque chose : récompense en savons pour celui qui l'achète (confirmé par le demandeur)
 export const SHOP_REQ = { soap: 2, maxOpen: 5, itemMax: 80 };
+
+// Niveau d'intelligence (Sudoku) : chaque palier demande un cumul de grilles réussies. Les premiers ne demandent que des grilles faciles, puis faciles + moyennes, puis les trois.
+export const SUDOKU_INTEL = [
+  { e: 3 }, { e: 8 }, { e: 15 }, { e: 20, m: 3 }, { e: 25, m: 8 }, { e: 30, m: 15 },
+  { e: 35, m: 20, h: 3 }, { e: 40, m: 25, h: 8 }, { e: 50, m: 30, h: 15 }, { e: 60, m: 40, h: 25 },
+];
+export const intelOf = (st = {}) => {
+  const n = { e: Number(st.sudoku_easy) || 0, m: Number(st.sudoku_mid) || 0, h: Number(st.sudoku_hard) || 0 };
+  let lvl = 0;
+  while (lvl < SUDOKU_INTEL.length && ['e', 'm', 'h'].every((k) => n[k] >= (SUDOKU_INTEL[lvl][k] ?? 0))) lvl++;
+  return { lvl, n };
+};

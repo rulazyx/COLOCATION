@@ -48,7 +48,7 @@ export function makeDemoApi() {
   const addChips = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
   const chipsOf = (id) => db.chips.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
   const balance = (id) => db.ledger.filter((l) => l.member_id === id).reduce((a, l) => a + l.amount, 0);
-  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, farm_harvests: 0, farm_coins: 0, farm_waters: 0, farm_builds: 0, farm_slots: FARM.baseSlots, sudoku_best: null, sudoku_done: 0, blackjack_played: 0, blackjack_wins: 0,
+  const emptyStats = () => ({ flappy_best: 0, flappy_total: 0, raid_best: 0, farm_harvests: 0, farm_coins: 0, farm_waters: 0, farm_builds: 0, farm_slots: FARM.baseSlots, sudoku_best: null, sudoku_done: 0, sudoku_easy: 0, sudoku_mid: 0, sudoku_hard: 0, blackjack_played: 0, blackjack_wins: 0,
     login_days: 0, streak: 0, last_login: null, wheel_ready: false, quest_mask: 0 });
   const statsOf = (id) => (db.stats[id] ??= emptyStats());
   const dayShift = (s, n) => { const [y, m, d] = s.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
@@ -294,9 +294,9 @@ export function makeDemoApi() {
         const week = (() => { const t = new Date(); return iso(new Date(t.getFullYear(), t.getMonth(), t.getDate() - ((t.getDay() + 6) % 7))); })(), cur = db.sudokuw.find((r) => r.member_id === id && r.week === week);
         if (!cur) { xp = X.sudoku + milestoneXp('sudoku', s.sudoku_best, seconds); record = true; db.sudokuw.push({ member_id: id, week, seconds }); }
         else if (seconds < cur.seconds) { record = true; cur.seconds = seconds; }
-        s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? seconds, seconds);
+        s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? seconds, seconds); s.sudoku_easy = (s.sudoku_easy ?? 0) + 1;
       } else {
-        xp = { easy: 10, mid: 25, hard: 50 }[mode]; coins = { easy: 1, mid: 2, hard: 4 }[mode]; s.sudoku_done++;
+        xp = { easy: 10, mid: 25, hard: 50 }[mode]; coins = { easy: 1, mid: 2, hard: 4 }[mode]; s.sudoku_done++; s['sudoku_' + mode] = (s['sudoku_' + mode] ?? 0) + 1;
         if (isColoc(id)) {
           const today = db.chips.filter((c) => c.member_id === id && String(c.reason).startsWith('sudoku:') && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
           coins = Math.max(0, Math.min(coins, 12 - today)); if (coins) addChips(id, coins, `sudoku:${mode}`);
