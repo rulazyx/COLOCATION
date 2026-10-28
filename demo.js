@@ -5,6 +5,7 @@ import { store, iso } from './util.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
 // Qui gagne ? renvoie 'c' (challenger), 'o' (opponent) ou null (égalité)
+const weekStart = (dt) => { const x = new Date(dt); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
 const duelWinner = (cm, om) => (cm === om ? null : MOVES[cm]?.beats === om ? 'c' : 'o');
 // XP offerte en franchissant des paliers (mêmes règles que migration-v7.sql)
 function milestoneXp(game, oldV, newV) {
@@ -200,6 +201,28 @@ export function makeDemoApi() {
         },
       };
     })(),
+    async shopRequests() { return (db.shopreq ?? []).slice().sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
+    async addShopRequest(m, item) {
+      const t = String(item ?? '').trim(); if (t.length < 2) fail('Écris ce qu\'il faut acheter.'); if (t.length > 80) fail('Trop long (80 caractères maximum).');
+      db.shopreq ??= []; db.nextShop ??= 1;
+      if (db.shopreq.filter((r) => r.requester_id === m && ['open', 'bought'].includes(r.status)).length >= 5) fail('Déjà 5 demandes en cours.');
+      db.shopreq.push({ id: db.nextShop++, requester_id: m, item: t, reward: 2, status: 'open', buyer_id: null, created_at: now(), bought_at: null }); save(); return db.nextShop - 1;
+    },
+    async shopRequestBought(m, id) {
+      const r = (db.shopreq ?? []).find((x) => x.id === id); if (!r || r.status !== 'open') fail('Cette demande n\'est plus disponible.');
+      if (r.requester_id === m) fail('Tu ne peux pas acheter ta propre demande.');
+      r.status = 'bought'; r.buyer_id = m; r.bought_at = now(); save();
+    },
+    async answerShopRequest(m, id, ok) {
+      const r = (db.shopreq ?? []).find((x) => x.id === id); if (!r || r.status !== 'bought' || r.requester_id !== m) fail('Rien à confirmer.');
+      if (ok) { r.status = 'done'; db.logs.push({ id: db.nextLog++, kind: 'courses', doer_id: r.buyer_id, status: 'validated', soap: r.reward, validator_id: m, created_at: now(), answered_at: now() }); }
+      else { r.status = 'open'; r.buyer_id = null; r.bought_at = null; }
+      save();
+    },
+    async cancelShopRequest(m, id) {
+      const r = (db.shopreq ?? []).find((x) => x.id === id); if (!r || r.requester_id !== m || r.status === 'done') fail('Impossible d\'annuler.');
+      r.status = 'cancelled'; save();
+    },
     async runRecurring() {
       db.recur ??= [{ id: 1, title: 'Internet', amount_cents: 2999, payer_id: 5, start_on: '2026-11-01' }]; db.recruns ??= []; db.exp ??= []; db.nextExp ??= 1;
       const today = reunionDay(); let n = 0;
@@ -400,8 +423,8 @@ export function makeDemoApi() {
       const x = new Date(); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7) - 7);
       const prev = iso(x);
       if (db.pweeks.some((w) => w.week === prev)) return;
-      const laps = {};
-      db.dice.filter((r) => r.week === prev).forEach((r) => { laps[r.member_id] = Math.max(laps[r.member_id] ?? 0, Math.floor(r.to_pos / GOOSE.size)); });
+      const laps = {};   // savons validés la semaine passée
+      db.logs.filter((l) => l.status === 'validated' && l.answered_at && iso(weekStart(new Date(l.answered_at))) === prev).forEach((l) => { laps[l.doer_id] = (laps[l.doer_id] ?? 0) + l.soap; });
       const max = Math.max(0, ...Object.values(laps));
       const winners = max >= 1 ? Object.keys(laps).filter((k) => laps[k] === max).map(Number) : [];
       winners.forEach((id) => addChips(id, GOOSE.weekWin, `plateau-week:${prev}`));

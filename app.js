@@ -1,5 +1,5 @@
 import {
-  CONFIG, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
+  CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, GAME_QUESTS,
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
@@ -7,7 +7,7 @@ import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, P
 import { avatarSVG } from './avatar.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 67;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 68;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -65,7 +65,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  tasksSeg: 'week', gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
+  tasksSeg: 'week', shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -130,7 +130,7 @@ const TABLE_KEYS = {
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
   xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
   soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
-  events: ['events'], event_votes: ['evVotes'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
+  events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
 async function refresh(force = false, only = null) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
@@ -145,7 +145,7 @@ async function refresh(force = false, only = null) {
     spent: () => api.soapSpent(), dice: () => api.diceRolls(), perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
     farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
-    expenses: () => api.expenses(), expShares: () => api.expenseShares(),
+    shopReqs: () => api.shopRequests(), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
   };
   // `only` : si le temps réel dit quelles tables ont changé, on ne relit que ce qui en dépend (au lieu des ~30 requêtes à chaque fois)
   const keys = only ? Object.keys(LOADERS).filter((k) => only.has(k)) : Object.keys(LOADERS);
@@ -842,9 +842,8 @@ function render() {
 function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
-  return `<div class="wkcard"><div class="wkt"><b>🧼 Savons gagnés cette semaine</b></div>
-    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>
-    <p class="summary" style="margin:8px 0 0">Remis à zéro chaque lundi. Les savons s'obtiennent en faisant les tâches ménagères.</p></div>`;
+  return `<div class="wkcard"><div class="wkt"><b>🧼 Savons gagnés cette semaine</b><small>🏆 +${GOOSE.weekWin} 🪙 pour le 1er</small></div>
+    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
 }
 function syncBarHTML() {
   if (!state.syncErr) return '';
@@ -895,11 +894,10 @@ function kindStatus(kind) {
 }
 
 function tasksHTML() {
-  const out = state.products.filter((p) => p.out_of_stock).length;
-  const seg = state.tasksSeg;
-  return `<div class="seg" style="margin-bottom:12px">${[['week', 'Cette semaine'], ['tasks', 'Tâches'], ['plateau', 'Plateau'], ['stock', `Stocks${out ? ` (${out})` : ''}`]].map(([k, l]) =>
+  const seg = state.tasksSeg === 'tasks' ? 'tasks' : 'week';
+  return `<div class="seg" style="margin-bottom:12px">${[['week', 'Cette semaine'], ['tasks', 'Tâches']].map(([k, l]) =>
     `<button class="${seg === k ? 'on' : ''}" data-action="tseg" data-v="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'stock' ? stockHTML() : seg === 'plateau' ? plateauHTML() : seg === 'tasks' ? taskListHTML() : weekHTML()}`;
+    ${seg === 'tasks' ? taskListHTML() : weekHTML() + plateauHTML()}`;
 }
 
 /* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
@@ -977,7 +975,7 @@ function plateauHTML() {
   const ranked = colocs().map((m) => ({ m, l: lapsOf(posThisWeek(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
   const last = (state.pweeks ?? [])[0];
-  const lastTxt = last ? (last.winners?.length ? `Semaine passée : ${last.winners.map(nameOf).map(esc).join(' & ')} · ${last.laps} tour${last.laps > 1 ? 's' : ''} · +${GOOSE.weekWin} 🪙` : '') : '';
+  const lastTxt = last ? (last.winners?.length ? `Semaine passée : ${last.winners.map(nameOf).map(esc).join(' & ')} · ${last.laps} 🧼 · +${GOOSE.weekWin} 🪙` : '') : '';
   const center = `<div class="gcenter">
       <div class="gttl">🏁 Tours de la semaine</div>
       <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em>👑</em>' : ''}</div>`).join('')}</div>
@@ -985,8 +983,6 @@ function plateauHTML() {
       ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
     </div>`;
   return `
-    <p class="summary" style="margin-top:0">Le plateau est une <b>boucle</b> : on tourne à l'infini. Chaque tour terminé rapporte ${GOOSE.finish.xp} XP, et à la fin de la semaine, celui qui a fait le <b>plus de tours</b> gagne <b>${GOOSE.weekWin} 🪙</b>. Le <b>premier dé du jour est gratuit</b>. Les suivants se débloquent avec tes <b>savons gagnés cette semaine</b> (${DICE_PRICES.slice(1).join(', ')} 🧼) : ils ne sont <b>pas dépensés</b>. ${DICE_MAX_DAY} dés maximum par jour.</p>
-    <div class="perkbox"><b>Récompense du premier tour de la semaine</b><span>${esc(perkOfWeekDef().title)}</span><small>${esc(perkOfWeekDef().short)}</small></div>
     <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
         <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
@@ -995,15 +991,36 @@ function plateauHTML() {
         ${cells.join('')}
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
-    <div class="legend"><span><i class="cl xp">+N</i> EXP</span><span><i class="cl tr">🪙</i> colocoins</span><span><i class="cl bk">−1</i> piège</span><span><i class="cl go">Oie</i> avance encore</span></div>
-    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : rollsToday(me.id) >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui' : have < cost ? `Encore ${cost - have} 🧼 cette semaine pour le prochain dé` : cost === 0 ? 'Lancer le dé · gratuit' : 'Lancer le dé'}${isColoc ? `<span class="dleft" title="Dés restants">🎲 ${left}</span>` : ''}</button>
-    <div class="det" style="text-align:center">${have} 🧼 gagnés cette semaine · case ${cellOfPos(pos) || 'départ'} sur ${GOOSE.size} · ${laps} tour${laps > 1 ? 's' : ''} terminé${laps > 1 ? 's' : ''} cette semaine</div>
-    <h3 class="sec">Derniers lancers</h3>
-    ${hist.length ? hist.map((r) => `<div class="up hist"><div class="mini-av">${av(memberById(r.member_id), 38)}</div>
-      <div class="txt"><b>${esc(nameOf(r.member_id))} : dé ${r.roll}</b><small>case ${cellOfPos(r.from_pos) || 'départ'} → ${cellOfPos(r.to_pos) || 'départ'}${r.note ? ` · ${esc(r.note)}` : ''} · ${ago(r.created_at)} · </small></div></div>`).join('')
-      : '<div class="empty-msg" style="padding:16px 0">Personne n\'a encore lancé le dé.</div>'}`;
+    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : rollsToday(me.id) >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui' : have < cost ? `Encore ${cost - have} 🧼 cette semaine pour le prochain dé` : cost === 0 ? 'Lancer le dé · gratuit' : 'Lancer le dé'}${isColoc ? `<span class="dleft" title="Dés restants">🎲 ${left}</span>` : ''}</button>`;
 }
 
+
+// Demandes d'achat : un coloc demande, un autre achète et gagne des savons, le demandeur confirme
+const shopActive = () => (state.shopReqs ?? []).filter((r) => r.status === 'open' || r.status === 'bought');
+function shopReqHTML() {
+  const me = state.me, isColoc = me.kind === 'coloc', list = shopActive();
+  const row = (r) => {
+    const mine = r.requester_id === me.id, who = memberById(r.requester_id);
+    let act = '', sub = '';
+    if (r.status === 'open') {
+      sub = `demandé par ${esc(nameOf(r.requester_id))} · ${ago(r.created_at)}`;
+      act = mine ? `<button class="mini" data-action="shopreq-cancel" data-id="${r.id}">Annuler</button>` : isColoc ? `<button class="mini ok" data-action="shopreq-bought" data-id="${r.id}">Je l'ai acheté</button>` : '';
+    } else {
+      sub = `acheté par ${esc(nameOf(r.buyer_id))}${mine ? '' : ' · en attente du demandeur'}`;
+      act = mine ? `<button class="mini ok" data-action="shopreq-ok" data-id="${r.id}">✓ Reçu</button><button class="mini" data-action="shopreq-no" data-id="${r.id}">✗ Non</button>` : '';
+    }
+    return `<div class="up"><div class="mini-av">${av(who, 44)}</div><div class="txt"><b>🛒 ${esc(r.item)}</b><small>${sub} · +${r.reward} 🧼 pour l'acheteur</small></div>${act}</div>`;
+  };
+  return `<button class="kcard" style="--c:#14b8a6" data-action="shop-ask" ${isColoc ? '' : 'disabled'}>
+      <span class="kemo">🛒</span><span class="ktxt"><b>Demander d'acheter quelque chose</b><small>Un coloc l'achète pour toi</small></span><span class="ksoap">+${SHOP_REQ.soap} 🧼</span></button>
+    ${list.length ? `<h3 class="sec">Demandes d'achat</h3>${list.map(row).join('')}` : ''}`;
+}
+function shopAskHTML() {
+  return sheetWrap(`
+    <div class="sh"><div><h2>🛒 Demander d'acheter</h2><div class="when">Celui qui l'achète gagne +${SHOP_REQ.soap} 🧼 une fois que tu as confirmé</div></div>${closeBtn}</div>
+    <label class="evl">Quoi ?<input id="shopitem" class="evin" maxlength="${SHOP_REQ.itemMax}" placeholder="Ex. Une bouteille de lait, du PQ…"></label>
+    <button class="btn primary" style="width:100%;margin-top:10px" data-action="shopreq-create">Demander</button>`, 'var(--accent)');
+}
 function taskListHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
@@ -1022,7 +1039,8 @@ function taskListHTML() {
       ${confirm.map((l) => row(l, `<button class="mini ok" data-action="task-ok" data-id="${l.id}">✓ Oui</button><button class="mini" data-action="task-no" data-id="${l.id}">✗ Non</button>`)).join('')}` : ''}
     ${mine.length ? `<h3 class="sec" ${confirm.length ? '' : 'style="margin-top:0"'}>En attente de confirmation</h3>
       ${mine.map((l) => row(l, `<button class="mini" data-action="task-cancel" data-id="${l.id}">Annuler</button>`)).join('')}` : ''}
-    <h3 class="sec" ${confirm.length || mine.length ? '' : 'style="margin-top:0"'}>Tâches à faire</h3>
+    <div ${confirm.length || mine.length ? '' : 'style="margin-top:0"'}>${shopReqHTML()}</div>
+    <h3 class="sec">Tâches à faire</h3>
     ${isColoc ? '<p class="summary" style="margin-top:0">Fais une tâche quand tu veux : touche-la, confirme, puis un autre coloc validera.</p>'
       : '<p class="summary" style="margin-top:0">Les tâches ménagères sont réservées aux colocataires.</p>'}
     <div class="klist">${TASK_GROUPS.map((G) => {
@@ -1131,6 +1149,7 @@ function sheetHTML() {
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'task-do': return taskConfirmHTML(s);
+    case 'shop-ask': return shopAskHTML();
     case 'task-group': return taskGroupHTML(s);
     case 'levelup': return levelUpSheetHTML();
     case 'exp': return expFormHTML(s);
@@ -1222,17 +1241,6 @@ function duelResultHTML(s) {
 }
 
 /* ---------- Onglet 2 : stocks ---------- */
-function stockHTML() {
-  const out = state.products.filter((p) => p.out_of_stock).length;
-  return `
-    <p class="summary">${out ? `<b>${out}</b> produit${out > 1 ? 's' : ''} en rupture.` : 'Tout est en stock 👌'} Touche un produit pour le signaler (re-touche pour dire qu'il est réapprovisionné).</p>
-    <div class="grid">${state.products.map((p) => `
-      <button class="card ${p.out_of_stock ? 'out' : ''}" data-action="product" data-id="${p.id}" aria-pressed="${p.out_of_stock}">
-        <span class="name">${esc(p.name)}</span>
-        <span class="state">${p.out_of_stock ? `En rupture${p.updated_by ? ` · ${esc(nameOf(p.updated_by))}` : ''}` : 'OK'}</span>
-      </button>`).join('')}</div>`;
-}
-
 /* ---------- Onglet 3 : jeux ---------- */
 function gamesHTML() { return gamesListHTML(); }
 function gamesListHTML() {
@@ -1808,6 +1816,12 @@ document.addEventListener('click', (e) => {
     case 'task-group': state.sheet = { type: 'task-group', group: id }; render(); break;
     case 'task-pick': state.sheet = { type: 'task-do', kind: id }; render(); break;
     case 'task-submit': submitTaskNow(id); break;
+    case 'shop-ask': state.sheet = { type: 'shop-ask' }; render(); break;
+    case 'shopreq-create': { const item = document.getElementById('shopitem')?.value ?? ''; calAct(() => state.api.addShopRequest(state.me.id, item), () => { state.sheet = null; toast('Demande envoyée !'); render(); }); break; }
+    case 'shopreq-bought': calAct(() => state.api.shopRequestBought(state.me.id, Number(id)), () => toast('Merci ! Le demandeur doit confirmer.')); break;
+    case 'shopreq-ok': calAct(() => state.api.answerShopRequest(state.me.id, Number(id), true), () => toast('Confirmé, les savons sont donnés !')); break;
+    case 'shopreq-no': calAct(() => state.api.answerShopRequest(state.me.id, Number(id), false)); break;
+    case 'shopreq-cancel': calAct(() => state.api.cancelShopRequest(state.me.id, Number(id))); break;
     case 'task-ok': answerTaskNow(Number(id), true); break;
     case 'task-no': case 'task-cancel': answerTaskNow(Number(id), false); break;
     case 'product': toggleProduct(Number(id)); break;

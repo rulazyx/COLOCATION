@@ -139,6 +139,7 @@ export const TASK_KINDS = {
   cuis_patisserie: { group: 'cuis', room: 'Pâtisseries', label: 'Pâtisseries pour tout le monde', short: 'Pâtisseries', emoji: '🧁', soap: 4, cooldownH: 24, detail: 'Gâteau, cookies… pour toute la coloc' },
   cuis_repas:      { group: 'cuis', room: 'Repas', label: 'Cuisiner pour tout le monde', short: 'Repas pour tous', emoji: '🍲', soap: 8, cooldownH: 24, detail: 'Un vrai repas pour toute la coloc' },
   cuis_vaisselle:  { group: 'cuis', room: 'Vaisselle', label: 'Vaisselle pour tout le monde', short: 'Vaisselle pour tous', emoji: '🍽️', soap: 2, cooldownH: 12, detail: 'La vaisselle de toute la coloc' },
+  courses:         { group: 'courses', label: 'Achat demandé', short: 'Achat pour un coloc', emoji: '🛒', soap: 2, cooldownH: 0, detail: 'Acheter ce qu\'un coloc a demandé' },
   ...LEGACY_KINDS,
 };
 Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g.key === K.group)?.color; });
@@ -154,7 +155,7 @@ export const GOOSE = {
     17: { back: 1 }, 18: { goose: true }, 20: { xp: 60 }, 23: { chips: 40 }, 25: { xp: 80 }, 27: { back: 1 },
   },
   finish: { xp: 200, trophy: 0 },
-  weekWin: 500,   // colocoins pour le(s) joueur(s) qui ont fait le plus de tours la semaine passée (au moins 1 tour)
+  weekWin: 1000,   // colocoins pour le(s) coloc(s) qui ont gagné le plus de savons la semaine passée (au moins 1)
 };
 // Palier de niveau : tous les 10 niveaux, des colocoins offerts
 export const LEVEL_BONUS = { every: 10, chips: 100 };
@@ -285,3 +286,6 @@ export const GAME_QUESTS = {
   ],
 };
 export const ALL_QUESTS = Object.entries(GAME_QUESTS).flatMap(([game, l]) => l.map((q) => ({ ...q, game })));
+
+// Demander à un coloc d'acheter quelque chose : récompense en savons pour celui qui l'achète (confirmé par le demandeur)
+export const SHOP_REQ = { soap: 2, maxOpen: 5, itemMax: 80 };

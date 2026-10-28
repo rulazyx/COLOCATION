@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 67;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 68;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -123,6 +123,11 @@ export async function makeCloudApi() {
     async updateExpense(m, id, title, cents, payer, day, parts) { check(await sb.rpc('update_expense', { p_member: m, p_id: id, p_title: title, p_amount_cents: cents, p_payer: payer, p_day: day, p_parts: parts })); },
     async deleteExpense(m, id) { check(await sb.rpc('delete_expense', { p_member: m, p_id: id })); },
     async addTransfer(m, from, to, cents) { return check(await sb.rpc('add_transfer', { p_member: m, p_from: from, p_to: to, p_cents: cents })); },
+    async shopRequests() { return check(await sb.from('shop_requests').select('*').order('id', { ascending: false }).limit(60)); },
+    async addShopRequest(m, item) { return check(await sb.rpc('add_shop_request', { p_member: m, p_item: item })); },
+    async shopRequestBought(m, id) { check(await sb.rpc('shop_request_bought', { p_member: m, p_id: id })); },
+    async answerShopRequest(m, id, ok) { check(await sb.rpc('answer_shop_request', { p_member: m, p_id: id, p_ok: ok })); },
+    async cancelShopRequest(m, id) { check(await sb.rpc('cancel_shop_request', { p_member: m, p_id: id })); },
     async runRecurring() { return check(await sb.rpc('run_recurring')); },
     async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
     async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
@@ -131,7 +136,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'shop_requests', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, () => cb(table)).subscribe();
       }
     },

@@ -563,7 +563,7 @@ do $$ begin
   end if;
 end $$;
 
--- ---------- Plateau : le joueur qui a fait le plus de tours la semaine passée gagne 500 colocoins ----------
+-- ---------- Récompense de la semaine : le coloc qui a gagné le plus de savons la semaine passée gagne 1000 colocoins ----------
 create table if not exists plateau_weeks (
   week    date primary key,
   winners int[] not null default '{}',
@@ -579,12 +579,17 @@ declare
   v_prev date := (date_trunc('week', now() at time zone 'Indian/Reunion')::date) - 7;
   v_max int; v_win int[];
 begin
+  -- Le gagnant de la semaine est celui qui a gagné le plus de SAVONS (tâches validées) ; `laps` contient désormais ce nombre de savons
   perform pg_advisory_xact_lock(hashtext('plateau_weeks'));
   if exists (select 1 from plateau_weeks where week = v_prev) then return; end if;
-  select coalesce(max(l), 0) into v_max from (select max(to_pos / 30) as l from dice_rolls where week = v_prev group by member_id) t;
+  create temp table if not exists _wk (member_id int, n int) on commit drop;
+  delete from _wk;
+  insert into _wk select doer_id, sum(soap)::int from task_logs
+    where status = 'validated' and date_trunc('week', answered_at at time zone 'Indian/Reunion')::date = v_prev group by doer_id;
+  select coalesce(max(n), 0) into v_max from _wk;
   if v_max >= 1 then
-    select array_agg(member_id) into v_win from (select member_id from dice_rolls where week = v_prev group by member_id having max(to_pos / 30) = v_max) t;
-    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 500, 'plateau-week:' || v_prev;
+    select array_agg(member_id) into v_win from _wk where n = v_max;
+    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 1000, 'plateau-week:' || v_prev;
   end if;
   insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);
 end $$;
@@ -843,7 +848,8 @@ insert into task_kinds (kind, soap, cooldown_h) values
   ('poub_remplace', 1, 12),
   ('cuis_patisserie', 4, 24),
   ('cuis_repas', 8, 24),
-  ('cuis_vaisselle', 2, 12)
+  ('cuis_vaisselle', 2, 12),
+  ('courses', 2, 0)
 on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;
 
 -- ---------- RÉINITIALISATION GÉNÉRALE (une seule fois) : niveaux, pièces, savons, tâches, cultures, achats… ----------
@@ -1209,3 +1215,64 @@ grant execute on function run_recurring() to anon, authenticated;
 insert into recurring_expenses (key, title, amount_cents, payer_id, start_on)
 select 'internet', 'Internet', 2999, id, date '2026-11-01' from members where name in ('Zak', 'Zakaria') limit 1
 on conflict (key) do nothing;
+
+
+-- ===== Demandes d'achat : un coloc demande, un autre achète (+2 savons), le demandeur confirme =====
+create table if not exists shop_requests (
+  id           bigserial primary key,
+  requester_id int  not null references members(id) on delete cascade,
+  item         text not null check (char_length(item) between 2 and 80),
+  reward       int  not null default 2,
+  status       text not null default 'open' check (status in ('open', 'bought', 'done', 'cancelled')),
+  buyer_id     int  references members(id) on delete set null,
+  created_at   timestamptz not null default now(),
+  bought_at    timestamptz
+);
+alter table shop_requests enable row level security;
+drop policy if exists "shop_requests lecture" on shop_requests; create policy "shop_requests lecture" on shop_requests for select using (true);
+grant select on shop_requests to anon, authenticated;
+do $$ begin begin alter publication supabase_realtime add table shop_requests; exception when duplicate_object then null; end; end $$;
+
+create or replace function add_shop_request(p_member int, p_item text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare v_id bigint; v_item text := trim(p_item);
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Réservé aux colocataires.'; end if;
+  if v_item is null or char_length(v_item) < 2 then raise exception 'Écris ce qu''il faut acheter.'; end if;
+  if char_length(v_item) > 80 then raise exception 'Trop long (80 caractères maximum).'; end if;
+  if (select count(*) from shop_requests where requester_id = p_member and status in ('open', 'bought')) >= 5 then raise exception 'Déjà 5 demandes en cours.'; end if;
+  insert into shop_requests (requester_id, item) values (p_member, v_item) returning id into v_id;
+  return v_id;
+end $$;
+create or replace function shop_request_bought(p_member int, p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare r shop_requests;
+begin
+  if not exists (select 1 from members where id = p_member and kind = 'coloc') then raise exception 'Réservé aux colocataires.'; end if;
+  select * into r from shop_requests where id = p_id for update;
+  if not found or r.status <> 'open' then raise exception 'Cette demande n''est plus disponible.'; end if;
+  if r.requester_id = p_member then raise exception 'Tu ne peux pas acheter ta propre demande.'; end if;
+  update shop_requests set status = 'bought', buyer_id = p_member, bought_at = now() where id = p_id;
+end $$;
+create or replace function answer_shop_request(p_member int, p_id bigint, p_ok boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare r shop_requests; v_log bigint;
+begin
+  select * into r from shop_requests where id = p_id for update;
+  if not found or r.status <> 'bought' or r.requester_id <> p_member then raise exception 'Rien à confirmer.'; end if;
+  if p_ok then
+    update shop_requests set status = 'done' where id = p_id;
+    insert into task_logs (kind, doer_id, status, soap, validator_id, answered_at) values ('courses', r.buyer_id, 'validated', r.reward, p_member, now());
+    perform add_xp(r.buyer_id, r.reward * 25, 'task');
+    perform add_xp(p_member, 10, 'validate');
+  else
+    update shop_requests set status = 'open', buyer_id = null, bought_at = null where id = p_id;
+  end if;
+end $$;
+create or replace function cancel_shop_request(p_member int, p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update shop_requests set status = 'cancelled' where id = p_id and requester_id = p_member and status in ('open', 'bought');
+  if not found then raise exception 'Impossible d''annuler.'; end if;
+end $$;
+grant execute on function add_shop_request(int, text), shop_request_bought(int, bigint), answer_shop_request(int, bigint, boolean), cancel_shop_request(int, bigint) to anon, authenticated;
