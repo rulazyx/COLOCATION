@@ -316,4 +316,4 @@ Dans l'onglet Jeux, « Défis » devient un bandeau comme la Colo-Ferme : fond e
 Onglet Classement : une seconde rangée d'onglets pour les jeux (Blackjack : mains gagnées, Jumpy : meilleur score, Sudoku : niveau puis grilles réussies, nouveau classement `sudokulvl`).
 
 ### v101 — Boutons des tâches sous les têtes
-« J'ai effectué une tâche » et Historique passent sous les têtes des colocs, dans la case « Savons gagnés cette semaine ». Aucun SQL à lancer.
+« J'ai effectué une tâche » et Historique passent sous les têtes des colocs, dans la case « Savons gagnés cette semaine ». Dans la bulle, catégories et sous-tâches deviennent des tuiles de couleur unie (comme les jeux), avec « jusqu'à +X 🧼 » en bleu. Aucun SQL à lancer.

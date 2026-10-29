@@ -1232,23 +1232,20 @@ function taskBubbleHTML(s) {
   const G = s.group && TASK_GROUPS.find((g) => g.key === s.group);
   if (G) return popWrap(`
     <div class="sh"><div><h2>${G.emoji} ${esc(G.label)}</h2><div class="when">Choisis ce que tu as fait</div></div>${closeBtn}</div>
-    <div class="klist">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
+    <div class="ttiles">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
       const { st, log, left } = kindStatus(k);
       const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
         : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}` : esc(K.detail);
-      return `<button class="kcard ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
-        <span class="kemo">${K.emoji}</span><span class="ktxt"><b>${esc(K.room)}</b><small>${sub}</small></span><span class="ksoap">+${K.soap} 🧼</span></button>`;
+      return `<button class="ttile sub ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
+        <span class="tt-emo">${K.emoji}</span><b class="tt-name">${esc(K.room)}</b><small class="tt-det">${sub}</small><span class="tt-soap"><em>+${K.soap}</em> 🧼</span></button>`;
     }).join('')}</div>
     <div class="sact">${back}</div>`, G.color);
   return popWrap(`
     <div class="sh"><div><h2>🧼 J'ai effectué une tâche</h2><div class="when">Choisis le type de tâche</div></div>${closeBtn}</div>
-    <div class="klist">${TASK_GROUPS.map((G) => {
-      const ks = Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key);
-      const free = ks.filter(([k]) => kindStatus(k).st === 'free').length, max = Math.max(...ks.map(([, K]) => K.soap));
-      return `<button class="kcard" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
-        <span class="kemo">${G.emoji}</span>
-        <span class="ktxt"><b>${esc(G.label)}</b><small>${ks.length} choix · ${free} disponible${free > 1 ? 's' : ''}</small></span>
-        <span class="ksoap">jusqu'à +${max} 🧼</span></button>`;
+    <div class="ttiles">${TASK_GROUPS.map((G) => {
+      const max = Math.max(...Object.values(TASK_KINDS).filter((K) => K.group === G.key).map((K) => K.soap));
+      return `<button class="ttile" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
+        <span class="tt-emo">${G.emoji}</span><b class="tt-name">${esc(G.label)}</b><span class="tt-soap">jusqu'à <em>+${max}</em> 🧼</span></button>`;
     }).join('')}</div>`, '#2b7de9');
 }
 
