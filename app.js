@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 106;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 107;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1247,8 +1247,7 @@ function perkWeekHTML() {
   const pk = perkOfWeekDef();
   return popWrap(`
     <div class="sh"><div><h2 class="hico">${GIFT_ICON}Récompense de la semaine</h2><div class="when">Pour celui qui gagne le plus de savons</div></div>${closeBtn}</div>
-    ${pk ? `<div class="perkbox"><span>${esc(pk.title)}</span><small>${esc(pk.short)}</small></div>` : '<div class="det">Pas de récompense cette semaine.</div>'}
-    <div class="det">En plus : 🏆 +${GOOSE.weekWin} 🪙 pour le 1er.</div>`, 'var(--gold)');
+    <div class="perkbox"><span>${pk ? esc(pk.title) : 'Récompense'}</span><small class="perkcc">+${GOOSE.weekWin} colocoins</small></div>`, 'var(--gold)');
 }
 // Bulle « J'ai effectué une tâche » : catégories → sous-tâches → confirmation, avec un bouton Retour
 function taskBubbleHTML(s) {
