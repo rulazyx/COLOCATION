@@ -1,10 +1,10 @@
 // Défis (titres à débloquer) et classements. Fonctions pures : elles ne touchent ni au DOM ni à la base.
 // ⚠️ Les clés (key), les trophées et les apparences de récompense doivent rester identiques à la table
 //    "challenges" de supabase/migration-v4.sql (c'est la base qui verse la récompense).
-import { OUTFITS, levelOf, CHIP_GOALS, intelOf } from './config.js';
+import { OUTFITS, levelOf, CHIP_GOALS, intelOf, SHOP } from './config.js';
 
 // ctx = { meId, members, stats:{id→ligne}, scores:{id→{coins=savons,done_count}}, balances:{id→trophées}, wins:{id→n},
-//         duels:[…], owned:Set, viewed:Set, xp:{id→xp} }
+//         duels:[…], owned:Set, viewed:Set, xp:{id→xp}, chips, earned (colocoins gagnés au cumul) }
 const st = (c) => c.stats[c.meId] ?? {};
 const chores = (c) => c.scores[c.meId]?.done_count ?? 0;
 const num = (v) => Number(v) || 0;
@@ -118,6 +118,9 @@ function longestRun(weeks) {
 const prog = (value, goal) => ({ value: Math.min(value, goal), goal, done: value >= goal });
 const allOthers = (c) => c.members.filter((m) => m.id !== c.meId);
 const skinsToCollect = Object.keys(OUTFITS).filter((k) => k !== 'none');
+const skinsOwned = (c) => skinsToCollect.filter((k) => c.owned.has(k)).length;
+const birdsOwned = (c) => SHOP.bird.filter((b) => c.owned.has(`bird:${b.key}`)).length;
+const sudokuLvl = (c) => intelOf(st(c)).lvl;
 
 export const CHALLENGES = [
   // — Ménage —
@@ -125,39 +128,61 @@ export const CHALLENGES = [
   { key: 'fee_logis', cat: 'Ménage', xp: 400, title: 'Fée du Logis', emoji: '🧚', desc: 'Faire 10 tâches de ménage.', check: (c) => prog(chores(c), 10) },
   { key: 'nickel', cat: 'Ménage', xp: 800, title: 'Monsieur Nickel', emoji: '🧽', desc: 'Faire 20 tâches de ménage.', check: (c) => prog(chores(c), 20) },
   // — Jumpy Cardinal (score atteint en UNE partie) —
-  { key: 'premier_envol', cat: 'Jeux', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
-  { key: 'employe_friterie', cat: 'Jeux', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
-  { key: 'sauteur_pro', cat: 'Jeux', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
-  { key: 'maitre_poussin', cat: 'Jeux', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
-  { key: 'legende_airs', cat: 'Jeux', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
+  { key: 'premier_envol', cat: 'Jumpy Cardinal', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
+  { key: 'employe_friterie', cat: 'Jumpy Cardinal', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
+  { key: 'sauteur_pro', cat: 'Jumpy Cardinal', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
+  { key: 'maitre_poussin', cat: 'Jumpy Cardinal', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
+  { key: 'legende_airs', cat: 'Jumpy Cardinal', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Colo-Ferme —
-  { key: 'premiere_recolte', cat: 'Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
-  { key: 'jardinier', cat: 'Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
-  { key: 'maraicher', cat: 'Ferme', xp: 1000, title: 'Maraîcher', emoji: '🚜', desc: 'Faire 100 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 100) },
-  { key: 'bon_voisin', cat: 'Ferme', xp: 300, title: 'Bon voisin', emoji: '💧', desc: 'Arroser 20 fois les parcelles des autres colocs.', check: (c) => prog(num(st(c).farm_waters), 20) },
-  { key: 'ferme_1000', cat: 'Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en vendant ta récolte à la grange.', check: (c) => prog(num(st(c).farm_coins), 1000) },
-  { key: 'premier_bati', cat: 'Ferme', xp: 200, title: 'Premier chantier', emoji: '🔨', desc: 'Construire un premier bâtiment.', check: (c) => prog(num(st(c).farm_builds), 1) },
-  { key: 'bati_10', cat: 'Ferme', xp: 700, title: 'Grand bâtisseur', emoji: '🏗️', desc: 'Construire les 5 bâtiments de ton domaine.', check: (c) => prog(num(st(c).farm_builds), 5) },
-  { key: 'grand_domaine', cat: 'Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Débloquer les 6 parcelles.', check: (c) => prog(num(st(c).farm_slots), 6) },
+  { key: 'premiere_recolte', cat: 'Colo-Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
+  { key: 'jardinier', cat: 'Colo-Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
+  { key: 'maraicher', cat: 'Colo-Ferme', xp: 1000, title: 'Maraîcher', emoji: '🚜', desc: 'Faire 100 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 100) },
+  { key: 'bon_voisin', cat: 'Colo-Ferme', xp: 300, title: 'Bon voisin', emoji: '💧', desc: 'Arroser 20 fois les parcelles des autres colocs.', check: (c) => prog(num(st(c).farm_waters), 20) },
+  { key: 'ferme_1000', cat: 'Colo-Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en vendant ta récolte à la grange.', check: (c) => prog(num(st(c).farm_coins), 1000) },
+  { key: 'premier_bati', cat: 'Colo-Ferme', xp: 200, title: 'Premier chantier', emoji: '🔨', desc: 'Construire un premier bâtiment.', check: (c) => prog(num(st(c).farm_builds), 1) },
+  { key: 'bati_10', cat: 'Colo-Ferme', xp: 700, title: 'Grand bâtisseur', emoji: '🏗️', desc: 'Construire les 5 bâtiments de ton domaine.', check: (c) => prog(num(st(c).farm_builds), 5) },
+  { key: 'grand_domaine', cat: 'Colo-Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Débloquer les 6 parcelles.', check: (c) => prog(num(st(c).farm_slots), 6) },
   // — Chifoumi —
-  { key: 'roc', cat: 'Jeux', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
-  { key: 'tailladeur', cat: 'Jeux', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },
-  { key: 'mentaliste', cat: 'Jeux', xp: 600, title: 'Le mentaliste', emoji: '🔮', desc: 'Gagner 10 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 10) },
-  { key: 'clochard', cat: 'Jeux', xp: 100, title: 'Le clochard', emoji: '🥫', desc: 'Perdre 5 duels de chifoumi.', check: (c) => prog(duelLosses(c.duels, c.meId), 5) },
+  { key: 'roc', cat: 'Chifoumi', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
+  { key: 'tailladeur', cat: 'Chifoumi', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },
+  { key: 'mentaliste', cat: 'Chifoumi', xp: 600, title: 'Le mentaliste', emoji: '🔮', desc: 'Gagner 10 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 10) },
+  { key: 'clochard', cat: 'Chifoumi', xp: 100, title: 'Le clochard', emoji: '🥫', desc: 'Perdre 5 duels de chifoumi.', check: (c) => prog(duelLosses(c.duels, c.meId), 5) },
   // — Personnages —
   { key: 'maitre_rh', cat: 'Personnages', xp: 1000, title: 'Maître RH', emoji: '👔', desc: 'Débloquer tous les personnages.',
     check: (c) => prog(skinsToCollect.filter((k) => c.owned.has(k)).length, skinsToCollect.length) },
   // — Coloc —
   { key: 'pilier', cat: 'Coloc', xp: 800, title: 'Pilier de la coloc', emoji: '🏛️', desc: 'Te connecter 30 jours (cumulés).', check: (c) => prog(num(st(c).login_days), 30) },
   // — Colocoins (blackjack, récompense du jour) —
-  { key: 'dollars_500', cat: 'Jeux', xp: 300, title: 'Petit joueur', emoji: '🪙', desc: 'Atteindre 500 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
-  { key: 'dollars_1000', cat: 'Jeux', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
-  { key: 'dollars_10000', cat: 'Jeux', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
+  { key: 'dollars_500', cat: 'Colocoins', xp: 300, title: 'Petit joueur', emoji: '🪙', desc: 'Atteindre 500 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[0]) },
+  { key: 'dollars_1000', cat: 'Colocoins', xp: 800, title: 'Gros joueur', emoji: '🎰', desc: 'Atteindre 1 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[1]) },
+  { key: 'dollars_10000', cat: 'Colocoins', xp: 3000, title: 'Roi du casino', emoji: '💎', desc: 'Atteindre 10 000 colocoins.', check: (c) => prog(num(c.chips), CHIP_GOALS[2]) },
   // — Divers —
   { key: 'noob', cat: 'Coloc', xp: 0, title: 'Le petit nouveau', emoji: '🐣', desc: "Terminer l'introduction de l'application (récompense : le skin Zippo).", check: (c) => prog(questDone(num(st(c).quest_mask)) ? 1 : 0, 1) },
-  { key: 'mathematicien', cat: 'Jeux', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
+  { key: 'mathematicien', cat: 'Sudoku', xp: 200, title: 'Mathématicien', emoji: '📐', desc: 'Terminer une grille de sudoku.', check: (c) => prog(num(st(c).sudoku_done), 1) },
   { key: 'inspecteur', cat: 'Coloc', xp: 200, title: 'Inspecteur', emoji: '🕵️', desc: 'Consulter le profil de tous les autres colocataires.',
     check: (c) => { const o = allOthers(c); return prog(o.filter((m) => c.viewed.has(m.id)).length, Math.max(o.length, 1)); } },
+  // — Personnages (nombre débloqués) —
+  { key: 'perso_5', cat: 'Personnages', xp: 300, title: 'Collectionneur', emoji: '🧍', desc: 'Débloquer 5 personnages.', check: (c) => prog(skinsOwned(c), 5) },
+  { key: 'perso_10', cat: 'Personnages', xp: 700, title: 'Garde-robe pleine', emoji: '👗', desc: 'Débloquer 10 personnages.', check: (c) => prog(skinsOwned(c), 10) },
+  { key: 'perso_15', cat: 'Personnages', xp: 1200, title: 'Styliste', emoji: '🕴️', desc: 'Débloquer 15 personnages.', check: (c) => prog(skinsOwned(c), 15) },
+  // — Oiseaux de Jumpy Cardinal —
+  { key: 'oiseaux_2', cat: 'Jumpy Cardinal', xp: 200, title: 'Ornithologue en herbe', emoji: '🐦', desc: 'Collectionner 2 oiseaux (caisse mystère).', check: (c) => prog(birdsOwned(c), 2) },
+  { key: 'oiseaux_5', cat: 'Jumpy Cardinal', xp: 600, title: 'Volière', emoji: '🪺', desc: 'Collectionner 5 oiseaux.', check: (c) => prog(birdsOwned(c), 5) },
+  { key: 'oiseaux_tous', cat: 'Jumpy Cardinal', xp: 1500, title: 'Gardien des oiseaux', emoji: '🦜', desc: 'Collectionner tous les oiseaux.', check: (c) => prog(birdsOwned(c), SHOP.bird.length) },
+  // — Sudoku —
+  { key: 'sudoku_semaine', cat: 'Sudoku', xp: 300, title: 'Défi de la semaine', emoji: '📅', desc: 'Terminer une grille de la semaine.', check: (c) => prog(st(c).sudoku_best != null ? 1 : 0, 1) },
+  { key: 'sudoku_niv3', cat: 'Sudoku', xp: 300, title: 'Esprit vif', emoji: '💡', desc: 'Atteindre le niveau 3 au Sudoku.', check: (c) => prog(sudokuLvl(c), 3) },
+  { key: 'sudoku_niv5', cat: 'Sudoku', xp: 600, title: 'Cerveau', emoji: '🧠', desc: 'Atteindre le niveau 5 au Sudoku.', check: (c) => prog(sudokuLvl(c), 5) },
+  { key: 'sudoku_niv10', cat: 'Sudoku', xp: 1500, title: 'Génie des grilles', emoji: '🎓', desc: 'Atteindre le niveau 10 au Sudoku.', check: (c) => prog(sudokuLvl(c), 10) },
+  // — Blackjack (mains gagnées) —
+  { key: 'bj_10', cat: 'Blackjack', xp: 200, title: 'Croupier du dimanche', emoji: '🃏', desc: 'Gagner 10 mains au Blackjack.', check: (c) => prog(num(st(c).blackjack_wins), 10) },
+  { key: 'bj_50', cat: 'Blackjack', xp: 600, title: 'As du tapis', emoji: '♠️', desc: 'Gagner 50 mains au Blackjack.', check: (c) => prog(num(st(c).blackjack_wins), 50) },
+  { key: 'bj_200', cat: 'Blackjack', xp: 1500, title: 'Requin des tables', emoji: '🦈', desc: 'Gagner 200 mains au Blackjack.', check: (c) => prog(num(st(c).blackjack_wins), 200) },
+  // — Colocoins gagnés au cumul (tout ce qui est entré, dépenses non déduites) —
+  { key: 'cumul_100', cat: 'Colocoins', xp: 100, title: 'Tirelire', emoji: '🐷', desc: 'Gagner 100 colocoins au cumul.', check: (c) => prog(num(c.earned), 100) },
+  { key: 'cumul_1000', cat: 'Colocoins', xp: 400, title: 'Coffre-fort', emoji: '🔐', desc: 'Gagner 1 000 colocoins au cumul.', check: (c) => prog(num(c.earned), 1000) },
+  { key: 'cumul_10000', cat: 'Colocoins', xp: 1500, title: 'Banquier', emoji: '🏦', desc: 'Gagner 10 000 colocoins au cumul.', check: (c) => prog(num(c.earned), 10000) },
+  { key: 'cumul_100000', cat: 'Colocoins', xp: 5000, title: 'Magnat', emoji: '👑', desc: 'Gagner 100 000 colocoins au cumul.', check: (c) => prog(num(c.earned), 100000) },
 ];
 // Récompense d'un défi : de l'XP (plus aucun trophée) et parfois une apparence (OUTFITS[x].challenge)
 export const rewardOf = (key) => ({
