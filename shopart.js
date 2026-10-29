@@ -39,8 +39,6 @@ const book = NI(`
   <path d="M10 18c3-1 7-1 10 .5M10 24c3-1 7-1 10 .5M10 30c3-1 7-1 10 .5" stroke-width="1.5"/>
   <path d="M33 5v17l4-3.4 4 3.4V8" class="y"/>
   <path d="M29 20h6M29 26h10" stroke-width="1.5"/>`);
-const navBird = NI(`
-  <path d="M14 14h20c6 0 9 4 11 12l2 9c1 5-3 8-7 6-3-1-5-4-7-6H15c-2 2-4 5-7 6-4 2-8-1-7-6l2-9c2-8 5-12 11-12z" class="f"/>`);
 const podium = NI(`
   <path d="M14 6h20v12a10 10 0 0 1-20 0z" class="y"/>
   <path d="M14 10H7c0 7 3 10 8 10M34 10h7c0 7-3 10-8 10"/>
@@ -54,13 +52,17 @@ const calNav = NI(`
   <rect x="5" y="9" width="38" height="33" rx="6" class="f"/>
   <path d="M5 19h38M15 5v8M33 5v8"/>`);
 const wallet = NI(`
-  <path d="M7 31v6c0 4 8 7 17 7s17-3 17-7v-6" class="y"/>
-  <ellipse cx="24" cy="31" rx="17" ry="7" class="y"/>
-  <path d="M7 21v6c0 4 8 7 17 7s17-3 17-7v-6" class="y"/>
-  <ellipse cx="24" cy="21" rx="17" ry="7" class="y"/>
-  <path d="M17 21h14" stroke-width="2.4"/>`);
+  <circle cx="24" cy="24" r="19" class="y"/>
+  <path d="M32.5 14.5a11 11 0 1 0 0 19"/>
+  <path d="M11 21h15M11 27h13" stroke-width="2.4"/>`);
+const joystick = NI(`
+  <path d="M6 38c0-4 3-7 7-7h22c4 0 7 3 7 7v1c0 2-2 4-4 4H10c-2 0-4-2-4-4z" class="f"/>
+  <path d="M24 31V17" stroke-width="3"/>
+  <circle cx="24" cy="11" r="6.5" class="y"/>
+  <circle cx="35" cy="34.5" r="2.2" class="k"/>
+  <path d="M11 35.5h7"/>`);
 export const NAV_ICONS = {
-  tasks: () => cleaner, defis: () => book, games: () => navBird, rank: () => podium, budget: () => wallet, cal: () => calNav, me: persoSVG,
+  tasks: () => cleaner, defis: () => book, games: () => joystick, rank: () => podium, budget: () => wallet, cal: () => calNav, me: persoSVG,
 };
 export const CART_SVG = `<svg viewBox="0 0 40 40" width="26" height="26" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
   <path d="M3 6h6l4 18h18l4-13H11" fill="#fde68a" stroke="#b45309" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>

@@ -305,3 +305,6 @@ Budget : plus de « Dépensé par la coloc » ni « Ta part », plus de choix d'
 « Quêtes » devient « Défis » (menu de l'avatar, découverte) et un bouton « 📖 Défis » apparaît en haut de l'onglet Jeux, au-dessus de la Colo-Ferme.
 Onglet Jeux : la liste « Mes défis en attente » (chifoumi envoyés) disparaît.
 Les défis chifoumi reçus quittent aussi l'onglet Jeux : on les relève, refuse ou annule dans le chifoumi (pastille rouge sur sa tuile).
+
+### v98 — Icônes de la barre du bas
+Budget : sigle euro à la place des pièces. Jeux : joystick à la place de la manette. Aucun SQL à lancer.
