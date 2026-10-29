@@ -323,3 +323,10 @@ Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à 
 
 ### v103 — Défis en menus
 Écran Défis : une tuile unie par type (Ménage, Sudoku, Blackjack, Jumpy Cardinal, Colo-Ferme, Chifoumi, Colocoins, Personnages, Coloc), icônes SVG sans emoji ; toucher une tuile ouvre ses défis. Nouveaux défis : 5/10/15 personnages, 2/5/tous les oiseaux, grille de la semaine et niveaux 3/5/10 au Sudoku, 10/50/200 mains gagnées au Blackjack, 100 à 100 000 colocoins gagnés au cumul. SQL : `supabase/patch-v103.sql` (nouvelles lignes `challenges`, colonne `earned` dans `chip_balances`).
+
+### v104 — La course aux pièces passe dans Jeux
+- Le plateau quitte l'onglet Tâches : il s'ouvre depuis une nouvelle tuile « Course aux pièces » (fond bois marron, coffre au trésor en SVG), à côté de Colo-Ferme, qui prend maintenant la taille des autres tuiles.
+- Fini les savons pour les dés : on gagne 1 dé toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus). Le temps restant avant le prochain dé s'affiche sous le bouton.
+- Le plateau n'est plus remis à zéro chaque lundi : chacun garde sa position, le centre affiche le nombre de tours de chacun.
+- La récompense de la semaine (1000 colocoins pour celui qui gagne le plus de savons) ne change pas et reste dans Tâches.
+- Base : table `dice_clock` et nouvelle fonction `roll_dice` (supabase/patch-v104.sql).

@@ -1287,3 +1287,18 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .chal.done .cemo,.chal.ready .cemo{background:var(--dc);color:#fff}
 
 .dtile .w-cc,.dhead .w-cc{color:inherit;font-family:inherit;font-weight:800;letter-spacing:0;-webkit-text-stroke:0}
+
+/* v104 : Colo-Ferme et Course aux pièces en tuiles carrées, page de la course */
+.gtile.g-ferme{--gbg:linear-gradient(135deg,#ffd75e,#f0a91c)}
+.gtile.g-ferme .gt-name{color:#4a2e05}
+.gtile.g-ferme::after{content:"";position:absolute;right:-40px;top:-30px;width:150px;height:130px;background:repeating-linear-gradient(-30deg,rgba(255,255,255,.18) 0 10px,transparent 10px 22px);border-radius:50%;pointer-events:none}
+.gtile.g-race{--gbg:repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 2px,transparent 2px 26px),radial-gradient(circle at 50% 38%,rgba(255,206,92,.38),transparent 55%),linear-gradient(160deg,#9a5b2a,#5e3415 60%,#3b200c)}
+.gtile.g-race .gt-name{color:#ffe7a8;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.gt-ico{display:grid;place-items:center;height:84px;position:relative;z-index:1}
+.gtile.g-ferme .gt-ico{width:84px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.gtile .gbadge{position:absolute;top:8px;right:8px;z-index:2;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:11px;border-radius:12px;padding:3px 9px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.gtbadge.gold{background:#ffd75e;color:#4a2e05}
+.racehead{margin:0 0 6px}
+.dicecount{display:flex;align-items:center;gap:6px;width:auto;padding:0 16px;color:var(--text)}
+.dicecount b{font-size:18px}
+.dicenext{text-align:center;color:var(--muted);font-weight:700;font-size:13px;margin-top:8px}

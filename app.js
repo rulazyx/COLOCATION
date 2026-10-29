@@ -1,6 +1,6 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { TASK_ICONS, taskIcon, CART_ICON, GIFT_ICON } from './taskart.js';
@@ -66,7 +66,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
    ========================================================= */
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
-  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
+  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], diceClk: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
   shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
@@ -131,7 +131,7 @@ function computeInitials(members) {
 const TABLE_KEYS = {
   members: ['members', 'scores', 'balances', 'xp', 'chips', 'duelStats', 'spent'], products: ['products'], purchases: ['purchases'], tasks: ['scores', 'weekly', 'logs'],
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
-  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
+  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
   soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
   events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
@@ -145,7 +145,7 @@ async function refresh(force = false, only = null) {
   const LOADERS = {
     members: () => api.members(), scores: () => api.scores(), balances: () => api.balances(), products: () => api.products(), purchases: () => api.purchases(), duels: () => api.duels(),
     stats: () => api.stats(), duelStats: () => api.duelStats(), unlocks: () => api.unlocks(), views: () => api.views(), xp: () => api.xp(), weekly: () => api.weekly(), logs: () => api.taskLogs(),
-    spent: () => api.soapSpent(), dice: () => api.diceRolls(), perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
+    spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
     farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
     shopReqs: () => api.shopRequests(), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
@@ -441,7 +441,6 @@ function soapHistHTML() {
   const me = state.me.id;
   const rows = [
     ...state.logs.filter((l) => l.doer_id === me && l.status === 'validated').map((l) => ({ t: l.answered_at, label: `${TASK_KINDS[l.kind]?.short ?? l.kind} (confirmée)`, amount: l.soap })),
-    ...state.dice.filter((r) => r.member_id === me).map((r) => ({ t: r.created_at, label: `Dé du plateau (${r.roll})`, amount: -r.cost })),
   ].sort((a, b) => Date.parse(b.t) - Date.parse(a.t));
   return sheetWrap(`
     <div class="sh"><div><h2>🧼 Historique des savons</h2><div class="when">Disponibles : ${soapOf(me)} 🧼 · gagnés en tout : ${earnedSoap(me)}</div></div>${closeBtn}</div>
@@ -553,6 +552,7 @@ function expSave() {
 /* ---------- Plateau, messages ---------- */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Lancer le dé : le dé roule, puis le pion avance de case en case (puis saute si piège / oie)
+setInterval(() => { if (state.tab === 'race' && !state.sheet && !state.rolling && !state.game && document.visibilityState === 'visible') render(); }, 60000);   // compte à rebours du prochain dé
 async function rollDiceNow() {
   if (state.rolling) return;
   state.rolling = true; render();
@@ -1005,7 +1005,7 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : tab === 'race' ? plateauHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
       <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Défis »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
@@ -1013,7 +1013,7 @@ function render() {
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
       <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">ACTIVITÉS</span>${badge(evToAnswer())}</button>
-      <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
+      <button data-action="tab" data-tab="games" class="${tab === 'games' || tab === 'race' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
     </nav>
     ${sheetHTML()}`;
@@ -1075,7 +1075,7 @@ function kindStatus(kind) {
   return { st: 'free' };
 }
 
-// Onglet Tâches : une seule page (bouton « J'ai effectué une tâche », savons de la semaine, plateau, demandes d'achat)
+// Onglet Tâches : une seule page (bouton « J'ai effectué une tâche », savons de la semaine, demandes d'achat)
 const HIST_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7.5V12l3 2"/></svg>';
 // Boutons « J'ai effectué une tâche » + Historique, sous les têtes des colocs
 function taskRowHTML() {
@@ -1090,24 +1090,22 @@ function taskRowHTML() {
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
-  return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce au plateau.</small></div>` : ''}
-    ${weekHTML()}${plateauHTML()}`;
+  return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
+    ${weekHTML()}`;
 }
 
-/* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
-const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posThisWeek(id));
-const posThisWeek = (id) => state.dice.filter((r) => r.member_id === id && r.week === currentWeek()).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
+/* ---------- Course aux pièces (plateau en anneau, jamais remis à zéro) ---------- */
+const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posOf(id));
+const posOf = (id) => state.dice.filter((r) => r.member_id === id).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
 const cellOfPos = (pos) => (pos <= 0 ? 0 : ((pos - 1) % GOOSE.size) + 1);
 const lapsOf = (pos) => Math.floor(pos / GOOSE.size);
-const dicePriceAt = (k) => DICE_PRICES[Math.min(k, DICE_PRICES.length - 1)];
-const diceCost = (id) => dicePriceAt(rollsToday(id));   // savons à avoir gagnés CETTE SEMAINE (ils ne sont pas dépensés)
 const weekSoap = (id) => state.logs.filter((l) => l.doer_id === id && l.status === 'validated' && l.answered_at && iso(new Date(l.answered_at)) >= currentWeek()).reduce((a, l) => a + l.soap, 0);
-function diceLeft(id) {                                  // dés que tu peux lancer maintenant
-  let n = 0; const ws = weekSoap(id);
-  for (let k = rollsToday(id); k < DICE_MAX_DAY && dicePriceAt(k) <= ws; k++) n++;
-  return n;
-}
-const rollsToday = (id) => state.dice.filter((r) => r.member_id === id && iso(new Date(r.created_at)) === iso(new Date())).length;
+// Dés : un par tranche de 3 h depuis l'horloge du joueur (dice_clock), 3 au plus. Même calcul que roll_dice côté base.
+const DICE_MS = DICE.everyH * 3600000;
+const diceClockOf = (id) => Math.max(Date.parse(state.diceClk.find((x) => x.member_id === id)?.t) || 0, Date.now() - DICE.max * DICE_MS);
+const diceLeft = (id) => Math.min(DICE.max, Math.floor((Date.now() - diceClockOf(id)) / DICE_MS));
+const nextDiceIn = (id) => diceClockOf(id) + (diceLeft(id) + 1) * DICE_MS - Date.now();
+const fmtDice = (ms) => { const m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
 function cellLabel(n) {
   const c = GOOSE.cells[n];
   if (n === GOOSE.size) return '<em class="cl fin">🏁</em>';
@@ -1162,24 +1160,19 @@ function plateauHTML() {
     cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
   pts.push(pts[0]);                           // boucle fermée
-  const pos = shownPos(me.id), cost = diceCost(me.id), have = weekSoap(me.id), laps = lapsOf(pos), left = diceLeft(me.id);
-  const can = isColoc && have >= cost && !state.rolling && rollsToday(me.id) < DICE_MAX_DAY;
-  const hist = state.dice.slice(0, 15);
-  const free = DICE_PRICES[0] === 0;
-  const ranked = colocs().map((m) => ({ m, l: lapsOf(posThisWeek(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
+  const pos = shownPos(me.id), left = diceLeft(me.id);
+  const can = isColoc && left > 0 && !state.rolling;
+  const ranked = colocs().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
-  const last = (state.pweeks ?? [])[0];
-  const lastTxt = last ? (last.winners?.length ? `Semaine passée : ${last.winners.map(nameOf).map(esc).join(' & ')} · ${last.laps} 🧼 · +${GOOSE.weekWin} 🪙` : '') : '';
   const center = `<div class="gcenter">
-      <div class="gttl">🏁 Tours de la semaine</div>
+      <div class="gttl">🏁 Tours</div>
       <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em>👑</em>' : ''}</div>`).join('')}</div>
       <div class="gdep"><span>🏖️ Départ</span><div class="pw">${pawnHTML(0, 18)}</div></div>
-      ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
     </div>`;
-  const nextK = rollsToday(me.id) + left;          // prochain dé encore bloqué
-  const tip = nextK >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui, reviens demain !' : `Encore ${dicePriceAt(nextK) - have} 🧼 avant le prochain dé`;
+  const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
   return `
-    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">🏆 +${GOOSE.weekWin} 🪙 pour le 1er</div>
+    <div class="racehead"><button class="mini" data-action="tab" data-tab="games">‹ Jeux</button></div>
+    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">Un dé toutes les ${DICE.everyH} h · ${DICE.max} en réserve au maximum</div>
     <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
         <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
@@ -1188,8 +1181,9 @@ function plateauHTML() {
         ${cells.join('')}
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
-    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 && can ? 'Lancer le dé · gratuit' : 'Lancer le dé'}</button>
-      ${isColoc ? `<div class="dicewrap">${state.diceTip ? `<div class="dicetip">${tip}</div>` : ''}<button class="btn dicecount" data-action="dicetip" title="Dés restants">🎲 ${left}</button></div>` : ''}</div>`;
+    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : 'Lancer le dé'}</button>
+      ${isColoc ? `<div class="dicewrap"><button class="btn dicecount" data-action="dicetip" title="Dés en réserve">${DIE_SVG}<b>${left}</b></button></div>` : ''}</div>
+    ${isColoc ? `<div class="dicenext">${tip}</div>` : ''}`;
 }
 
 
@@ -1459,8 +1453,9 @@ function gamesListHTML() {
 
     ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
       return `<button class="gfarm gspace" data-action="tab" data-tab="defis" aria-label="Défis"><span class="gf-ico">${DEFIS_ICON}</span><span class="gf-txt"><span class="gt-name">Défis</span><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span>${nready || due ? `<span class="gbadge">${nready || '!'}</span>` : ''}</button>`; })()}
-    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
-    <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
+    <div class="gtiles">
+      <button class="gtile g-ferme" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gt-ico">${FARM_ICON.replace(/width="38" height="38"/, 'width="64" height="64"')}</span><span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+      <button class="gtile g-race" data-action="race" aria-label="Course aux pièces"><span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${me.kind === 'coloc' && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
 `;
 }
@@ -1482,6 +1477,18 @@ function farmReadyBadge() {
 // Étoile-médaille de la tuile Défis (même trait que la botte de paille)
 const DEFIS_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#3b1d7a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 30l-5 13 6-3 4 5 4-12M31 30l5 13-6-3-4 5-4-12" fill="#7c5cff"/><circle cx="24" cy="21" r="15" fill="#ffd23f" stroke="#9a6a00"/><path d="M24 11.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z" fill="#fff6c7" stroke="#9a6a00" stroke-width="2"/></svg>';
 // Botte de paille de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
+const CHEST_SVG = `<svg viewBox="0 0 96 96" width="78" height="78" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="48" cy="84" rx="38" ry="6" fill="#000" opacity=".22"/>
+  <path d="M16 46h64v32a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4z" fill="#a0612a" stroke="#3d2109" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M17 58h62M17 70h62" stroke="#7a4519" stroke-width="2"/>
+  <path d="M14 46V34c0-10 15-16 34-16s34 6 34 16v12z" fill="#bf7a34" stroke="#3d2109" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M15 34c6 4 18 6 33 6s27-2 33-6" fill="none" stroke="#8a4f1e" stroke-width="2"/>
+  <g fill="#f2b636" stroke="#7a4f0c" stroke-width="2" stroke-linejoin="round"><path d="M24 20.5c2-.8 4.6-1.5 7-2V82h-7z"/><path d="M65 18.5c2.4.5 5 1.2 7 2V82h-7z"/><rect x="12.5" y="42" width="71" height="8" rx="2"/></g>
+  <rect x="41" y="40" width="14" height="17" rx="3" fill="#ffd75e" stroke="#7a4f0c" stroke-width="2"/><path d="M48 46.5v5" stroke="#3d2109" stroke-width="2.6" stroke-linecap="round"/><circle cx="48" cy="46" r="2.2" fill="#3d2109"/>
+  <g fill="#ffd95a" stroke="#b07b12" stroke-width="1.6"><circle cx="9" cy="80" r="5.5"/><circle cx="86" cy="79" r="5.5"/><circle cx="80" cy="85" r="4.5"/></g>
+  <g fill="#fff"><path d="M84 12l1.6 4.4L90 18l-4.4 1.6L84 24l-1.6-4.4L78 18l4.4-1.6z"/><path d="M12 18l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" opacity=".8"/></g>
+</svg>`;
+const DIE_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4.5" fill="#fff" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8.2" cy="8.2" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="15.8" cy="15.8" r="1.7"/></g></svg>';
 const FARM_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#7a4b0c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="14" width="36" height="24" rx="4" fill="#f5c84c"/><path d="M10 21h8M22 21h6M32 21h6M10 27h4M18 27h10M32 27h6M10 33h8M22 33h6M32 33h6" stroke="#c98f1c" stroke-width="2"/><path d="M15 14v24M33 14v24" stroke="#b5452a" stroke-width="3"/><path d="M9 14l-2-4M14 14l1-5M24 14l-1-5M29 14l2-4M38 14l2-4"/></svg>';
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
@@ -1925,8 +1932,9 @@ document.addEventListener('click', (e) => {
     }
     case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
-    case 'roll': state.diceTip = false; rollDiceNow(); break;
-    case 'dicetip': state.diceTip = !state.diceTip; render(); break;
+    case 'roll': rollDiceNow(); break;
+    case 'race': state.anim = true; state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'dicetip': break;
     case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
@@ -1960,7 +1968,7 @@ document.addEventListener('click', (e) => {
     case 'crate-equip': saveProfile({ bird: id }); state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'crate-again': state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
-    case 'goto-plateau': state.tab = 'tasks'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'goto-plateau': state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
     case 'perk-ok': confirmPerkNow(Number(id)); break;
     case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;
