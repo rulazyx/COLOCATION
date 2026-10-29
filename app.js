@@ -1447,7 +1447,6 @@ function gamesHTML() { return gamesListHTML(); }
 function gamesListHTML() {
   const me = state.me;
   const received = pendingForMe();
-  const sent = state.duels.filter((d) => d.status === 'pending' && d.challenger_id === me.id);
   return `
     ${received.length ? `<h3 class="sec" style="margin-top:0">Défis reçus</h3>${received.map((d) => {
       const ch = memberById(d.challenger_id);
@@ -1463,11 +1462,7 @@ function gamesListHTML() {
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
-
-    ${sent.length ? `<h3 class="sec">Mes défis en attente</h3>${sent.map((d) => `
-      <div class="up"><div class="mini-av">${av(memberById(d.opponent_id), 44)}</div>
-        <div class="txt"><b>En attente de ${esc(nameOf(d.opponent_id))}</b><small>ton coup est secret</small></div>
-        <button class="mini" data-action="duel-cancel" data-id="${d.id}">Annuler</button></div>`).join('')}` : ''}`;
+`;
 }
 
 
