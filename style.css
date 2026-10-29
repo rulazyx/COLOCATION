@@ -1243,3 +1243,4 @@ button.glvl{cursor:pointer}
 .bgt-acts{display:flex;gap:10px;margin:12px 0 4px}.bgt-acts .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:14px 8px;font-size:15px}.bgt-acts .btn.primary{flex:1.35}
 .bgt-acts .btn span{font-size:20px;line-height:1}.btn.bgt-hist{background:var(--card);border:1px solid var(--line);color:var(--text)}.bgt-hist svg{width:20px;height:20px}
 .kcard.gdefis{margin-bottom:12px}
+.gtile{position:relative}.gtbadge{position:absolute;top:8px;right:8px;min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--danger);color:#fff;font:800 13px/24px system-ui,sans-serif;font-style:normal;box-shadow:0 2px 6px rgba(0,0,0,.3)}

@@ -1448,20 +1448,13 @@ function gamesListHTML() {
   const me = state.me;
   const received = pendingForMe();
   return `
-    ${received.length ? `<h3 class="sec" style="margin-top:0">Défis reçus</h3>${received.map((d) => {
-      const ch = memberById(d.challenger_id);
-      return `<div class="up"><div class="mini-av">${av(ch, 44)}</div>
-        <div class="txt"><b>${esc(ch?.name)} te défie</b><small>Chifoumi · mise ${XP_RULES.duelStake} 🪙</small></div>
-        <button class="mini ok" data-action="duel-open" data-id="${d.id}">Relever</button>
-        <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
-    }).join('')}` : ''}
 
     ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
       return `<button class="kcard gdefis ${nready || due ? 'dot' : ''}" style="--c:var(--gold)" data-action="tab" data-tab="defis"><span class="kemo">📖</span>
         <span class="ktxt"><b>Défis</b><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span><span class="ksoap">›</span></button>`; })()}
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
-      <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
+      <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
 `;
 }
 

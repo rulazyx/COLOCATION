@@ -304,3 +304,4 @@ Plus de sous-onglet « Tâches » : tout est sur une seule page. En haut, un bou
 Budget : plus de « Dépensé par la coloc » ni « Ta part », plus de choix d'onglets ; sous le solde, « + Ajouter une dépense » et « Historique » côte à côte (l'historique des dépenses s'ouvre en bulle), puis les soldes.
 « Quêtes » devient « Défis » (menu de l'avatar, découverte) et un bouton « 📖 Défis » apparaît en haut de l'onglet Jeux, au-dessus de la Colo-Ferme.
 Onglet Jeux : la liste « Mes défis en attente » (chifoumi envoyés) disparaît.
+Les défis chifoumi reçus quittent aussi l'onglet Jeux : on les relève, refuse ou annule dans le chifoumi (pastille rouge sur sa tuile).
