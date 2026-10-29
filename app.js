@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 118;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 119;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1402,6 +1402,10 @@ function sheetHTML() {
 // Fenêtre surprise « jeu vidéo » (une fois par message)
 const linkify = (h) => h.replace(/https:\/\/[^\s<]+/g, (u) => `<a class="pxlink" href="${u}" target="_blank" rel="noopener noreferrer">${u.replace(/^https:\/\//, '').replace(/\/$/, '')}</a>`);
 function popupHTML(pp) {
+  if (pp.theme === 'info') return `<div class="overlay" data-action="noop"><div class="sheet" role="dialog" aria-modal="true" style="--c:var(--accent)">
+    <div class="sh"><div><h2>${esc(pp.title)}</h2></div></div>
+    <div class="det" style="white-space:pre-line">${esc(pp.body)}</div>
+    <div class="sact"><button class="btn primary" data-action="close">OK</button></div></div></div>`;
   const [hero, ...rest] = String(pp.body).split('\n'), last = rest.length ? rest.pop() : null;
   const confetti = Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 37) % 100}%;animation-delay:${(i % 9) * 0.35}s;background:${['#ffd23f', '#ff4d6d', '#3be8b0', '#4cc9f0', '#b388ff'][i % 5]}"></i>`).join('');
   return `<div class="overlay popov" data-action="noop"><div class="pxwin" role="dialog" aria-modal="true">
