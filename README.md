@@ -308,3 +308,6 @@ Les défis chifoumi reçus quittent aussi l'onglet Jeux : on les relève, refuse
 
 ### v98 — Icônes de la barre du bas
 Budget : sigle euro à la place des pièces. Jeux : joystick à la place de la manette. Aucun SQL à lancer.
+
+### v99 — Tuile Défis
+Dans l'onglet Jeux, « Défis » devient un bandeau comme la Colo-Ferme : fond espace (dégradé nuit, étoiles, planète), médaille étoilée dessinée en SVG, pastille quand un défi ou la récompense du jour attend.
