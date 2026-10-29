@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 113;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 114;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1360,10 +1360,11 @@ function headMenuHTML() {
   const me = state.me, nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready || nready > 0, msgs = unreadCount(), owed = perksOwed().length;
   const item = (act, attrs, emo, title, sub, n, i) => `<button class="hmi" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}${n ? `<i class="hmb">${n === true ? '' : n}</i>` : ''}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
   return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
-    ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
-    ${item('tab', 'data-tab="defis"', '📖', 'Défis', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
-    ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 2)}
-    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Réglages, messages, suggestions', msgs, 3)}
+    ${item('profile', `data-id="${me.id}"`, av(me, 30), 'Mon profil', 'Niveau ' + lvlOf(me.id) + ' · ton profil public', 0, 0)}
+    ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 1)}
+    ${item('tab', 'data-tab="defis"', '📖', 'Défis', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 2)}
+    ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 3)}
+    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Réglages, messages, suggestions', msgs, 4)}
   </div></div>`;
 }
 function sheetHTML() {
