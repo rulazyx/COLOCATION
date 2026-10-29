@@ -1370,3 +1370,4 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .punhead.on{border-color:#ef4444;background:rgba(239,68,68,.12)}
 .punsoap{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:4px}.punsoap b{font-size:20px;min-width:80px;text-align:center}.punsoap .mini{width:40px;height:36px;font-size:18px}
 .mini.on{outline:2px solid #ef4444;outline-offset:1px}
+.perkbox small.perkcc{opacity:1;font-weight:800;font-size:15px;color:#a86a00}

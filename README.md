@@ -340,3 +340,6 @@ Onglet Tâches : « Demander à quelqu'un d'acheter » devient « Missionner une
 - Tâches : bouton rouge « Punir quelqu'un ! ». La bulle permet de choisir la tête d'un coloc, d'écrire un motif et de fixer une sanction de 1 à 10 savons. Les autres colocs votent 👍 / 👎 : la sanction est validée à la majorité (hors puni) et les savons sont retirés, sinon elle est rejetée. Le bouton porte une pastille quand un vote t'attend.
 - Base : tables `punishments` et `punishment_votes`, fonctions `add_punishment`, `vote_punishment`, `cancel_punishment`, et la vue `soap_spent` compte les punitions validées (voir la fin de `supabase/schema.sql`). Le bouton reste caché tant que ces tables n'existent pas.
 - Écran de lancement : la barre de chargement avance en continu et en douceur (plus d'à-coups), avec un reflet qui glisse.
+
+### v107 — Récompense de la semaine à 400
+Le 1er de la semaine (le plus de savons) gagne 400 colocoins au lieu de 1000. Dans la bulle du cadeau, le texte sous la récompense est remplacé par « +400 colocoins ». SQL : `supabase/patch-v107.sql` (fonction `settle_plateau`).

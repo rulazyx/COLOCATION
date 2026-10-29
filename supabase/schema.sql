@@ -1787,7 +1787,7 @@ do $$ begin
   end if;
 end $$;
 
--- ---------- Récompense de la semaine : le coloc qui a gagné le plus de savons la semaine passée gagne 1000 colocoins ----------
+-- ---------- Récompense de la semaine : le coloc qui a gagné le plus de savons la semaine passée gagne 400 colocoins (v107) ----------
 create table if not exists plateau_weeks (
   week    date primary key,
   winners int[] not null default '{}',
@@ -1813,7 +1813,7 @@ begin
   select coalesce(max(n), 0) into v_max from _wk;
   if v_max >= 1 then
     select array_agg(member_id) into v_win from _wk where n = v_max;
-    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 1000, 'plateau-week:' || v_prev;
+    insert into chip_ledger (member_id, amount, reason) select unnest(v_win), 400, 'plateau-week:' || v_prev;
     insert into perks (member_id, week, kind) select unnest(v_win), v_prev, (array['biere', 'course', 'vacances'])[1 + ((v_prev - date '2024-01-01') / 7) % 3] on conflict do nothing;
   end if;
   insert into plateau_weeks (week, winners, laps) values (v_prev, coalesce(v_win, '{}'), v_max);

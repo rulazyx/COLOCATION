@@ -161,7 +161,7 @@ export const GOOSE = {
     26: { back: 2, art: 'reef', name: 'Récif' }, 28: { back: 3, art: 'storm', name: 'Tempête' },
   },
   finish: { xp: 200, trophy: 0 },
-  weekWin: 1000,   // colocoins pour le(s) coloc(s) qui ont gagné le plus de savons la semaine passée (au moins 1)
+  weekWin: 400,    // colocoins pour le(s) coloc(s) qui ont gagné le plus de savons la semaine passée (au moins 1)
 };
 // Palier de niveau : tous les 10 niveaux, des colocoins offerts
 export const LEVEL_BONUS = { every: 10, chips: 100 };
