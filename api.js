@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 116;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 117;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -117,7 +117,14 @@ export async function makeCloudApi() {
       return r;
     },
     async sudokuWeek(week) { return check(await sb.from('sudoku_weekly').select('member_id,seconds').eq('week', week).order('seconds').limit(20)); },
-    async reportSudoku(id, mode, seconds) { return check(await sb.rpc('report_sudoku', { p_member: id, p_mode: mode, p_seconds: Math.floor(seconds) })); },
+    async reportSudoku(id, mode, seconds) {
+      try { return check(await sb.rpc('report_sudoku', { p_member: id, p_mode: mode, p_seconds: Math.floor(seconds) })); }
+      catch (e) {   // base pas encore mise à jour : la grille de la semaine compte comme un temps normal, les grilles aléatoires ne rapportent rien
+        if (!/could not find the function|report_sudoku/i.test(String(e?.message))) throw e;
+        if (mode === 'week') { const r = await this.reportGame(id, 'sudoku', Math.floor(seconds)); return { xp: r?.xp ?? 0, coins: 0, record: false }; }
+        return { xp: 0, coins: 0, record: false };
+      }
+    },
     async reportFlappy(id, score) {
       try { return check(await sb.rpc('report_flappy', { p_member: id, p_score: Math.floor(score) })); }
       catch (e) {   // base pas encore mise à jour (patch SQL non passé) : on enregistre au moins le score avec l'ancienne fonction
