@@ -1240,3 +1240,5 @@ button.glvl{cursor:pointer}
 .btn.histbtn{position:relative;flex:none;width:52px;padding:0;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--text)}
 .histbtn .badge{position:absolute;top:-6px;right:-6px;font-size:10px;min-width:18px;height:18px;background:var(--danger);color:#fff;border-radius:9px;display:grid;place-items:center;padding:0 5px}
 .btn.tback{background:var(--bg);color:var(--text)}
+.bgt-acts{display:flex;gap:10px;margin:12px 0 4px}.bgt-acts .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:14px 8px;font-size:15px}.bgt-acts .btn.primary{flex:1.35}
+.bgt-acts .btn span{font-size:20px;line-height:1}.btn.bgt-hist{background:var(--card);border:1px solid var(--line);color:var(--text)}.bgt-hist svg{width:20px;height:20px}

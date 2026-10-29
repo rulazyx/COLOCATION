@@ -66,7 +66,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], budgetSeg: 'exp', open: {}, anim: false, levelUps: [], auth: null,
+  shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -466,47 +466,48 @@ const signed = (c) => (c > 0 ? '+' : c < 0 ? '−' : '') + eur(Math.abs(c));
 function budgetHTML() {
   const me = state.me;
   if (me.kind !== 'coloc') return '<div class="empty-msg" style="padding:30px 0">Le budget est réservé aux colocs.</div>';
-  const bal = budgetBal(), mine = bal[me.id] ?? 0, seg = state.budgetSeg === 'bal' ? 'bal' : 'exp';
-  const list = state.expenses.filter((e) => e.kind === 'expense'), total = list.reduce((a, e) => a + e.amount_cents, 0);
-  const myCost = list.reduce((a, e) => a + (splitCents(e.amount_cents, sharesOf(e), e.id)[me.id] ?? 0), 0);
+  const bal = budgetBal(), mine = bal[me.id] ?? 0;
+  const list = state.expenses.filter((e) => e.kind === 'expense');
   const hero = `<div class="bgt-hero ${mine > 0 ? 'pos' : mine < 0 ? 'neg' : ''}">
     <small>Ton solde</small><b>${mine === 0 ? eur(0) : signed(mine)}</b>
-    <span>${mine > 0 ? 'On te doit de l\'argent' : mine < 0 ? 'Tu dois de l\'argent' : 'Tu es à jour'}</span>
-    <div class="bgt-sum"><div><small>Dépensé par la coloc</small><b>${eur(total)}</b></div><div><small>Ta part</small><b>${eur(myCost)}</b></div></div></div>`;
-  const segs = `<div class="seg" style="margin:12px 0">${[['exp', 'Dépenses'], ['bal', 'Soldes']].map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="bseg" data-v="${k}">${l}</button>`).join('')}</div>`;
+    <span>${mine > 0 ? 'On te doit de l\'argent' : mine < 0 ? 'Tu dois de l\'argent' : 'Tu es à jour'}</span></div>`;
+  const acts = `<div class="bgt-acts"><button class="btn primary" data-action="exp-new"><span>+</span> Ajouter une dépense</button>
+    <button class="btn bgt-hist" data-action="exp-hist">${HIST_SVG} Historique</button></div>`;
+  const max = Math.max(1, ...Object.values(bal).map(Math.abs));
+  const rows = state.members.filter((m) => m.kind === 'coloc').map((m) => {
+    const c = bal[m.id] ?? 0, w = Math.round(50 * Math.abs(c) / max);
+    return `<div class="bgt-bal"><span class="bgt-av">${av(m, 34)}</span><b>${esc(m.name)}</b><div class="bgt-bar"><i class="${c >= 0 ? 'p' : 'n'}" style="${c >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%`}"></i></div><em class="${c > 0 ? 'p' : c < 0 ? 'n' : ''}">${c === 0 ? eur(0) : signed(c)}</em></div>`;
+  }).join('');
+  const sets = budgetSettle(bal);
+  const paid = state.members.filter((m) => m.kind === 'coloc').map((m, i) => ({ m, c: list.filter((e) => e.payer_id === m.id).reduce((s, e) => s + e.amount_cents, 0), col: PIE_COLORS[i % PIE_COLORS.length] }));
+  const sum = paid.reduce((s, x) => s + x.c, 0);
+  const R = 15.9155; let off = 0;
+  const pie = `<div class="bgt-card bgt-pie"><h4 class="bgt-day" style="margin-top:6px">Qui a avancé l'argent</h4><div class="bgt-pierow">
+    <svg viewBox="0 0 42 42" width="140" height="140" role="img" aria-label="Répartition des sommes avancées"><circle cx="21" cy="21" r="${R}" fill="none" stroke="rgba(128,128,128,.15)" stroke-width="7"/>
+    ${paid.filter((x) => x.c).map((x) => { const p = 100 * x.c / sum, seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${x.col}" stroke-width="7" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${25 - off}"/>`; off += p; return seg; }).join('')}
+    <text x="21" y="20.5" text-anchor="middle" font-size="4.6" font-weight="800" fill="currentColor">${esc(eur(sum))}</text><text x="21" y="26" text-anchor="middle" font-size="2.9" fill="currentColor" opacity=".6">avancés</text></svg>
+    <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${sum ? Math.round(100 * x.c / sum) : 0} %</small></li>`).join('')}</ul></div></div>`;
+  const body = `${pie}<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
+    ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
+  return `${hero}${acts}${body}`;
+}
+// Historique des dépenses, en bulle
+function expHistHTML() {
+  const me = state.me;
   let body = '';
-  if (seg === 'exp') {
-    if (!state.expenses.length) body = '<div class="empty-msg" style="padding:26px 0">Aucune dépense pour l\'instant.<br>Ajoute la première avec le bouton ci-dessous.</div>';
-    else {
-      let lastDay = '';
-      body = state.expenses.map((e) => {
-        const head = e.spent_on !== lastDay ? `<h4 class="bgt-day">${esc(dayLabel(e.spent_on))}</h4>` : ''; lastDay = e.spent_on;
-        const parts = sharesOf(e), my = splitCents(e.amount_cents, parts, e.id)[me.id] ?? 0;
-        const sub = e.kind === 'transfer' ? `${esc(nameOf(e.payer_id))} → ${esc(nameOf(parts[0]))}` : `Payé par ${esc(nameOf(e.payer_id))} · pour ${parts.length} pers.${e.recurring_id ? ' · chaque mois' : ''}`;
-        const mineTxt = e.kind === 'transfer' ? '' : my ? `<small>Ta part ${eur(my)}</small>` : '<small>Pas concerné</small>';
-        return `${head}<button class="bgt-row ${e.kind}" data-action="exp-open" data-id="${e.id}"><span class="bgt-av">${av(memberById(e.payer_id), 38)}</span>
-          <span class="bgt-t"><b>${esc(e.title)}</b><small>${sub}</small></span><span class="bgt-a"><b>${eur(e.amount_cents)}</b>${mineTxt}</span></button>`;
-      }).join('');
-    }
-  } else {
-    const max = Math.max(1, ...Object.values(bal).map(Math.abs));
-    const rows = state.members.filter((m) => m.kind === 'coloc').map((m) => {
-      const c = bal[m.id] ?? 0, w = Math.round(50 * Math.abs(c) / max);
-      return `<div class="bgt-bal"><span class="bgt-av">${av(m, 34)}</span><b>${esc(m.name)}</b><div class="bgt-bar"><i class="${c >= 0 ? 'p' : 'n'}" style="${c >= 0 ? `left:50%;width:${w}%` : `right:50%;width:${w}%`}"></i></div><em class="${c > 0 ? 'p' : c < 0 ? 'n' : ''}">${c === 0 ? eur(0) : signed(c)}</em></div>`;
+  if (!state.expenses.length) body = '<div class="empty-msg" style="padding:26px 0">Aucune dépense pour l\'instant.</div>';
+  else {
+    let lastDay = '';
+    body = state.expenses.map((e) => {
+      const head = e.spent_on !== lastDay ? `<h4 class="bgt-day">${esc(dayLabel(e.spent_on))}</h4>` : ''; lastDay = e.spent_on;
+      const parts = sharesOf(e), my = splitCents(e.amount_cents, parts, e.id)[me.id] ?? 0;
+      const sub = e.kind === 'transfer' ? `${esc(nameOf(e.payer_id))} → ${esc(nameOf(parts[0]))}` : `Payé par ${esc(nameOf(e.payer_id))} · pour ${parts.length} pers.${e.recurring_id ? ' · chaque mois' : ''}`;
+      const mineTxt = e.kind === 'transfer' ? '' : my ? `<small>Ta part ${eur(my)}</small>` : '<small>Pas concerné</small>';
+      return `${head}<button class="bgt-row ${e.kind}" data-action="exp-open" data-id="${e.id}"><span class="bgt-av">${av(memberById(e.payer_id), 38)}</span>
+        <span class="bgt-t"><b>${esc(e.title)}</b><small>${sub}</small></span><span class="bgt-a"><b>${eur(e.amount_cents)}</b>${mineTxt}</span></button>`;
     }).join('');
-    const sets = budgetSettle(bal);
-    const paid = state.members.filter((m) => m.kind === 'coloc').map((m, i) => ({ m, c: list.filter((e) => e.payer_id === m.id).reduce((s, e) => s + e.amount_cents, 0), col: PIE_COLORS[i % PIE_COLORS.length] }));
-    const sum = paid.reduce((s, x) => s + x.c, 0);
-    const R = 15.9155; let off = 0;
-    const pie = `<div class="bgt-card bgt-pie"><h4 class="bgt-day" style="margin-top:6px">Qui a avancé l'argent</h4><div class="bgt-pierow">
-      <svg viewBox="0 0 42 42" width="140" height="140" role="img" aria-label="Répartition des sommes avancées"><circle cx="21" cy="21" r="${R}" fill="none" stroke="rgba(128,128,128,.15)" stroke-width="7"/>
-      ${paid.filter((x) => x.c).map((x) => { const p = 100 * x.c / sum, seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${x.col}" stroke-width="7" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${25 - off}"/>`; off += p; return seg; }).join('')}
-      <text x="21" y="20.5" text-anchor="middle" font-size="4.6" font-weight="800" fill="currentColor">${esc(eur(sum))}</text><text x="21" y="26" text-anchor="middle" font-size="2.9" fill="currentColor" opacity=".6">avancés</text></svg>
-      <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${sum ? Math.round(100 * x.c / sum) : 0} %</small></li>`).join('')}</ul></div></div>`;
-    body = `${pie}<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
-      ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
   }
-  return `${hero}${segs}${body}<button class="bgt-fab" data-action="exp-new"><span>+</span> Ajouter une dépense</button>`;
+  return popWrap(`<div class="sh"><div><h2>Historique des dépenses</h2><div class="when">Toutes les dépenses de la coloc</div></div>${closeBtn}</div>${body}`);
 }
 function newExpSheet(e) {
   const ids = budgetIds(), today = iso(new Date());
@@ -1349,6 +1350,7 @@ function sheetHTML() {
     case 'wheel': return wheelSheetHTML(s);
     case 'tasks': return taskBubbleHTML(s);
     case 'taskhist': return taskHistHTML();
+    case 'exphist': return expHistHTML();
     case 'shop-ask': return shopAskHTML();
     case 'levelup': return levelUpSheetHTML();
     case 'exp': return expFormHTML(s);
@@ -1909,7 +1911,7 @@ document.addEventListener('click', (e) => {
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
     case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
     case 'goperso': state.anim = state.tab !== 'me'; state.tab = 'me'; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
-    case 'bseg': state.budgetSeg = v; render(); break;
+    case 'exp-hist': state.sheet = { type: 'exphist' }; render(); break;
     case 'exp-new': state.sheet = newExpSheet(null); render(); break;
     case 'exp-open': state.sheet = { type: 'expd', id: Number(id), confirm: false }; render(); break;
     case 'exp-edit': { const e = state.expenses.find((x) => x.id === Number(id)); if (e) { state.sheet = newExpSheet(e); render(); } break; }
