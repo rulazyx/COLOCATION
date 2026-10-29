@@ -1371,3 +1371,7 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .punsoap{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:4px}.punsoap b{font-size:20px;min-width:80px;text-align:center}.punsoap .mini{width:40px;height:36px;font-size:18px}
 .mini.on{outline:2px solid #ef4444;outline-offset:1px}
 .perkbox small.perkcc{opacity:1;font-weight:800;font-size:15px;color:#a86a00}
+.giftwide{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;margin:0 0 12px;border:0;border-radius:var(--radius,14px);background:linear-gradient(135deg,#ffd75e,#f0a91c);color:#4a2e05;font-weight:800;font-size:16px;box-shadow:0 4px 14px rgba(240,169,28,.4);cursor:pointer}
+.giftwide:active{transform:scale(.98)}.giftwide svg{width:26px;height:26px;flex:none}
+.btn.taskbtn{position:relative;width:100%}
+.wkcard{margin-bottom:12px}

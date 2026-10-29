@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 108;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 109;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -487,7 +487,7 @@ function budgetHTML() {
     ${paid.filter((x) => x.c).map((x) => { const p = 100 * x.c / sum, seg = `<circle cx="21" cy="21" r="${R}" fill="none" stroke="${x.col}" stroke-width="7" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${25 - off}"/>`; off += p; return seg; }).join('')}
     <text x="21" y="20.5" text-anchor="middle" font-size="4.6" font-weight="800" fill="currentColor">${esc(eur(sum))}</text><text x="21" y="26" text-anchor="middle" font-size="2.9" fill="currentColor" opacity=".6">avancés</text></svg>
     <ul class="bgt-leg">${paid.map((x) => `<li><i style="background:${x.col}"></i><span>${esc(x.m.name)}</span><b>${eur(x.c)}</b><small>${sum ? Math.round(100 * x.c / sum) : 0} %</small></li>`).join('')}</ul></div></div>`;
-  const body = `${pie}<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
+  const body = `<h4 class="bgt-day">Soldes</h4><div class="bgt-card">${rows}</div><h4 class="bgt-day">Pour tout équilibrer</h4>` + (sets.length ? sets.map((t) => `<div class="bgt-set"><span><b>${esc(nameOf(t.from))}</b> doit <b>${eur(t.cents)}</b> à <b>${esc(nameOf(t.to))}</b></span>
     ${t.from === me.id || t.to === me.id ? `<button class="btn" data-action="exp-pay" data-from="${t.from}" data-to="${t.to}" data-c="${t.cents}">Marquer remboursé</button>` : ''}</div>`).join('') : '<div class="empty-msg" style="padding:14px 0">Tout le monde est à jour.</div>');
   return `${hero}${acts}${body}`;
 }
@@ -1025,7 +1025,7 @@ function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>
-    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>${taskRowHTML()}</div>`;
+    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
 }
 function syncBarHTML() {
   if (!state.syncErr) return '';
@@ -1083,16 +1083,17 @@ function taskRowHTML() {
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
   const reqs = shopActive().filter((r) => (r.status === 'open' && r.requester_id !== me.id) || (r.status === 'bought' && r.requester_id === me.id)).length;
   return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
-    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Missionner une commission${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>
-    ${state.puns ? `<div class="taskrow"><button class="btn taskbtn punbtn" data-action="pun-open" ${isColoc ? '' : 'disabled'}>${PUN_ICON}Punir quelqu'un !${punToVote() ? `<span class="badge">${punToVote()}</span>` : ''}</button></div>` : ''}`;
+    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Commissionner un achat${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>
+    ${state.puns ? `<div class="taskrow"><button class="btn taskbtn punbtn" data-action="pun-open" ${isColoc ? '' : 'disabled'}>${PUN_ICON}Punir quelqu'un${punToVote() ? `<span class="badge">${punToVote()}</span>` : ''}</button></div>` : ''}`;
 }
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
-  return `<div class="giftrow"><button class="giftbtn" data-action="perk-week" aria-label="Récompense de la semaine" title="Récompense de la semaine">${GIFT_ICON}</button></div>
+  return `<button class="giftwide" data-action="perk-week">${GIFT_ICON}<span>Récompense de la semaine</span></button>
     ${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
     ${weekHTML()}
-    <h2 class="bigttl" style="margin-top:4px">Historique des tâches</h2>${taskHistBody()}`;
+    ${taskRowHTML()}
+    <h2 class="bigttl" style="margin-top:14px">Historique des tâches</h2>${taskHistBody()}`;
 }
 
 /* ---------- Course aux pièces (plateau en anneau, jamais remis à zéro) ---------- */
