@@ -334,3 +334,9 @@ Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à 
 
 ### v105 — Commission, historique et cadeau
 Onglet Tâches : « Demander à quelqu'un d'acheter » devient « Missionner une commission » ; les deux boutons prennent toute la largeur. Plus de petit bouton Historique : l'historique des tâches s'affiche sous la case des savons (le plateau part dans Jeux, v104). Le bouton cadeau (récompense de la semaine) est rond, en haut de la page. Aucun SQL à lancer.
+
+### v106 — Punir quelqu'un, chargement fluide
+
+- Tâches : bouton rouge « Punir quelqu'un ! ». La bulle permet de choisir la tête d'un coloc, d'écrire un motif et de fixer une sanction de 1 à 10 savons. Les autres colocs votent 👍 / 👎 : la sanction est validée à la majorité (hors puni) et les savons sont retirés, sinon elle est rejetée. Le bouton porte une pastille quand un vote t'attend.
+- Base : tables `punishments` et `punishment_votes`, fonctions `add_punishment`, `vote_punishment`, `cancel_punishment`, et la vue `soap_spent` compte les punitions validées (voir la fin de `supabase/schema.sql`). Le bouton reste caché tant que ces tables n'existent pas.
+- Écran de lancement : la barre de chargement avance en continu et en douceur (plus d'à-coups), avec un reflet qui glisse.

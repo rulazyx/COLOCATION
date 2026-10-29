@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 105;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 106;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -67,7 +67,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], diceClk: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
+  shopReqs: [], puns: null, punVotes: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -133,7 +133,7 @@ const TABLE_KEYS = {
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
   xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
   soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
-  events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
+  events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], punishments: ['puns', 'spent'], punishment_votes: ['punVotes', 'puns', 'spent'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
 async function refresh(force = false, only = null) {
   // Pendant une partie, on ne redessine pas l'appli en dessous (ça fait ramer le jeu) : on rattrape à la fermeture
@@ -148,7 +148,7 @@ async function refresh(force = false, only = null) {
     spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
     farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
-    shopReqs: () => api.shopRequests(), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
+    shopReqs: () => api.shopRequests(), puns: () => api.punishments(), punVotes: () => api.punishmentVotes().then((v) => v ?? []), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
   };
   // `only` : si le temps réel dit quelles tables ont changé, on ne relit que ce qui en dépend (au lieu des ~30 requêtes à chaque fois)
   const keys = only ? Object.keys(LOADERS).filter((k) => only.has(k)) : Object.keys(LOADERS);
@@ -1083,7 +1083,8 @@ function taskRowHTML() {
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
   const reqs = shopActive().filter((r) => (r.status === 'open' && r.requester_id !== me.id) || (r.status === 'bought' && r.requester_id === me.id)).length;
   return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
-    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Missionner une commission${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>`;
+    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Missionner une commission${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>
+    ${state.puns ? `<div class="taskrow"><button class="btn taskbtn punbtn" data-action="pun-open" ${isColoc ? '' : 'disabled'}>${PUN_ICON}Punir quelqu'un !${punToVote() ? `<span class="badge">${punToVote()}</span>` : ''}</button></div>` : ''}`;
 }
 function tasksHTML() {
   const me = state.me;
@@ -1211,6 +1212,35 @@ function shopReqHTML() {
     <label class="evl">Quoi ?<input id="shopitem" class="evin" maxlength="${SHOP_REQ.itemMax}" placeholder="Ex. Une bouteille de lait, du PQ…"></label>
     <button class="btn primary" style="width:100%;margin-top:10px" data-action="shopreq-create" ${isColoc ? '' : 'disabled'}>Demander</button>
     ${list.length ? `<h3 class="sec">Demandes en cours</h3>${list.map(row).join('')}` : ''}`, '#14b8a6');
+}
+// Punitions : on choisit une tête, un motif et une sanction en savons, puis les colocs votent
+const PUN_ICON = '<svg class="tico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 3.5l7 7"/><path d="M10.5 6.5l7 7"/><path d="M12 5l5 5" stroke-width="5"/><path d="M12 11.5l-8 8"/><path d="M3 21h9"/></svg>';
+const punOpen = () => (state.puns ?? []).filter((r) => r.status === 'open');
+const punVotesOf = (id) => state.punVotes.filter((v) => v.punishment_id === id);
+const punToVote = () => state.me?.kind === 'coloc' ? punOpen().filter((r) => r.target_id !== state.me.id && !punVotesOf(r.id).some((v) => v.member_id === state.me.id)).length : 0;
+function punishHTML() {
+  const s = state.sheet, me = state.me, isColoc = me.kind === 'coloc';
+  const heads = state.members.filter((m) => m.kind === 'coloc' && m.id !== me.id);
+  const voters = (r) => state.members.filter((m) => m.kind === 'coloc' && m.id !== r.target_id).length;
+  const row = (r) => {
+    const vs = punVotesOf(r.id), yes = vs.filter((v) => v.vote).length, no = vs.length - yes, need = Math.floor(voters(r) / 2) + 1;
+    const mine = vs.find((v) => v.member_id === me.id), canVote = isColoc && r.target_id !== me.id;
+    const act = r.author_id === me.id ? `<button class="mini" data-action="pun-cancel" data-id="${r.id}">Annuler</button>`
+      : canVote ? `<button class="mini ok ${mine?.vote === true ? 'on' : ''}" data-action="pun-yes" data-id="${r.id}">👍</button><button class="mini ${mine?.vote === false ? 'on' : ''}" data-action="pun-no" data-id="${r.id}">👎</button>` : '';
+    return `<div class="up"><div class="mini-av">${av(memberById(r.target_id), 44)}</div><div class="txt"><b>${esc(nameOf(r.target_id))} · −${r.soap} 🧼</b><small>« ${esc(r.reason)} » · par ${esc(nameOf(r.author_id))} · ${yes}/${need} oui${no ? ` · ${no} non` : ''}</small></div>${act}</div>`;
+  };
+  const done = (state.puns ?? []).filter((r) => r.status === 'validated' || r.status === 'rejected').slice(0, 5);
+  const list = punOpen();
+  return popWrap(`
+    <div class="sh"><div><h2 class="hico">${PUN_ICON}Punir quelqu'un</h2><div class="when">Validé si la majorité des colocs vote oui</div></div>${closeBtn}</div>
+    <div class="evl">Qui ?</div>
+    <div class="punheads">${heads.map((m) => `<button class="punhead ${s.target === m.id ? 'on' : ''}" data-action="pun-target" data-id="${m.id}">${av(m, 46)}<small>${esc(m.name)}</small></button>`).join('')}</div>
+    <label class="evl">Motif<input id="punreason" class="evin" maxlength="120" placeholder="Ex. Vaisselle pas faite depuis 3 jours" value="${esc(s.reason ?? '')}"></label>
+    <div class="evl">Sanction</div>
+    <div class="punsoap"><button class="mini" data-action="pun-soap" data-v="-1" ${s.soap <= 1 ? 'disabled' : ''}>−</button><b>−${s.soap} 🧼</b><button class="mini" data-action="pun-soap" data-v="1" ${s.soap >= 10 ? 'disabled' : ''}>+</button></div>
+    <button class="btn primary punsend" style="width:100%;margin-top:10px" data-action="pun-create" ${isColoc && s.target ? '' : 'disabled'}>Soumettre au vote</button>
+    ${list.length ? `<h3 class="sec">Votes en cours</h3>${list.map(row).join('')}` : ''}
+    ${done.length ? `<h3 class="sec">Dernières décisions</h3>${done.map((r) => `<div class="up"><div class="mini-av">${av(memberById(r.target_id), 36)}</div><div class="txt"><b>${esc(nameOf(r.target_id))} · ${r.status === 'validated' ? `−${r.soap} 🧼 validé` : 'rejeté'}</b><small>« ${esc(r.reason)} » · ${ago(r.closed_at ?? r.created_at)}</small></div></div>`).join('')}` : ''}`, '#ef4444');
 }
 // Récompense de la semaine (bouton cadeau)
 function perkWeekHTML() {
@@ -1355,6 +1385,7 @@ function sheetHTML() {
     case 'exphist': return expHistHTML();
     case 'shopreqs': return shopReqHTML();
     case 'perkweek': return perkWeekHTML();
+    case 'punish': return punishHTML();
     case 'levelup': return levelUpSheetHTML();
     case 'exp': return expFormHTML(s);
     case 'expd': return expDetailHTML(s);
@@ -1986,6 +2017,20 @@ document.addEventListener('click', (e) => {
     case 'task-back': if (s?.type === 'tasks') { if (s.kind) s.kind = null; else s.group = null; render(); } break;
     case 'task-submit': submitTaskNow(id); break;
     case 'shop-reqs': state.sheet = { type: 'shopreqs' }; render(); break;
+    case 'pun-open': state.sheet = { type: 'punish', target: null, soap: 3, reason: '' }; render(); break;
+    case 'pun-target': case 'pun-soap': {
+      const s = state.sheet; if (s?.type !== 'punish') break;
+      s.reason = document.getElementById('punreason')?.value ?? s.reason;
+      if (action === 'pun-target') s.target = Number(id); else s.soap = Math.min(10, Math.max(1, s.soap + Number(el.dataset.v)));
+      render(); break;
+    }
+    case 'pun-create': {
+      const s = state.sheet, reason = document.getElementById('punreason')?.value ?? '';
+      s.reason = reason;
+      calAct(() => state.api.addPunishment(state.me.id, s.target, reason, s.soap), () => { Object.assign(s, { target: null, reason: '', soap: 3 }); toast('Punition soumise au vote !'); render(); }); break;
+    }
+    case 'pun-yes': case 'pun-no': calAct(() => state.api.votePunishment(state.me.id, Number(id), action === 'pun-yes'), () => toast('Vote enregistré')); break;
+    case 'pun-cancel': calAct(() => state.api.cancelPunishment(state.me.id, Number(id))); break;
     case 'perk-week': state.sheet = { type: 'perkweek' }; render(); break;
     case 'shopreq-create': { const item = document.getElementById('shopitem')?.value ?? ''; calAct(() => state.api.addShopRequest(state.me.id, item), () => { toast('Demande envoyée !'); render(); }); break; }
     case 'shopreq-bought': calAct(() => state.api.shopRequestBought(state.me.id, Number(id)), () => toast('Merci ! Le demandeur doit confirmer.')); break;

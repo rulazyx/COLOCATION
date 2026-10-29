@@ -1361,3 +1361,12 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .giftrow{display:flex;justify-content:flex-end;margin:-2px 0 8px}
 .giftbtn{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffd75e,#f0a91c);color:#4a2e05;box-shadow:0 4px 14px rgba(240,169,28,.4);border:0;cursor:pointer}
 .giftbtn:active{transform:scale(.94)}.giftbtn .tico{font-size:30px}
+/* v106 : punitions */
+.btn.punbtn{position:relative;background:#ef4444;box-shadow:0 4px 14px rgba(239,68,68,.35);font-size:14px;white-space:nowrap;padding-left:10px;padding-right:10px;gap:6px}
+.btn.punsend{background:#ef4444;color:#fff}
+.punheads{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 6px}
+.punhead{display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:2px solid transparent;border-radius:14px;padding:5px 4px;color:inherit;font:inherit;cursor:pointer;min-width:60px}
+.punhead small{font-size:11px;font-weight:700}
+.punhead.on{border-color:#ef4444;background:rgba(239,68,68,.12)}
+.punsoap{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:4px}.punsoap b{font-size:20px;min-width:80px;text-align:center}.punsoap .mini{width:40px;height:36px;font-size:18px}
+.mini.on{outline:2px solid #ef4444;outline-offset:1px}
