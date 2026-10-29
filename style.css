@@ -1387,3 +1387,7 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .giftwide{justify-content:space-between!important;padding:8px 8px 8px 18px!important;background:#ffc928!important;color:#3b2a00!important;text-transform:uppercase;letter-spacing:.06em;font-size:14px!important;box-shadow:0 3px 10px rgba(255,201,40,.35)!important}
 .giftwide span{text-align:left}
 .giftwide svg{width:40px!important;height:40px!important;padding:7px;border-radius:50%;background:rgba(255,255,255,.55);box-sizing:border-box}
+/* Récompense de la semaine : contour jaune, fond transparent, icône ronde jaune collée à gauche */
+.giftwide{justify-content:flex-start!important;gap:0!important;padding:0 18px 0 0!important;height:48px;background:transparent!important;color:var(--text)!important;border:2px solid #ffc928!important;border-radius:999px!important;box-shadow:none!important;overflow:hidden}
+.giftwide span{flex:1;text-align:center;padding-left:10px;color:var(--text)}
+.giftwide svg{width:48px!important;height:48px!important;margin:-2px 0 -2px -2px;padding:11px;border-radius:50%;background:#ffc928!important;color:#3b2a00;box-sizing:border-box;flex:none}
