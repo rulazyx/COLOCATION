@@ -347,9 +347,10 @@ export function makeDemoApi() {
       for (let depth = 0; depth < 3; depth++) {
         const c = GOOSE.cells[to > 0 ? ((to - 1) % GOOSE.size) + 1 : 0]; if (!c) break;
         if (c.xp) { xp += c.xp; note += ` +${c.xp} XP`; break; }
-        if (c.chips) { ch += c.chips; note += ` +${c.chips} colocoins`; break; }
-        if (c.back) { to = Math.max(to - c.back, 0); note += ` piège : recule de ${c.back}`; }
-        else if (c.goose) { to += roll; note += ` oie : avance encore de ${roll}`; }
+        if (c.chips > 0) { ch += c.chips; note += ` +${c.chips} colocoins`; break; }
+        if (c.chips < 0) { ch -= Math.min(-c.chips, Math.max(chipsOf(member), 0)); note += ` pirates : ${ch} colocoins`; break; }
+        if (c.back) { to = Math.max(to - c.back, 0); note += ` ${c.name.toLowerCase()} : recule de ${c.back}`; }
+        else if (c.goose) { to += roll; note += ` vent favorable : avance encore de ${roll}`; }
       }
       let perk = null;
       if (Math.floor(to / GOOSE.size) > laps) {

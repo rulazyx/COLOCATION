@@ -328,5 +328,6 @@ Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à 
 - Le plateau quitte l'onglet Tâches : il s'ouvre depuis une nouvelle tuile « Course aux pièces » (fond bois marron, coffre au trésor en SVG), à côté de Colo-Ferme, qui prend maintenant la taille des autres tuiles.
 - Fini les savons pour les dés : on gagne 1 dé toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus). Le temps restant avant le prochain dé s'affiche sous le bouton.
 - Le plateau n'est plus remis à zéro chaque lundi : chacun garde sa position, le centre affiche le nombre de tours de chacun.
+- Univers pirate : mer animée au centre (bateau, île au trésor, tentacule du kraken, mouette), cases dessinées en SVG et animées. Bonus : coffre (colocoins), carte au trésor (XP), vent favorable (on rejoue le même nombre). Malus : récif (−2 cases), tempête (−3), kraken (−5), pirates (−20 ou −30 colocoins, jamais plus que ton solde). La case d'arrivée est l'île au trésor.
 - La récompense de la semaine (1000 colocoins pour celui qui gagne le plus de savons) ne change pas et reste dans Tâches.
-- Base : table `dice_clock` et nouvelle fonction `roll_dice` (supabase/patch-v104.sql).
+- Base : table `dice_clock`, nouvelle fonction `roll_dice`, nouvelles cases `goose_cells` avec une colonne `name` (supabase/patch-v104.sql).

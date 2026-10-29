@@ -147,19 +147,24 @@ Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g
 
 
 // ---------- Course aux pièces : plateau en anneau, on tourne à l'infini (jamais remis à zéro) ----------
-// Cases : xp / chips (colocoins) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. L'arrivée donne un gros bonus (une fois par semaine).
+// Cases : xp / chips (colocoins) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. Chaque tour terminé donne un bonus d'XP.
+// Univers pirate (v104) : art = dessin de la case, name = nom affiché. Malus : récif / tempête / kraken (reculer), pirates (vol de colocoins, jamais plus que ton solde).
+// Même liste que la table goose_cells (supabase/patch-v104.sql).
 export const GOOSE = {
   size: 30,
   cells: {
-    3: { chips: 20 }, 5: { xp: 30 }, 7: { back: 1 }, 9: { goose: true }, 10: { xp: 40 }, 13: { chips: 20 }, 15: { xp: 50 },
-    17: { back: 1 }, 18: { goose: true }, 20: { xp: 60 }, 23: { chips: 40 }, 25: { xp: 80 }, 27: { back: 1 },
+    2: { chips: 20, art: 'chest', name: 'Coffre' }, 4: { back: 2, art: 'reef', name: 'Récif' }, 5: { xp: 30, art: 'map', name: 'Carte au trésor' },
+    7: { chips: -20, art: 'pirates', name: 'Pirates' }, 9: { goose: true, art: 'wind', name: 'Vent favorable' }, 10: { xp: 40, art: 'map', name: 'Carte au trésor' },
+    12: { back: 3, art: 'storm', name: 'Tempête' }, 13: { chips: 30, art: 'chest', name: 'Coffre' }, 15: { xp: 50, art: 'map', name: 'Carte au trésor' },
+    16: { back: 5, art: 'kraken', name: 'Kraken' }, 18: { goose: true, art: 'wind', name: 'Vent favorable' }, 20: { xp: 60, art: 'map', name: 'Carte au trésor' },
+    21: { chips: -30, art: 'pirates', name: 'Pirates' }, 23: { chips: 40, art: 'chest', name: 'Coffre' }, 25: { xp: 80, art: 'map', name: 'Carte au trésor' },
+    26: { back: 2, art: 'reef', name: 'Récif' }, 28: { back: 3, art: 'storm', name: 'Tempête' },
   },
   finish: { xp: 200, trophy: 0 },
   weekWin: 1000,   // colocoins pour le(s) coloc(s) qui ont gagné le plus de savons la semaine passée (au moins 1)
 };
 // Palier de niveau : tous les 10 niveaux, des colocoins offerts
 export const LEVEL_BONUS = { every: 10, chips: 100 };
-// Prix du dé selon le nombre de lancers déjà faits aujourd'hui (le 6e et les suivants coûtent le dernier prix)
 // Course aux pièces : un dé gagné toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus)
 export const DICE = { everyH: 3, max: 3 };
 // Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.

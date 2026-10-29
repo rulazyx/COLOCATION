@@ -1575,9 +1575,12 @@ begin
     exit when not found or v_depth >= 3;
     v_depth := v_depth + 1;
     if v_cell.kind = 'xp' then v_xp := v_xp + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' XP'; exit;
+    elsif v_cell.kind = 'chips' and v_cell.v < 0 then   -- pirates : on ne vole jamais plus que le solde
+      v_ch := v_ch - least(-v_cell.v, greatest(coalesce((select chips from chip_balances where member_id = p_member), 0), 0));
+      v_note := v_note || ' ' || coalesce(v_cell.name, 'Pirates') || ' : ' || v_ch || ' colocoins'; exit;
     elsif v_cell.kind = 'chips' then v_ch := v_ch + v_cell.v; v_note := v_note || ' +' || v_cell.v || ' colocoins'; exit;
-    elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' piège : recule de ' || v_cell.v;
-    elsif v_cell.kind = 'goose' then v_to := v_to + v_roll; v_note := v_note || ' oie : avance encore de ' || v_roll;
+    elsif v_cell.kind = 'back' then v_to := greatest(v_to - v_cell.v, 0); v_note := v_note || ' ' || lower(coalesce(v_cell.name, 'piège')) || ' : recule de ' || v_cell.v;
+    elsif v_cell.kind = 'goose' then v_to := v_to + v_roll; v_note := v_note || ' vent favorable : avance encore de ' || v_roll;
     else exit; end if;
   end loop;
   if v_to / v_size > v_laps then
@@ -1587,7 +1590,7 @@ begin
   insert into dice_rolls (member_id, week, cost, roll, from_pos, to_pos, note) values (p_member, v_week, 0, v_roll, v_pos, v_to, nullif(trim(v_note), ''));   -- les dés ne consomment plus de savons
   if v_xp > 0 then perform add_xp(p_member, v_xp, 'plateau'); end if;
   if v_tr > 0 then insert into coin_ledger (member_id, amount, reason) values (p_member, v_tr, 'plateau'); end if;
-  if v_ch > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_ch, 'plateau'); end if;
+  if v_ch <> 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_ch, 'plateau'); end if;
   return json_build_object('perk', v_perk, 'roll', v_roll, 'from', v_pos, 'to', v_to, 'cost', 0, 'xp', v_xp, 'trophies', v_tr, 'chips', v_ch, 'note', trim(v_note));
 end $$;
 grant execute on function roll_dice(int) to anon, authenticated;
@@ -2619,3 +2622,24 @@ grant select on dice_clock to anon, authenticated;
 do $$ begin
   begin alter publication supabase_realtime add table dice_clock; exception when duplicate_object then null; end;
 end $$;
+-- Plateau pirate : malus (récif, tempête, kraken = reculer ; pirates = vol de colocoins, jamais plus que le solde). Même liste que GOOSE dans config.js.
+alter table goose_cells add column if not exists name text;
+delete from goose_cells;
+insert into goose_cells (cell, kind, v, name) values
+  (2, 'chips', 20, 'Coffre'),
+  (4, 'back', 2, 'Récif'),
+  (5, 'xp', 30, 'Carte au trésor'),
+  (7, 'chips', -20, 'Pirates'),
+  (9, 'goose', 0, 'Vent favorable'),
+  (10, 'xp', 40, 'Carte au trésor'),
+  (12, 'back', 3, 'Tempête'),
+  (13, 'chips', 30, 'Coffre'),
+  (15, 'xp', 50, 'Carte au trésor'),
+  (16, 'back', 5, 'Kraken'),
+  (18, 'goose', 0, 'Vent favorable'),
+  (20, 'xp', 60, 'Carte au trésor'),
+  (21, 'chips', -30, 'Pirates'),
+  (23, 'chips', 40, 'Coffre'),
+  (25, 'xp', 80, 'Carte au trésor'),
+  (26, 'back', 2, 'Récif'),
+  (28, 'back', 3, 'Tempête');
