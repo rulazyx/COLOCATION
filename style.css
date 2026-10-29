@@ -1231,3 +1231,12 @@ button.glvl{cursor:pointer}
 @keyframes hbubin{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sheet.bubble.popin,.hbub{animation:none}}
 .shophead{margin:6px 0 10px}.shophead .bigttl{margin:0 0 2px;display:flex;align-items:center;gap:8px}.shophead .when{color:var(--muted);font-size:14px}
+
+/* ---------- v97 : bouton « J'ai effectué une tâche » + historique ---------- */
+.taskrow{display:flex;gap:10px;margin-bottom:12px}
+.btn.taskbtn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;background:#2b7de9;color:#fff;font-weight:800;font-size:16px;box-shadow:0 4px 14px rgba(43,125,233,.35)}
+.btn.taskbtn:not(:disabled):active,.btn.histbtn:active{transform:scale(.97)}
+.taskbtn .soapico{font-size:20px;line-height:1}
+.btn.histbtn{position:relative;flex:none;width:52px;padding:0;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--text)}
+.histbtn .badge{position:absolute;top:-6px;right:-6px;font-size:10px;min-width:18px;height:18px;background:var(--danger);color:#fff;border-radius:9px;display:grid;place-items:center;padding:0 5px}
+.btn.tback{background:var(--bg);color:var(--text)}
