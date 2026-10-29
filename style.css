@@ -1377,7 +1377,7 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .wkcard{margin-bottom:12px}
 /* Icône du profil (en-tête) : relief 3D + petit mouvement régulier pour montrer qu'on peut la toucher */
 .top{perspective:500px}
-.hav:not(.pulse){transform-style:preserve-3d;box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 70%,#000),0 8px 14px rgba(0,0,0,.28);animation:havtilt 4s ease-in-out infinite,havring 2.6s ease-out infinite}
+.hav:not(.pulse){transform-style:preserve-3d;box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 70%,#000),0 8px 14px rgba(0,0,0,.28);animation:havring 2.6s ease-out infinite}
 .hav:not(.pulse):active{transform:translateY(3px) scale(.96);animation:none;box-shadow:0 1px 0 color-mix(in srgb,var(--accent) 70%,#000),0 3px 6px rgba(0,0,0,.25)}
 .hav:not(.pulse) svg{filter:drop-shadow(0 3px 3px rgba(0,0,0,.3))}
 .hav::before{content:'';position:absolute;inset:2px;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,.45) 0,rgba(255,255,255,0) 45%);pointer-events:none;z-index:2}
