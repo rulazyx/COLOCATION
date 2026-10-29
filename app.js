@@ -1772,12 +1772,16 @@ async function shopBuy(slot, key) {
 /* ---------- Onglet Classement ---------- */
 const MEDALS = ['🥇', '🥈', '🥉'];
 const ordinal = (n) => (n === 1 ? '1er' : `${n}e`);
+const RSEGS = [['dollars', '🪙 Colocoins'], ['level', 'Niveau'], ['chores', '🧼 Savons']];
+const RSEGS_GAMES = [['blackjack', 'Blackjack'], ['flappy', 'Jumpy'], ['sudokulvl', 'Sudoku']];   // classements des jeux
+const RSEG_TXT = { dollars: 'Le nombre de colocoins que chacun possède en ce moment.', level: 'Le niveau (puis l\'XP) de chaque coloc et copain.', chores: 'Les savons gagnés grâce aux tâches ménagères.',
+  blackjack: 'Le nombre de mains gagnées au Blackjack.', flappy: 'Le meilleur score à Jumpy Cardinal (colonnes passées).', sudokulvl: 'Le niveau au Sudoku (puis le nombre de grilles réussies).' };
 function rankHTML() {
-  const seg = state.rankSeg === 'level' ? 'level' : state.rankSeg === 'chores' ? 'chores' : 'dollars';
+  const seg = [...RSEGS, ...RSEGS_GAMES].some(([k]) => k === state.rankSeg) ? state.rankSeg : 'dollars';
   const board = BOARDS.find((b) => b.key === seg);
-  return `<div class="seg" style="margin-bottom:12px">${[['dollars', '🪙 Colocoins'], ['level', 'Niveau'], ['chores', '🧼 Savons']].map(([k, l]) =>
-    `<button class="${seg === k ? 'on' : ''}" data-action="rseg" data-v="${k}">${l}</button>`).join('')}</div>
-    <p class="summary" style="margin-top:0">${{ dollars: 'Le nombre de colocoins que chacun possède en ce moment.', level: 'Le niveau (puis l\'XP) de chaque coloc et copain.', chores: 'Les savons gagnés grâce aux tâches ménagères.' }[seg]}</p>
+  const segRow = (list) => `<div class="seg" style="margin-bottom:8px">${list.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="rseg" data-v="${k}">${l}</button>`).join('')}</div>`;
+  return `${segRow(RSEGS)}${segRow(RSEGS_GAMES)}
+    <p class="summary" style="margin-top:4px">${RSEG_TXT[seg]}</p>
     ${boardListHTML(board)}`;
 }
 // Liste classée d'un classement (utilisée aussi dans la fenêtre de règle des jeux)

@@ -311,3 +311,6 @@ Budget : sigle euro à la place des pièces. Jeux : joystick à la place de la m
 
 ### v99 — Tuile Défis
 Dans l'onglet Jeux, « Défis » devient un bandeau comme la Colo-Ferme : fond espace (dégradé nuit, étoiles, planète), médaille étoilée dessinée en SVG, pastille quand un défi ou la récompense du jour attend.
+
+### v100 — Classements des jeux
+Onglet Classement : une seconde rangée d'onglets pour les jeux (Blackjack : mains gagnées, Jumpy : meilleur score, Sudoku : niveau puis grilles réussies, nouveau classement `sudokulvl`).
