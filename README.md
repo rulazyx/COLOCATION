@@ -317,3 +317,6 @@ Onglet Classement : une seconde rangée d'onglets pour les jeux (Blackjack : mai
 
 ### v101 — Boutons des tâches sous les têtes
 « J'ai effectué une tâche » et Historique passent sous les têtes des colocs, dans la case « Savons gagnés cette semaine ». Dans la bulle, catégories et sous-tâches deviennent des tuiles de couleur unie (comme les jeux), avec « jusqu'à +X 🧼 » en bleu. Aucun SQL à lancer.
+
+### v102 — Achats, cadeau et icônes des tâches
+Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à quelqu'un d'acheter » (icône chariot) ouvre une bulle (demande + demandes en cours, pastille si une action t'attend), et un bouton cadeau ouvre la « Récompense de la semaine » (qui quitte la case des savons). Les tâches n'ont plus d'emoji : icônes SVG (taskart.js). Aucun SQL à lancer.
