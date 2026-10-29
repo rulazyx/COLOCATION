@@ -1287,3 +1287,72 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .chal.done .cemo,.chal.ready .cemo{background:var(--dc);color:#fff}
 
 .dtile .w-cc,.dhead .w-cc{color:inherit;font-family:inherit;font-weight:800;letter-spacing:0;-webkit-text-stroke:0}
+
+/* v104 : Colo-Ferme et Course aux pièces en tuiles carrées, page de la course */
+.gtile.g-ferme{--gbg:linear-gradient(135deg,#ffd75e,#f0a91c)}
+.gtile.g-ferme .gt-name{color:#4a2e05}
+.gtile.g-ferme::after{content:"";position:absolute;right:-40px;top:-30px;width:150px;height:130px;background:repeating-linear-gradient(-30deg,rgba(255,255,255,.18) 0 10px,transparent 10px 22px);border-radius:50%;pointer-events:none}
+.gtile.g-race{--gbg:repeating-linear-gradient(0deg,rgba(0,0,0,.07) 0 2px,transparent 2px 26px),radial-gradient(circle at 50% 38%,rgba(255,206,92,.38),transparent 55%),linear-gradient(160deg,#9a5b2a,#5e3415 60%,#3b200c)}
+.gtile.g-race .gt-name{color:#ffe7a8;text-shadow:0 1px 4px rgba(0,0,0,.4)}
+.gt-ico{display:grid;place-items:center;height:84px;position:relative;z-index:1}
+.gtile.g-ferme .gt-ico{width:84px;border-radius:50%;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.gtile .gbadge{position:absolute;top:8px;right:8px;z-index:2;background:var(--accent);color:var(--on-accent);font-weight:800;font-size:11px;border-radius:12px;padding:3px 9px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.gtbadge.gold{background:#ffd75e;color:#4a2e05}
+.racehead{margin:0 0 6px}
+.dicecount{display:flex;align-items:center;gap:6px;width:auto;padding:0 16px;color:var(--text)}
+.dicecount b{font-size:18px}
+.dicenext{text-align:center;color:var(--muted);font-weight:700;font-size:13px;margin-top:8px}
+
+/* v104 : plateau pirate */
+.beach.pirate{background:#5e3415;border-color:#3b200c;box-shadow:inset 0 0 0 2px #8a5a2b,0 8px 18px rgba(0,0,0,.35)}
+.beach.pirate .ggrid.ring{gap:3px}
+.beach.pirate .glagoon{overflow:hidden;background:#147a9e;box-shadow:inset 0 0 0 3px #c99a5b,inset 0 4px 14px rgba(0,0,0,.35);border-radius:14px}
+.seascene{position:absolute;inset:0;width:100%;height:100%;display:block}
+.seascene .ship{animation:shipbob 3.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.seascene .flag{animation:flagwave 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
+.seascene .tentacle{animation:tentsway 3.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.seascene .swell{animation:swell 6s linear infinite}
+.seascene .palmsway{animation:sway 4.5s ease-in-out infinite;transform-box:fill-box;transform-origin:20% 100%}
+.seascene .gull{animation:gull 14s linear infinite}
+@keyframes shipbob{50%{transform:translateY(10px) rotate(-2deg)}}
+@keyframes flagwave{50%{transform:skewY(-6deg) scaleX(.92)}}
+@keyframes tentsway{0%,100%{transform:rotate(-6deg) translateY(30px)}50%{transform:rotate(8deg) translateY(0)}}
+@keyframes swell{from{transform:translateX(0)}to{transform:translateX(-50px)}}
+@keyframes gull{0%{transform:translate(-80px,170px)}50%{transform:translate(380px,110px)}100%{transform:translate(780px,160px)}}
+.beach.pirate .gc{background:linear-gradient(#fbf0d2,#ecd7a4);border:1.5px solid #a77b3c;box-shadow:0 2px 0 #7a5122,0 4px 5px rgba(0,0,0,.25);color:#5a3a12}
+.beach.pirate .gc b{color:#8a6a32}
+.beach.pirate .gc.bon{background:linear-gradient(#fff3c4,#f2cf6e);border-color:#c99a1c}
+.beach.pirate .gc.mal{background:linear-gradient(#fbe0d6,#eab3a2);border-color:#b4533c}
+.beach.pirate .gc.kraken,.beach.pirate .gc.storm{background:linear-gradient(#e9dcf5,#c9b0e2);border-color:#7a4aa0}
+.beach.pirate .gc.end{background:linear-gradient(#d8f5ff,#9fdcef);border-color:#2f8fd8}
+.ggrid.ring .gc .sart{width:62%;max-width:24px;height:auto;display:block;margin-top:4px}
+.ggrid.ring .gc.end .sart{width:78%;max-width:30px;margin-top:2px}
+.ggrid.ring .gc .cl{margin-top:0;font-size:8px;color:#0b6b2d}
+.ggrid.ring .gc.map .cl{color:#7a3fb0}
+.ggrid.ring .gc.mal .cl{color:#a3201a}
+.ggrid.ring .gc.wind .cl{color:#1d5fb0}
+.beach.pirate .gc.on.mal{animation:cellshake .45s ease-in-out 2;box-shadow:0 0 0 3px #e5484d,0 6px 10px rgba(0,0,0,.3)}
+@keyframes cellshake{25%{transform:translateX(-2px) rotate(-3deg)}75%{transform:translateX(2px) rotate(3deg)}}
+.sart .sparkle{animation:twinkle 1.8s ease-in-out infinite}
+.sart .sail{animation:sailpuff 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
+.sart .gust{animation:gust 2.4s ease-in-out infinite}.sart .gust.g2{animation-delay:-1.2s}
+.sart .wave{animation:wavemove 2.5s linear infinite}
+.sart .bolt{animation:bolt 3s steps(1) infinite}
+.sart .tent{animation:tentsway2 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.sart .flag{animation:flagwave 1.4s ease-in-out infinite;transform-box:fill-box;transform-origin:left center}
+@keyframes twinkle{50%{opacity:.15;transform:scale(.6)}}
+@keyframes sailpuff{50%{transform:scaleX(1.12)}}
+@keyframes gust{0%{opacity:0;transform:translateX(-3px)}50%{opacity:1}100%{opacity:0;transform:translateX(3px)}}
+@keyframes bolt{0%,70%,82%{opacity:1}76%,90%{opacity:.15}}
+@keyframes tentsway2{50%{transform:rotate(8deg)}}
+.beach.pirate .gcenter{color:#fff7e0;position:relative}
+.beach.pirate .gcenter .gttl{text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.beach.pirate .glaps{background:rgba(251,240,210,.92);color:#4a2e05;border:1.5px solid #c99a5b;box-shadow:0 3px 8px rgba(0,0,0,.25)}
+.glaps .crown{color:#e0a100;font-style:normal}
+.beach.pirate .gdep{color:#fff7e0;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.gdep .sart{width:14px;height:14px;vertical-align:-2px;margin-right:3px}
+.dicebig{display:flex;align-items:center;justify-content:center;gap:16px}
+.landed{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:13px}
+.landed .sart{width:56px;height:56px}
+.landed.mal b{color:var(--danger)}
+@media (prefers-reduced-motion:reduce){.seascene *,.sart *{animation:none!important}}

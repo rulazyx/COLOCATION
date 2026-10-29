@@ -1,6 +1,6 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { TASK_ICONS, taskIcon, CART_ICON, GIFT_ICON } from './taskart.js';
@@ -66,7 +66,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
    ========================================================= */
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
-  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
+  stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], diceClk: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
   shopReqs: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
@@ -131,7 +131,7 @@ function computeInitials(members) {
 const TABLE_KEYS = {
   members: ['members', 'scores', 'balances', 'xp', 'chips', 'duelStats', 'spent'], products: ['products'], purchases: ['purchases'], tasks: ['scores', 'weekly', 'logs'],
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
-  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
+  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
   soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
   events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
@@ -145,7 +145,7 @@ async function refresh(force = false, only = null) {
   const LOADERS = {
     members: () => api.members(), scores: () => api.scores(), balances: () => api.balances(), products: () => api.products(), purchases: () => api.purchases(), duels: () => api.duels(),
     stats: () => api.stats(), duelStats: () => api.duelStats(), unlocks: () => api.unlocks(), views: () => api.views(), xp: () => api.xp(), weekly: () => api.weekly(), logs: () => api.taskLogs(),
-    spent: () => api.soapSpent(), dice: () => api.diceRolls(), perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
+    spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
     farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
     shopReqs: () => api.shopRequests(), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
@@ -441,7 +441,6 @@ function soapHistHTML() {
   const me = state.me.id;
   const rows = [
     ...state.logs.filter((l) => l.doer_id === me && l.status === 'validated').map((l) => ({ t: l.answered_at, label: `${TASK_KINDS[l.kind]?.short ?? l.kind} (confirmée)`, amount: l.soap })),
-    ...state.dice.filter((r) => r.member_id === me).map((r) => ({ t: r.created_at, label: `Dé du plateau (${r.roll})`, amount: -r.cost })),
   ].sort((a, b) => Date.parse(b.t) - Date.parse(a.t));
   return sheetWrap(`
     <div class="sh"><div><h2>🧼 Historique des savons</h2><div class="when">Disponibles : ${soapOf(me)} 🧼 · gagnés en tout : ${earnedSoap(me)}</div></div>${closeBtn}</div>
@@ -553,6 +552,7 @@ function expSave() {
 /* ---------- Plateau, messages ---------- */
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Lancer le dé : le dé roule, puis le pion avance de case en case (puis saute si piège / oie)
+setInterval(() => { if (state.tab === 'race' && !state.sheet && !state.rolling && !state.game && document.visibilityState === 'visible') render(); }, 60000);   // compte à rebours du prochain dé
 async function rollDiceNow() {
   if (state.rolling) return;
   state.rolling = true; render();
@@ -1005,7 +1005,7 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : tab === 'race' ? plateauHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
       <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Défis »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
@@ -1013,7 +1013,7 @@ function render() {
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
       <button data-action="tab" data-tab="cal" class="${tab === 'cal' ? 'active' : ''}"><span class="ico">${NAV_ICONS.cal()}</span><span class="tl">ACTIVITÉS</span>${badge(evToAnswer())}</button>
-      <button data-action="tab" data-tab="games" class="${tab === 'games' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
+      <button data-action="tab" data-tab="games" class="${tab === 'games' || tab === 'race' ? 'active' : ''} ${pulse('games')}"><span class="ico">${NAV_ICONS.games()}</span><span class="tl">JEUX</span>${badge(duelsForMe)}</button>
       <button data-action="tab" data-tab="rank" class="${tab === 'rank' ? 'active' : ''} ${pulse('rank')}"><span class="ico">${NAV_ICONS.rank()}</span><span class="tl">CLASSEMENT</span></button>
     </nav>
     ${sheetHTML()}`;
@@ -1075,7 +1075,7 @@ function kindStatus(kind) {
   return { st: 'free' };
 }
 
-// Onglet Tâches : une seule page (bouton « J'ai effectué une tâche », savons de la semaine, plateau, demandes d'achat)
+// Onglet Tâches : une seule page (bouton « J'ai effectué une tâche », savons de la semaine, demandes d'achat)
 const HIST_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7.5V12l3 2"/></svg>';
 // Boutons « J'ai effectué une tâche » + Historique, sous les têtes des colocs
 function taskRowHTML() {
@@ -1090,55 +1090,57 @@ function taskRowHTML() {
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
-  return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce au plateau.</small></div>` : ''}
-    ${weekHTML()}${plateauHTML()}`;
+  return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
+    ${weekHTML()}`;
 }
 
-/* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
-const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posThisWeek(id));
-const posThisWeek = (id) => state.dice.filter((r) => r.member_id === id && r.week === currentWeek()).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
+/* ---------- Course aux pièces (plateau en anneau, jamais remis à zéro) ---------- */
+const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posOf(id));
+const posOf = (id) => state.dice.filter((r) => r.member_id === id).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
 const cellOfPos = (pos) => (pos <= 0 ? 0 : ((pos - 1) % GOOSE.size) + 1);
 const lapsOf = (pos) => Math.floor(pos / GOOSE.size);
-const dicePriceAt = (k) => DICE_PRICES[Math.min(k, DICE_PRICES.length - 1)];
-const diceCost = (id) => dicePriceAt(rollsToday(id));   // savons à avoir gagnés CETTE SEMAINE (ils ne sont pas dépensés)
 const weekSoap = (id) => state.logs.filter((l) => l.doer_id === id && l.status === 'validated' && l.answered_at && iso(new Date(l.answered_at)) >= currentWeek()).reduce((a, l) => a + l.soap, 0);
-function diceLeft(id) {                                  // dés que tu peux lancer maintenant
-  let n = 0; const ws = weekSoap(id);
-  for (let k = rollsToday(id); k < DICE_MAX_DAY && dicePriceAt(k) <= ws; k++) n++;
-  return n;
-}
-const rollsToday = (id) => state.dice.filter((r) => r.member_id === id && iso(new Date(r.created_at)) === iso(new Date())).length;
+// Dés : un par tranche de 3 h depuis l'horloge du joueur (dice_clock), 3 au plus. Même calcul que roll_dice côté base.
+const DICE_MS = DICE.everyH * 3600000;
+const diceClockOf = (id) => Math.max(Date.parse(state.diceClk.find((x) => x.member_id === id)?.t) || 0, Date.now() - DICE.max * DICE_MS);
+const diceLeft = (id) => Math.min(DICE.max, Math.floor((Date.now() - diceClockOf(id)) / DICE_MS));
+const nextDiceIn = (id) => diceClockOf(id) + (diceLeft(id) + 1) * DICE_MS - Date.now();
+const fmtDice = (ms) => { const m = Math.max(1, Math.ceil(ms / 60000)), h = Math.floor(m / 60); return h ? `${h} h ${String(m % 60).padStart(2, '0')}` : `${m} min`; };
+// Dessins des cases (univers pirate) : bonus en or / bleu, malus en rouge / violet
+const SEA_ART = {
+  chest: '<svg viewBox="0 0 32 32"><path d="M5 15h22v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z" fill="#a0612a" stroke="#3d2109" stroke-width="1.6"/><path d="M4 15v-3c0-4 5-6 12-6s12 2 12 6v3z" fill="#c27b35" stroke="#3d2109" stroke-width="1.6"/><path d="M4 14.5h24" stroke="#f2b636" stroke-width="2.6"/><rect x="13.5" y="13" width="5" height="6" rx="1" fill="#ffd75e" stroke="#7a4f0c" stroke-width="1.2"/><circle class="sparkle" cx="25" cy="6" r="1.8" fill="#fff"/></svg>',
+  map: '<svg viewBox="0 0 32 32"><path d="M5 7l7-2 8 2 7-2v20l-7 2-8-2-7 2z" fill="#f6e3b0" stroke="#8a6a32" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 5v20M20 7v20" stroke="#d9bf86" stroke-width="1.2"/><path d="M8 20c3-1 4-5 8-5s5-3 7-5" fill="none" stroke="#8a6a32" stroke-width="1.3" stroke-dasharray="1.6 1.6"/><path d="M20.5 8.5l4 4M24.5 8.5l-4 4" stroke="#d2342b" stroke-width="2" stroke-linecap="round"/></svg>',
+  wind: '<svg viewBox="0 0 32 32"><path d="M15 4v22" stroke="#6b4420" stroke-width="2"/><path class="sail" d="M16 6c7 3 9 9 7 15h-7z" fill="#fff" stroke="#9fb6c8" stroke-width="1.2"/><path d="M8 27h16l-3 3H11z" fill="#8a5a2b"/><g fill="none" stroke="#2f8fd8" stroke-width="1.6" stroke-linecap="round"><path class="gust" d="M2 10h8a2 2 0 1 0-2-2"/><path class="gust g2" d="M3 16h9a2 2 0 1 1-2 2"/></g></svg>',
+  reef: '<svg viewBox="0 0 32 32"><path d="M3 24l5-9 4 5 4-10 5 8 3-4 5 10z" fill="#7d8790" stroke="#3c434a" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 20l4-10 2 3" fill="#a3adb5"/><path class="wave" d="M1 27q3-2 6 0t6 0 6 0 6 0 6 0" fill="none" stroke="#2f8fd8" stroke-width="2" stroke-linecap="round"/></svg>',
+  storm: '<svg viewBox="0 0 32 32"><path d="M8 18a5 5 0 0 1 0-10 7 7 0 0 1 13-1 5 5 0 0 1 3 11z" fill="#55606e" stroke="#2b323b" stroke-width="1.5"/><path class="bolt" d="M16 16l-4 7h4l-2 7 7-9h-4l2-5z" fill="#ffd23f" stroke="#a87b00" stroke-width="1"/><g stroke="#6fb3e8" stroke-width="1.6" stroke-linecap="round"><path d="M7 21l-1 3M22 21l-1 3M26 19l-1 3"/></g></svg>',
+  kraken: '<svg viewBox="0 0 32 32"><g class="tent"><path d="M9 29c-4-6 0-10 3-13s3-8-1-10c6 0 9 6 6 11s-3 8 1 12z" fill="#8e44ad" stroke="#4a1a63" stroke-width="1.5" stroke-linejoin="round"/><g fill="#e7b6ff"><circle cx="15" cy="18" r="1.3"/><circle cx="13.5" cy="22" r="1.3"/><circle cx="14" cy="26" r="1.3"/></g></g><path d="M20 29c2-5 6-6 8-4-2 0-3 2-3 4z" fill="#a55bc9" stroke="#4a1a63" stroke-width="1.3"/><path d="M1 29h30" stroke="#2f8fd8" stroke-width="2" stroke-linecap="round"/></svg>',
+  pirates: '<svg viewBox="0 0 32 32"><path d="M5 3v27" stroke="#5b3a1a" stroke-width="2.2" stroke-linecap="round"/><path class="flag" d="M6 4h21l-3 6 3 6H6z" fill="#1d1d1f"/><circle cx="16" cy="9" r="3.4" fill="#fff"/><path d="M14.2 12h3.6v1.6h-3.6z" fill="#fff"/><circle cx="14.8" cy="8.8" r=".9" fill="#1d1d1f"/><circle cx="17.2" cy="8.8" r=".9" fill="#1d1d1f"/><path d="M11 12l10 3M21 12l-10 3" stroke="#fff" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  finish: '<svg viewBox="0 0 32 32"><ellipse cx="16" cy="25" rx="13" ry="5" fill="#f4d58a" stroke="#c99a3b" stroke-width="1.4"/><path d="M11 21l6 6M17 21l-6 6" stroke="#d2342b" stroke-width="2.4" stroke-linecap="round"/><path d="M21 24c0-7 1-12 3-16" stroke="#8a5a2b" stroke-width="2" fill="none"/><g fill="#2e9e4f"><path d="M24 8c-3-3-7-2-9 1 3-1 6-1 9-1z"/><path d="M24 8c1-3 4-5 7-4-3 1-4 3-7 4z"/><path d="M24 8c3-1 6 1 6 4-2-2-4-3-6-4z"/></g></svg>',
+  anchor: '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="16" cy="6" r="3"/><path d="M16 9v19M10 14h12M5 19c1 6 6 9 11 9s10-3 11-9"/><path d="M3 21l2-3 3 2M29 21l-2-3-3 2"/></svg>',
+};
+const seaArt = (k, cls = '') => (SEA_ART[k] ?? '').replace('<svg ', `<svg class="sart ${cls}" aria-hidden="true" `);
+const cellKind = (c) => (!c ? '' : c.back || c.chips < 0 ? 'mal' : 'bon');
 function cellLabel(n) {
   const c = GOOSE.cells[n];
-  if (n === GOOSE.size) return '<em class="cl fin">🏁</em>';
+  if (n === GOOSE.size) return seaArt('finish');
   if (!c) return '';
-  if (c.xp) return `<em class="cl xp">+${c.xp}</em>`;
-  if (c.chips) return `<em class="cl tr">+${c.chips}🪙</em>`;
-  if (c.back) return `<em class="cl bk">−${c.back}</em>`;
-  if (c.goose) return '<em class="cl go">Oie</em>';
-  return '';
+  const v = c.xp ? `+${c.xp}` : c.chips > 0 ? `+${c.chips}` : c.chips < 0 ? `${c.chips}` : c.back ? `−${c.back}` : '×2';
+  return `${seaArt(c.art)}<em class="cl">${v}</em>`;
 }
-const BEACH_SCENE = `<svg class="bscene" viewBox="0 0 360 150" preserveAspectRatio="xMidYMax slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-  <defs><linearGradient id="bsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fcdf5"/><stop offset="1" stop-color="#d6f3ff"/></linearGradient>
-  <linearGradient id="bsea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fa8d0"/><stop offset="1" stop-color="#76dde6"/></linearGradient></defs>
-  <rect width="360" height="150" fill="url(#bsky)"/>
-  <circle class="sunhalo" cx="300" cy="36" r="30" fill="#ffe36a" opacity=".35"/><circle cx="300" cy="36" r="20" fill="#ffd93b"/>
-  <g fill="#fff" opacity=".9"><ellipse cx="70" cy="26" rx="26" ry="8"/><ellipse cx="90" cy="20" rx="18" ry="8"/><ellipse cx="200" cy="40" rx="22" ry="7"/><ellipse cx="216" cy="35" rx="14" ry="6"/></g>
-  <rect y="66" width="360" height="62" fill="url(#bsea)"/>
-  <g class="waves" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".75"><path d="M10 80q10-6 20 0t20 0"/><path d="M130 76q10-6 20 0t20 0"/><path d="M250 86q10-6 20 0t20 0"/><path d="M60 98q10-6 20 0t20 0"/><path d="M200 104q10-6 20 0t20 0"/></g>
-  <g transform="translate(150 70)"><g class="boat"><path d="M-22 0h44l-8 10h-28z" fill="#c0392b"/><rect x="-1" y="-30" width="2" height="30" fill="#6b4a2b"/><path d="M3-28v24l18-4z" fill="#fff"/><path d="M-3-24v20l-14-4z" fill="#ffe3a3"/></g></g>
-  <path d="M0 122q30-10 60 0t60 0 60 0 60 0 60 0 60 0V150H0z" fill="#f4dd9d"/>
-  <path d="M0 120q30-10 60 0t60 0 60 0 60 0 60 0 60 0" fill="none" stroke="#fff" stroke-width="3" opacity=".9"/></svg>`;
-const PALM = `<svg viewBox="0 0 80 110" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><path d="M40 108C38 80 44 56 52 34" fill="none" stroke="#8a5a2b" stroke-width="7" stroke-linecap="round"/>
-  <path d="M40 98l6-1M41 86l7-1M43 74l7-1M46 62l6-1" stroke="#6b4420" stroke-width="2"/>
-  <g fill="#2e9e4f"><path d="M52 34C40 20 22 24 10 38c14-8 26-6 42-4z"/><path d="M52 34C48 16 58 4 72 2c-8 8-10 18-20 32z"/><path d="M52 34C66 22 80 28 84 42c-12-8-20-8-32-8z"/><path d="M52 34C34 30 20 42 18 56c8-12 18-18 34-22z"/><path d="M52 34c14 4 22 16 20 30-4-12-10-20-20-30z"/></g>
-  <circle cx="50" cy="38" r="4" fill="#5b3a1a"/><circle cx="56" cy="40" r="4" fill="#5b3a1a"/></svg>`;
-const BEACH_FOOT = `<svg class="bfoot" viewBox="0 0 360 44" preserveAspectRatio="xMidYMax meet" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-  <g transform="translate(26 4)"><path d="M0 28L16 0" stroke="#8a5a2b" stroke-width="3"/><path d="M-14 12C-8-6 16-10 30 6z" fill="#e74c3c"/><path d="M-1 8C2-3 12-6 18 4z" fill="#fff"/></g>
-  <g transform="translate(120 26)" fill="#ff8a65"><ellipse cx="0" cy="0" rx="11" ry="7"/><circle cx="-5" cy="-8" r="2.5"/><circle cx="5" cy="-8" r="2.5"/><path d="M-11-2l-8-5M11-2l8-5" stroke="#ff8a65" stroke-width="3"/></g>
-  <g transform="translate(205 28)"><path d="M0-9l3 7 8 0-6 5 2 8-7-4-7 4 2-8-6-5 8 0z" fill="#ffb74d"/></g>
-  <g transform="translate(262 30)"><path d="M0 0a10 9 0 0 1 20 0z" fill="#fce4ec" stroke="#f48fb1" stroke-width="1.5"/></g>
-  <g transform="translate(318 10)"><rect x="0" y="14" width="30" height="12" rx="3" fill="#4fc3f7"/><rect x="0" y="14" width="30" height="4" fill="#fff" opacity=".6"/></g></svg>`;
+// Décor du centre : mer animée, île au trésor, bateau pirate, tentacule du kraken, mouette
+const SEA_SCENE = `<svg class="seascene" viewBox="0 0 700 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <defs><radialGradient id="seag" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#2aa7c9"/><stop offset=".6" stop-color="#147a9e"/><stop offset="1" stop-color="#0b4a6b"/></radialGradient></defs>
+  <rect width="700" height="600" fill="url(#seag)"/>
+  <g class="swell" fill="none" stroke="#bff0ff" stroke-width="5" stroke-linecap="round" opacity=".35"><path d="M40 120q25-14 50 0t50 0"/><path d="M420 90q25-14 50 0t50 0"/><path d="M120 470q25-14 50 0t50 0"/><path d="M500 520q25-14 50 0t50 0"/><path d="M300 560q25-14 50 0t50 0"/></g>
+  <g transform="translate(560 430)"><ellipse rx="110" ry="40" fill="#f4d58a"/><ellipse rx="110" ry="40" fill="none" stroke="#fff" stroke-width="6" opacity=".7"/><path d="M-20-6l20 18M0-6l-20 18" stroke="#d2342b" stroke-width="9" stroke-linecap="round"/>
+    <g class="palmsway"><path d="M40 10C40-40 50-80 64-110" stroke="#8a5a2b" stroke-width="12" fill="none" stroke-linecap="round"/><g fill="#2e9e4f"><path d="M64-110c-30-24-70-14-90 12 30-14 60-14 90-12z"/><path d="M64-110c4-30 30-48 60-44-24 8-36 24-60 44z"/><path d="M64-110c30-6 58 10 64 36-20-20-40-30-64-36z"/></g></g></g>
+  <g class="ship"><g transform="translate(190 500) scale(.62)">
+    <path d="M-110 20h220l-34 56H-76z" fill="#6b3d17" stroke="#2c1606" stroke-width="5" stroke-linejoin="round"/><path d="M-100 36h200" stroke="#a0612a" stroke-width="6"/><g fill="#2c1606"><circle cx="-50" cy="52" r="7"/><circle cx="0" cy="52" r="7"/><circle cx="50" cy="52" r="7"/></g>
+    <path d="M-4 20V-150" stroke="#4a2a0c" stroke-width="8"/><path d="M-4-140c50 10 60 60 54 120H-4z" fill="#f7efe0" stroke="#c8b89a" stroke-width="4"/><path d="M-10-120c-40 12-48 56-44 100h44z" fill="#efe4cf" stroke="#c8b89a" stroke-width="4"/>
+    <path class="flag" d="M-4-150h44l-8 12 8 12H-4z" fill="#1d1d1f"/><circle cx="15" cy="-138" r="6" fill="#fff"/></g></g>
+  <g transform="translate(420 590)"><g class="tentacle"><path d="M0 0c-10-60 30-80 10-140 40 30 40 90 20 140z" fill="#8e44ad" stroke="#4a1a63" stroke-width="5"/><g fill="#e7b6ff"><circle cx="16" cy="-30" r="5"/><circle cx="20" cy="-62" r="5"/><circle cx="22" cy="-94" r="4"/></g></g></g>
+  <g class="gull"><path d="M0 0q14-14 26 0q12-14 26 0" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/></g>
+</svg>`;
 
 // Plateau en anneau (9 × 8 cases, 30 cases sur le pourtour) : la case 30 rejoint la case 1, on tourne à l'infini
 const RING = { cols: 9, rows: 8 };
@@ -1159,37 +1161,32 @@ function plateauHTML() {
   for (let n = 1; n <= GOOSE.size; n++) {
     const [c, r] = ringXY(n);
     pts.push(`${(c + 0.5) * 100},${(r + 0.5) * 100}`);
-    cells.push(`<div class="gc ${GOOSE.cells[n] ? 'sp' : ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
+    cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
   pts.push(pts[0]);                           // boucle fermée
-  const pos = shownPos(me.id), cost = diceCost(me.id), have = weekSoap(me.id), laps = lapsOf(pos), left = diceLeft(me.id);
-  const can = isColoc && have >= cost && !state.rolling && rollsToday(me.id) < DICE_MAX_DAY;
-  const hist = state.dice.slice(0, 15);
-  const free = DICE_PRICES[0] === 0;
-  const ranked = colocs().map((m) => ({ m, l: lapsOf(posThisWeek(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
+  const pos = shownPos(me.id), left = diceLeft(me.id);
+  const can = isColoc && left > 0 && !state.rolling;
+  const ranked = colocs().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
-  const last = (state.pweeks ?? [])[0];
-  const lastTxt = last ? (last.winners?.length ? `Semaine passée : ${last.winners.map(nameOf).map(esc).join(' & ')} · ${last.laps} 🧼 · +${GOOSE.weekWin} 🪙` : '') : '';
   const center = `<div class="gcenter">
-      <div class="gttl">🏁 Tours de la semaine</div>
-      <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em>👑</em>' : ''}</div>`).join('')}</div>
-      <div class="gdep"><span>🏖️ Départ</span><div class="pw">${pawnHTML(0, 18)}</div></div>
-      ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
+      <div class="gttl">Tours de plateau</div>
+      <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em class="crown">★</em>' : ''}</div>`).join('')}</div>
+      <div class="gdep"><span>${seaArt('anchor')}Port</span><div class="pw">${pawnHTML(0, 18)}</div></div>
     </div>`;
-  const nextK = rollsToday(me.id) + left;          // prochain dé encore bloqué
-  const tip = nextK >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui, reviens demain !' : `Encore ${dicePriceAt(nextK) - have} 🧼 avant le prochain dé`;
+  const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
   return `
-    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">🏆 +${GOOSE.weekWin} 🪙 pour le 1er</div>
-    <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
+    <div class="racehead"><button class="mini" data-action="tab" data-tab="games">‹ Jeux</button></div>
+    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">Un dé toutes les ${DICE.everyH} h · ${DICE.max} en réserve au maximum</div>
+    <div class="beach ring pirate">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
-        <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
-        <div class="glagoon" style="grid-column:2/${cols};grid-row:2/${rows}"></div>
-        <span class="palm c">${PALM}</span>
+        <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#5e3415" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#c99a5b" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
+        <div class="glagoon" style="grid-column:2/${cols};grid-row:2/${rows}">${SEA_SCENE}</div>
         ${cells.join('')}
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
-    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 && can ? 'Lancer le dé · gratuit' : 'Lancer le dé'}</button>
-      ${isColoc ? `<div class="dicewrap">${state.diceTip ? `<div class="dicetip">${tip}</div>` : ''}<button class="btn dicecount" data-action="dicetip" title="Dés restants">🎲 ${left}</button></div>` : ''}</div>`;
+    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : 'Lancer le dé'}</button>
+      ${isColoc ? `<div class="dicewrap"><button class="btn dicecount" data-action="dicetip" title="Dés en réserve">${DIE_SVG}<b>${left}</b></button></div>` : ''}</div>
+    ${isColoc ? `<div class="dicenext">${tip}</div>` : ''}`;
 }
 
 
@@ -1459,8 +1456,9 @@ function gamesListHTML() {
 
     ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
       return `<button class="gfarm gspace" data-action="tab" data-tab="defis" aria-label="Défis"><span class="gf-ico">${DEFIS_ICON}</span><span class="gf-txt"><span class="gt-name">Défis</span><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span>${nready || due ? `<span class="gbadge">${nready || '!'}</span>` : ''}</button>`; })()}
-    <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
-    <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
+    <div class="gtiles">
+      <button class="gtile g-ferme" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gt-ico">${FARM_ICON.replace(/width="38" height="38"/, 'width="64" height="64"')}</span><span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+      <button class="gtile g-race" data-action="race" aria-label="Course aux pièces"><span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${me.kind === 'coloc' && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
 `;
 }
@@ -1482,6 +1480,18 @@ function farmReadyBadge() {
 // Étoile-médaille de la tuile Défis (même trait que la botte de paille)
 const DEFIS_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#3b1d7a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 30l-5 13 6-3 4 5 4-12M31 30l5 13-6-3-4 5-4-12" fill="#7c5cff"/><circle cx="24" cy="21" r="15" fill="#ffd23f" stroke="#9a6a00"/><path d="M24 11.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z" fill="#fff6c7" stroke="#9a6a00" stroke-width="2"/></svg>';
 // Botte de paille de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
+const CHEST_SVG = `<svg viewBox="0 0 96 96" width="78" height="78" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="48" cy="84" rx="38" ry="6" fill="#000" opacity=".22"/>
+  <path d="M16 46h64v32a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4z" fill="#a0612a" stroke="#3d2109" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M17 58h62M17 70h62" stroke="#7a4519" stroke-width="2"/>
+  <path d="M14 46V34c0-10 15-16 34-16s34 6 34 16v12z" fill="#bf7a34" stroke="#3d2109" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M15 34c6 4 18 6 33 6s27-2 33-6" fill="none" stroke="#8a4f1e" stroke-width="2"/>
+  <g fill="#f2b636" stroke="#7a4f0c" stroke-width="2" stroke-linejoin="round"><path d="M24 20.5c2-.8 4.6-1.5 7-2V82h-7z"/><path d="M65 18.5c2.4.5 5 1.2 7 2V82h-7z"/><rect x="12.5" y="42" width="71" height="8" rx="2"/></g>
+  <rect x="41" y="40" width="14" height="17" rx="3" fill="#ffd75e" stroke="#7a4f0c" stroke-width="2"/><path d="M48 46.5v5" stroke="#3d2109" stroke-width="2.6" stroke-linecap="round"/><circle cx="48" cy="46" r="2.2" fill="#3d2109"/>
+  <g fill="#ffd95a" stroke="#b07b12" stroke-width="1.6"><circle cx="9" cy="80" r="5.5"/><circle cx="86" cy="79" r="5.5"/><circle cx="80" cy="85" r="4.5"/></g>
+  <g fill="#fff"><path d="M84 12l1.6 4.4L90 18l-4.4 1.6L84 24l-1.6-4.4L78 18l4.4-1.6z"/><path d="M12 18l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" opacity=".8"/></g>
+</svg>`;
+const DIE_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4.5" fill="#fff" stroke="currentColor" stroke-width="2"/><g fill="currentColor"><circle cx="8.2" cy="8.2" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="15.8" cy="15.8" r="1.7"/></g></svg>';
 const FARM_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#7a4b0c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="14" width="36" height="24" rx="4" fill="#f5c84c"/><path d="M10 21h8M22 21h6M32 21h6M10 27h4M18 27h10M32 27h6M10 33h8M22 33h6M32 33h6" stroke="#c98f1c" stroke-width="2"/><path d="M15 14v24M33 14v24" stroke="#b5452a" stroke-width="3"/><path d="M9 14l-2-4M14 14l1-5M24 14l-1-5M29 14l2-4M38 14l2-4"/></svg>';
 
 // Fiche d'un jeu : texte uniquement + bouton Jouer
@@ -1859,7 +1869,7 @@ function diceSheetHTML(s) {
   const r = s.r;
   return sheetWrap(`
     <div class="sh"><div><h2>Tu as fait ${r.roll}</h2><div class="when">Case ${cellOfPos(r.from) || 'départ'} → case ${cellOfPos(r.to) || 'départ'}</div></div>${closeBtn}</div>
-    <div class="dicebig"><span class="die d${r.roll}">${Array.from({ length: r.roll }, () => '<i></i>').join('')}</span></div>
+    <div class="dicebig"><span class="die d${r.roll}">${Array.from({ length: r.roll }, () => '<i></i>').join('')}</span>${(() => { const c = GOOSE.cells[cellOfPos(r.from + r.roll)]; return c ? `<span class="landed ${cellKind(c)}">${seaArt(c.art)}<b>${esc(c.name)}</b></span>` : ''; })()}</div>
     ${r.note ? `<div class="reward">${esc(r.note)}</div>` : '<div class="det">Case sans effet.</div>'}
     ${r.perk ? `<div class="perk ${r.perk}"><b>Récompense : ${esc(perkDef(r.perk)?.title)}</b><small>${esc(perkDef(r.perk)?.short)}. Elle reste visible sur ton profil.</small></div>` : ''}
     <div class="sact"><button class="btn primary" data-action="close">OK</button></div>`, 'var(--gold)');
@@ -1925,8 +1935,9 @@ document.addEventListener('click', (e) => {
     }
     case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
-    case 'roll': state.diceTip = false; rollDiceNow(); break;
-    case 'dicetip': state.diceTip = !state.diceTip; render(); break;
+    case 'roll': rollDiceNow(); break;
+    case 'race': state.anim = true; state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'dicetip': break;
     case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
@@ -1960,7 +1971,7 @@ document.addEventListener('click', (e) => {
     case 'crate-equip': saveProfile({ bird: id }); state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'crate-again': state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
-    case 'goto-plateau': state.tab = 'tasks'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'goto-plateau': state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
     case 'perk-ok': confirmPerkNow(Number(id)); break;
     case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;

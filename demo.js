@@ -1,5 +1,5 @@
 // Mode démo : même interface que le cloud, avec localStorage (chargé seulement si aucune clé Supabase n'est configurée)
-import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
+import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
@@ -329,17 +329,16 @@ export function makeDemoApi() {
     // --- v8 : plateau, messages, blackjack (mêmes règles que migration-v8.sql) ---
     async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) + (db.exch ?? []).filter((r) => r.member_id === m.id).reduce((a, r) => a + r.soap, 0) })); },
     async diceRolls() { return [...db.dice].sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
+    async diceClock() { return Object.entries(db.dclk ?? {}).map(([id, t]) => ({ member_id: Number(id), t: new Date(t).toISOString() })); },
     async rollDice(member) {
-      if (!isColoc(member)) fail('Seuls les colocataires jouent au plateau.');
-      const dayOf = (t) => iso(new Date(t));
-      const today = dayOf(Date.now());
+      if (!isColoc(member)) fail('Seuls les colocataires jouent à la course aux pièces.');
       const mondayOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return iso(x); };
       const week = mondayOf(Date.now());
-      const cost = DICE_PRICES[Math.min(db.dice.filter((r) => r.member_id === member && dayOf(r.created_at) === today).length, DICE_PRICES.length - 1)];
-      if (db.dice.filter((r) => r.member_id === member && dayOf(r.created_at) === today).length >= DICE_MAX_DAY) fail(`Tu as lancé tous tes dés du jour (maximum ${DICE_MAX_DAY}).`);
-      const weekSoap = db.logs.filter((l) => l.doer_id === member && l.status === 'validated' && l.answered_at && dayOf(l.answered_at) >= week).reduce((a, l) => a + l.soap, 0);
-      if (weekSoap < cost) fail(`Il te faut ${cost} savon${cost > 1 ? 's' : ''} gagnés cette semaine pour ce dé.`);
-      const mine = db.dice.filter((r) => r.member_id === member && r.week === week).sort((x, y) => y.id - x.id);
+      const H = DICE.everyH * 3600000;
+      const t = Math.max((db.dclk ??= {})[member] ?? 0, Date.now() - DICE.max * H);   // horloge des dés : un dé par tranche de 3 h écoulée, 3 au plus
+      if (Date.now() - t < H) fail(`Pas encore de dé : le prochain arrive dans ${Math.ceil((t + H - Date.now()) / 60000)} min.`);
+      db.dclk[member] = t + H;
+      const mine = db.dice.filter((r) => r.member_id === member).sort((x, y) => y.id - x.id);
       const from = mine.length ? mine[0].to_pos : 0;                       // position cumulée : les tours sont infinis
       const laps = mine.reduce((m, r) => Math.max(m, Math.floor(r.to_pos / GOOSE.size)), 0);
       const roll = 1 + Math.floor(Math.random() * 6);
@@ -348,9 +347,10 @@ export function makeDemoApi() {
       for (let depth = 0; depth < 3; depth++) {
         const c = GOOSE.cells[to > 0 ? ((to - 1) % GOOSE.size) + 1 : 0]; if (!c) break;
         if (c.xp) { xp += c.xp; note += ` +${c.xp} XP`; break; }
-        if (c.chips) { ch += c.chips; note += ` +${c.chips} colocoins`; break; }
-        if (c.back) { to = Math.max(to - c.back, 0); note += ` piège : recule de ${c.back}`; }
-        else if (c.goose) { to += roll; note += ` oie : avance encore de ${roll}`; }
+        if (c.chips > 0) { ch += c.chips; note += ` +${c.chips} colocoins`; break; }
+        if (c.chips < 0) { ch -= Math.min(-c.chips, Math.max(chipsOf(member), 0)); note += ` pirates : ${ch} colocoins`; break; }
+        if (c.back) { to = Math.max(to - c.back, 0); note += ` ${c.name.toLowerCase()} : recule de ${c.back}`; }
+        else if (c.goose) { to += roll; note += ` vent favorable : avance encore de ${roll}`; }
       }
       let perk = null;
       if (Math.floor(to / GOOSE.size) > laps) {
@@ -358,7 +358,7 @@ export function makeDemoApi() {
       }
       db.dice.push({ id: db.nextDice++, member_id: member, week, cost: 0, roll, from_pos: from, to_pos: to, note: note.trim() || null, created_at: now() });
       addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); addChips(member, ch, 'plateau'); save();
-      return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
+      return { perk, roll, from, to, cost: 0, xp, trophies: tr, chips: ch, note: note.trim() };
     },
     async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id), earned: db.chips.filter((l) => l.member_id === m.id && l.amount > 0).reduce((a, l) => a + l.amount, 0) })); },
     async farm() { return db.farm.map((p) => ({ ...p })); },

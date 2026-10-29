@@ -42,6 +42,7 @@ export async function makeCloudApi() {
     // --- v8 : plateau, messages, blackjack ---
     async soapSpent() { return check(await sb.from('soap_spent').select('*')); },
     async diceRolls() { return check(await sb.from('dice_rolls').select('*').order('id', { ascending: false }).limit(300)); },
+    async diceClock() { return check(await sb.from('dice_clock').select('*')); },
     async rollDice(member) { return check(await sb.rpc('roll_dice', { p_member: member })); },
     async chips() { return check(await sb.from('chip_balances').select('*')); },
     async farm() { return check(await sb.from('farm_plots').select('*')); },
@@ -137,7 +138,7 @@ export async function makeCloudApi() {
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'sudoku_weekly', 'shop_requests', 'xp_log', 'dice_rolls', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'sudoku_weekly', 'shop_requests', 'xp_log', 'dice_rolls', 'dice_clock', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, () => cb(table)).subscribe();
       }
     },

@@ -81,9 +81,9 @@ export const OUTFITS = {
 
 // Introduction au premier lancement : on invite à toucher chaque onglet (une étape = un bit de member_stats.quest_mask)
 export const INTRO_STEPS = [
-  { n: 1, tab: 'tasks', title: 'Tâches', text: "Choisis la tâche ménagère que tu viens de faire : un autre coloc la confirme et tu gagnes des savons 🧼 et de l'XP. Dans cet onglet, trois parties : Tâches, Plateau (un jeu de l'oie où les savons achètent des dés) et Stocks (signale ce qui manque)." },
+  { n: 1, tab: 'tasks', title: 'Tâches', text: "Choisis la tâche ménagère que tu viens de faire : un autre coloc la confirme et tu gagnes des savons 🧼 et de l'XP. Les demandes d'achat et la récompense de la semaine (le cadeau) sont aussi ici." },
   { n: 2, tab: 'defis', title: 'Défis', text: "Chaque jour, récupère tout en haut 50 colocoins et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
-  { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (mise de 10 🪙), le blackjack se joue avec tes colocoins 🪙, et les autres jeux rapportent de l'XP." },
+  { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (mise de 10 🪙), le blackjack se joue avec tes colocoins 🪙, les autres jeux rapportent de l'XP, et la course aux pièces te donne un dé toutes les 3 heures." },
   { n: 4, tab: 'rank', title: 'Classement', text: "Qui a le plus de colocoins 🪙 ? Qui a le meilleur niveau ? Compare-toi aux autres colocs et copains. Dans chaque jeu, la fenêtre de règle montre aussi le classement des records." },
   { n: 6, tab: 'heads', title: 'Ton profil', text: "Touche ta tête en haut à gauche : un menu s'ouvre avec la Boutique, les Défis et la Personnalisation (garde-robe, titres, badges, réglages). Pour voir le profil d'un autre, touche-le dans le classement." },
   { n: 5, tab: 'me', title: 'Perso', text: "Ici tu personnalises ton personnage : garde-robe, titres, badges, cadres et réglages (genre, couleurs, notifications). La Boutique (menu de ta tête, en haut) propose : cadres, effets de pseudo et looks de l'oiseau de Jumpy Cardinal." },
@@ -146,23 +146,27 @@ export const TASK_KINDS = {
 Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g.key === K.group)?.color; });
 
 
-// ---------- Plateau : jeu de l'oie (remis à zéro chaque lundi) ----------
-// Un lancer de dé coûte des savons : 1 le premier de la journée, puis +1 à chaque achat (le prix repart de 1 à minuit).
-// Cases : xp / chips (colocoins) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. L'arrivée donne un gros bonus (une fois par semaine).
+// ---------- Course aux pièces : plateau en anneau, on tourne à l'infini (jamais remis à zéro) ----------
+// Cases : xp / chips (colocoins) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. Chaque tour terminé donne un bonus d'XP.
+// Univers pirate (v104) : art = dessin de la case, name = nom affiché. Malus : récif / tempête / kraken (reculer), pirates (vol de colocoins, jamais plus que ton solde).
+// Même liste que la table goose_cells (supabase/patch-v104.sql).
 export const GOOSE = {
   size: 30,
   cells: {
-    3: { chips: 20 }, 5: { xp: 30 }, 7: { back: 1 }, 9: { goose: true }, 10: { xp: 40 }, 13: { chips: 20 }, 15: { xp: 50 },
-    17: { back: 1 }, 18: { goose: true }, 20: { xp: 60 }, 23: { chips: 40 }, 25: { xp: 80 }, 27: { back: 1 },
+    2: { chips: 20, art: 'chest', name: 'Coffre' }, 4: { back: 2, art: 'reef', name: 'Récif' }, 5: { xp: 30, art: 'map', name: 'Carte au trésor' },
+    7: { chips: -20, art: 'pirates', name: 'Pirates' }, 9: { goose: true, art: 'wind', name: 'Vent favorable' }, 10: { xp: 40, art: 'map', name: 'Carte au trésor' },
+    12: { back: 3, art: 'storm', name: 'Tempête' }, 13: { chips: 30, art: 'chest', name: 'Coffre' }, 15: { xp: 50, art: 'map', name: 'Carte au trésor' },
+    16: { back: 5, art: 'kraken', name: 'Kraken' }, 18: { goose: true, art: 'wind', name: 'Vent favorable' }, 20: { xp: 60, art: 'map', name: 'Carte au trésor' },
+    21: { chips: -30, art: 'pirates', name: 'Pirates' }, 23: { chips: 40, art: 'chest', name: 'Coffre' }, 25: { xp: 80, art: 'map', name: 'Carte au trésor' },
+    26: { back: 2, art: 'reef', name: 'Récif' }, 28: { back: 3, art: 'storm', name: 'Tempête' },
   },
   finish: { xp: 200, trophy: 0 },
   weekWin: 1000,   // colocoins pour le(s) coloc(s) qui ont gagné le plus de savons la semaine passée (au moins 1)
 };
 // Palier de niveau : tous les 10 niveaux, des colocoins offerts
 export const LEVEL_BONUS = { every: 10, chips: 100 };
-// Prix du dé selon le nombre de lancers déjà faits aujourd'hui (le 6e et les suivants coûtent le dernier prix)
-export const DICE_PRICES = [0, 1, 3, 5, 10, 20]; // le 1er dé du jour est gratuit ; les suivants demandent d'avoir gagné ce nombre de savons CETTE SEMAINE (ils ne sont pas dépensés)
-export const DICE_MAX_DAY = 8;                      // nombre maximum de dés par jour
+// Course aux pièces : un dé gagné toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus)
+export const DICE = { everyH: 3, max: 3 };
 // Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.
 export const PERKS = [
   { key: 'biere', title: 'Tout le monde vous doit une bière !', short: 'Une bière offerte par chaque coloc', confirm: true },
