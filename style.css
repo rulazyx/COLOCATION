@@ -1398,3 +1398,5 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .giftwide .gtrack em{font-weight:600;text-transform:none;letter-spacing:0;opacity:.85}
 @keyframes gmarq{to{transform:translateX(-50%)}}
 @media (prefers-reduced-motion:reduce){.giftwide .gtrack{animation:none}}
+.evics{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:8px 0 4px;padding:9px 12px;border-radius:12px;background:var(--bg);color:var(--text);font-weight:700;font-size:13px;border:1px solid var(--line)}
+.evics svg{width:18px;height:18px;flex:none}.evics:active{transform:scale(.98)}

@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 117;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 118;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1783,6 +1783,20 @@ function shopHTML() {
 /* ---------- Activités proposées + sondage de présence ---------- */
 const evInvited = (e) => !e.invitees || e.creator_id === state.me?.id || e.invitees.includes(state.me?.id);
 const evGuests = (e) => (e.invitees ? [...new Set([e.creator_id, ...e.invitees])] : state.members.map((m) => m.id));
+// Fichier .ics : s'ouvre dans l'appli Calendrier du téléphone pour l'ajouter à son agenda perso
+function downloadIcs(id) {
+  const e = state.events.find((x) => x.id === id); if (!e) return;
+  const d = (t) => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const t = (s) => String(s ?? '').replace(/([,;\\])/g, '\\$1').replace(/\r?\n/g, '\\n');
+  const start = Date.parse(e.starts_at), end = start + 2 * 3600000;
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//La Kaz//FR', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', `UID:lakaz-${e.id}@lakaz`, `DTSTAMP:${d(Date.now())}`, `DTSTART:${d(start)}`, `DTEND:${d(end)}`,
+    `SUMMARY:${t(e.title)}`, e.place ? `LOCATION:${t(e.place)}` : '', `DESCRIPTION:${t(`Activité proposée par ${nameOf(e.creator_id)} sur La Kaz`)}`, 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+  const link = document.createElement('a'); link.href = url; link.download = `${(e.title || 'activite').replace(/[^\w-]+/g, '-')}.ics`;
+  document.body.appendChild(link); link.click(); link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  toast('Ouvre le fichier pour l\'ajouter à ton calendrier.');
+}
 const visibleEvents = () => state.events.filter(evInvited);
 const upcomingEvents = () => visibleEvents().filter((e) => Date.parse(e.starts_at) >= Date.now() - 3 * 3600000);
 const fmtEv = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`; };
@@ -1794,6 +1808,7 @@ function eventCardHTML(e, past) {
     <div class="evtop"><div><b>${esc(e.title)}</b><small>${fmtEv(e.starts_at)}${e.place ? ` · ${esc(e.place)}` : ''}</small><small>Proposé par ${esc(nameOf(e.creator_id))}</small>${e.invitees ? `<span class="evinv">${guests.map((id) => `<span title="${esc(nameOf(id))}">${av(memberById(id), 20)}</span>`).join('')}</span>` : ''}</div>
       ${e.creator_id === me.id ? `<button class="evdel" data-action="cal-del" data-id="${e.id}" aria-label="Supprimer l'activité">✕</button>` : ''}</div>
     <div class="evvotes">${btn('yes', 'Présent')}${btn('maybe', 'Peut-être')}${btn('no', 'Absent')}</div>
+    <button class="evics" data-action="cal-ics" data-id="${e.id}">${CAL_SVG}<span>Ajouter à mon calendrier</span></button>
     <div class="evwho">${by('yes').map((v) => `<span title="${esc(nameOf(v.member_id))}">${av(memberById(v.member_id), 24)}</span>`).join('')}${everyone > answered ? `<small>${everyone - answered} sans réponse</small>` : ''}</div>
   </div>`;
 }
@@ -1992,6 +2007,7 @@ document.addEventListener('click', (e) => {
       calAct(() => state.api.createEvent(state.me.id, title, place, when.toISOString(), s.inv.length === everyone.length ? null : s.inv), () => { state.sheet = null; state.tab = 'cal'; toast('Activité proposée !'); render(); });
       break;
     }
+    case 'cal-ics': downloadIcs(Number(id)); break;
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;
     case 'cal-del': calAct(() => state.api.deleteEvent(state.me.id, Number(id))); break;
     case 'hint': state.hint = state.hint === v ? null : v; render(); break;
