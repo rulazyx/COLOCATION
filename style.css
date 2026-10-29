@@ -1242,3 +1242,4 @@ button.glvl{cursor:pointer}
 .btn.tback{background:var(--bg);color:var(--text)}
 .bgt-acts{display:flex;gap:10px;margin:12px 0 4px}.bgt-acts .btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;padding:14px 8px;font-size:15px}.bgt-acts .btn.primary{flex:1.35}
 .bgt-acts .btn span{font-size:20px;line-height:1}.btn.bgt-hist{background:var(--card);border:1px solid var(--line);color:var(--text)}.bgt-hist svg{width:20px;height:20px}
+.kcard.gdefis{margin-bottom:12px}

@@ -610,7 +610,7 @@ async function autoClaim() {
   claiming = false;
 }
 
-// Défis réussis dont la récompense n'a pas encore été récupérée (on la récupère à la main dans Quêtes)
+// Défis réussis dont la récompense n'a pas encore été récupérée (on la récupère à la main dans Défis)
 const readyChals = () => { if (!state.me) return []; const have = unlockedKeys(state.me.id), ctx = makeCtx(); return CHALLENGES.filter((c) => !have.has(c.key) && c.check(ctx).done); };
 async function claimChal(key) {
   try { const r = await state.api.claimChallenge(state.me.id, key); if (r) state.won.push(key); await refresh(true); }
@@ -991,7 +991,7 @@ function render() {
   const pulse = (t) => (step && step.tab === t ? 'pulse' : '');
   app.innerHTML = `
     ${`<header class="top hdr">
-      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
+      <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, défis, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
       <span class="grow"></span>
       <span class="hwrap"><button class="hchip cur-cc" data-action="hint" data-v="cc" title="Colocoins">🪙 ${chipsOf(me.id)}</button>${state.hint === 'cc' ? '<div class="hbub">Joue aux jeux pour gagner des pièces ou gagne la course !</div>' : ''}</span>
       <span class="hwrap"><button class="hchip cur-soap" data-action="hint" data-v="soap" title="Savons">🧼 ${soapOf(me.id)}</button>${state.hint === 'soap' ? '<div class="hbub">Accomplis des tâches pour gagner des savons !</div>' : ''}</span>
@@ -1007,7 +1007,7 @@ function render() {
       ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
-      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Quêtes »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
+      <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Défis »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
     <nav class="tabs ${me.kind === 'coloc' ? 'six' : ''}">
       <button data-action="tab" data-tab="tasks" class="${tab === 'tasks' ? 'active' : ''} ${pulse('tasks')}"><span class="ico">${NAV_ICONS.tasks()}</span><span class="tl">TÂCHES</span>${badge(reqForMe)}</button>
       ${me.kind === 'coloc' ? `<button data-action="tab" data-tab="budget" class="${tab === 'budget' ? 'active' : ''}"><span class="ico">${NAV_ICONS.budget()}</span><span class="tl">BUDGET</span>${badge(budgetMine() < 0 ? 1 : 0, 'var(--danger)')}</button>` : ''}
@@ -1328,7 +1328,7 @@ function headMenuHTML() {
   const item = (act, attrs, emo, title, sub, n, i) => `<button class="hmi" style="--i:${i}" data-action="${act}" ${attrs}><span class="hme">${emo}${n ? `<i class="hmb">${n === true ? '' : n}</i>` : ''}</span><span class="hmt"><b>${title}</b><small>${sub}</small></span></button>`;
   return `<div class="overlay hmov" data-action="close"><div class="hmenu" role="menu">
     ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
-    ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
+    ${item('tab', 'data-tab="defis"', '📖', 'Défis', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
     ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 2)}
     ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Réglages, messages, suggestions', msgs, 3)}
   </div></div>`;
@@ -1457,6 +1457,9 @@ function gamesListHTML() {
         <button class="mini" data-action="duel-cancel" data-id="${d.id}">Refuser</button></div>`;
     }).join('')}` : ''}
 
+    ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
+      return `<button class="kcard gdefis ${nready || due ? 'dot' : ''}" style="--c:var(--gold)" data-action="tab" data-tab="defis"><span class="kemo">📖</span>
+        <span class="ktxt"><b>Défis</b><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span><span class="ksoap">›</span></button>`; })()}
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span></button>`).join('')}</div>
@@ -1599,7 +1602,7 @@ function titresHTML() {
     ${me.title ? `<button class="btn" data-action="title" data-id="${me.title}">Ne plus afficher de titre</button>` : ''}
     ${unlocked.length ? unlocked.map((c) => `<div class="chal done"><div class="cemo">${c.emoji}</div><div class="ctxt"><b>${esc(c.title)}</b><small>${esc(c.desc)}</small></div>
       <button class="mini ${me.title === c.key ? 'ok' : ''}" data-action="title" data-id="${c.key}">${me.title === c.key ? 'Affiché' : 'Afficher'}</button></div>`).join('')
-      : '<div class="det">Réussis un défi (onglet Quêtes) pour débloquer ton premier titre.</div>'}`;
+      : '<div class="det">Réussis un défi (onglet Défis) pour débloquer ton premier titre.</div>'}`;
 }
 
 function badgesTabHTML() {

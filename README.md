@@ -302,3 +302,4 @@ Icônes SVG dans les menus des jeux (accueil, pause, fin de partie) ; « Accueil
 ### v97 — Saisie des tâches
 Plus de sous-onglet « Tâches » : tout est sur une seule page. En haut, un bouton bleu « 🧼 J'ai effectué une tâche » ouvre une bulle avec les catégories de couleur ; une catégorie n'affiche plus que ses sous-tâches (bouton « ‹ Retour »), puis la confirmation. À côté, un petit bouton carré Historique (icône) : mes tâches en attente (avec Annuler) et les dernières tâches confirmées. Les demandes d'achat passent sous le plateau. Aucun SQL à lancer.
 Budget : plus de « Dépensé par la coloc » ni « Ta part », plus de choix d'onglets ; sous le solde, « + Ajouter une dépense » et « Historique » côte à côte (l'historique des dépenses s'ouvre en bulle), puis les soldes.
+« Quêtes » devient « Défis » (menu de l'avatar, découverte) et un bouton « 📖 Défis » apparaît en haut de l'onglet Jeux, au-dessus de la Colo-Ferme.
