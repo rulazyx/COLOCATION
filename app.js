@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 114;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 115;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1089,7 +1089,7 @@ function taskRowHTML() {
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
-  return `<button class="giftwide" data-action="perk-week">${GIFT_ICON}<span>Récompense de la semaine</span></button>
+  return `<button class="giftwide" data-action="perk-week">${GIFT_ICON}<span class="gmar"><span class="gtrack">${[0, 1].map(() => { const pk = perkOfWeekDef(); return `<b>Récompense de la semaine</b><em>${pk ? esc(pk.title) : 'Récompense'} · +${GOOSE.weekWin} colocoins · Pour celui qui gagne le plus de savons</em>`; }).join('')}</span></span></button>
     ${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
     ${weekHTML()}
     ${taskRowHTML()}
