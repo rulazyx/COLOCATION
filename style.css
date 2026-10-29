@@ -1384,3 +1384,6 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 @keyframes havtilt{0%,55%,100%{transform:rotateY(0) rotateX(0) translateY(0)}65%{transform:rotateY(22deg) rotateX(-8deg) translateY(-3px)}78%{transform:rotateY(-18deg) rotateX(6deg) translateY(-2px)}90%{transform:rotateY(6deg) translateY(0)}}
 @keyframes havring{0%{box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 70%,#000),0 8px 14px rgba(0,0,0,.28),0 0 0 0 color-mix(in srgb,var(--accent) 60%,transparent)}70%,100%{box-shadow:0 4px 0 color-mix(in srgb,var(--accent) 70%,#000),0 8px 14px rgba(0,0,0,.28),0 0 0 11px color-mix(in srgb,var(--accent) 0%,transparent)}}
 @media (prefers-reduced-motion:reduce){.hav:not(.pulse){animation:none}}
+.giftwide{justify-content:space-between!important;padding:8px 8px 8px 18px!important;background:#ffc928!important;color:#3b2a00!important;text-transform:uppercase;letter-spacing:.06em;font-size:14px!important;box-shadow:0 3px 10px rgba(255,201,40,.35)!important}
+.giftwide span{text-align:left}
+.giftwide svg{width:40px!important;height:40px!important;padding:7px;border-radius:50%;background:rgba(255,255,255,.55);box-sizing:border-box}
