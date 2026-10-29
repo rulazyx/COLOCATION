@@ -82,10 +82,10 @@ export const OUTFITS = {
 // Introduction au premier lancement : on invite à toucher chaque onglet (une étape = un bit de member_stats.quest_mask)
 export const INTRO_STEPS = [
   { n: 1, tab: 'tasks', title: 'Tâches', text: "Choisis la tâche ménagère que tu viens de faire : un autre coloc la confirme et tu gagnes des savons 🧼 et de l'XP. Dans cet onglet, trois parties : Tâches, Plateau (un jeu de l'oie où les savons achètent des dés) et Stocks (signale ce qui manque)." },
-  { n: 2, tab: 'defis', title: 'Quêtes', text: "Chaque jour, récupère tout en haut 50 colocoins et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
+  { n: 2, tab: 'defis', title: 'Défis', text: "Chaque jour, récupère tout en haut 50 colocoins et 50 XP. En dessous, la liste des défis, classés par type : chaque défi réussi rapporte de l'XP, un titre et parfois un nouveau personnage." },
   { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (mise de 10 🪙), le blackjack se joue avec tes colocoins 🪙, et les autres jeux rapportent de l'XP." },
   { n: 4, tab: 'rank', title: 'Classement', text: "Qui a le plus de colocoins 🪙 ? Qui a le meilleur niveau ? Compare-toi aux autres colocs et copains. Dans chaque jeu, la fenêtre de règle montre aussi le classement des records." },
-  { n: 6, tab: 'heads', title: 'Ton profil', text: "Touche ta tête en haut à gauche : un menu s'ouvre avec la Boutique, les Quêtes et la Personnalisation (garde-robe, titres, badges, réglages). Pour voir le profil d'un autre, touche-le dans le classement." },
+  { n: 6, tab: 'heads', title: 'Ton profil', text: "Touche ta tête en haut à gauche : un menu s'ouvre avec la Boutique, les Défis et la Personnalisation (garde-robe, titres, badges, réglages). Pour voir le profil d'un autre, touche-le dans le classement." },
   { n: 5, tab: 'me', title: 'Perso', text: "Ici tu personnalises ton personnage : garde-robe, titres, badges, cadres et réglages (genre, couleurs, notifications). La Boutique (menu de ta tête, en haut) propose : cadres, effets de pseudo et looks de l'oiseau de Jumpy Cardinal." },
 ];
 // Récompense quotidienne (en XP) : jours 1 à 6, le jour 7 débloque la roue de la fortune (XP aussi)
