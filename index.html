@@ -39,15 +39,18 @@
   @keyframes blink{0%,94%,100%{transform:scaleY(1)}97%{transform:scaleY(.1)}}
   .brand{margin-top:26px;font-weight:800;font-size:1.7rem;letter-spacing:.04em;color:#e08a00;text-transform:uppercase}
   .brand small{display:block;text-align:center;font-weight:600;font-size:.8rem;letter-spacing:.2em;color:#c9a35a;margin-top:2px}
-  .bar{margin-top:18px;width:120px;height:6px;border-radius:3px;background:rgba(224,138,0,.2);overflow:hidden}
-  .bar i{display:block;height:100%;width:0;background:#f5a300;border-radius:3px;transition:width .2s}
+  .bar{margin-top:18px;width:150px;height:8px;border-radius:4px;background:rgba(224,138,0,.2);overflow:hidden}
+  /* la barre avance par transform (fluide, sans saccades de mise en page) avec un reflet qui glisse */
+  .bar i{display:block;height:100%;width:100%;border-radius:4px;transform-origin:0 50%;transform:scaleX(0);will-change:transform;
+    background:linear-gradient(90deg,#f5a300,#ffc928 50%,#f5a300) 0 0/200% 100%;animation:barshine 1.4s linear infinite}
+  @keyframes barshine{to{background-position:-200% 0}}
   /* le soleil qui s'élargit et recouvre tout l'écran */
   #grow{position:fixed;left:50%;top:var(--cy,45%);width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#ffc928;
     transform:scale(0);z-index:10000;pointer-events:none}
   #grow.go{transition:transform .55s cubic-bezier(.6,0,.3,1);transform:scale(var(--s,400))}
   #grow.fade{transition:opacity .6s;opacity:0}
   #replay{position:fixed;right:12px;bottom:12px;z-index:10001;padding:10px 14px;border-radius:20px;border:0;background:#2f9e6b;color:#fff;font:600 14px system-ui}
-  @media (prefers-reduced-motion:reduce){.hopper,.shadow,.eye{animation:none}}
+  @media (prefers-reduced-motion:reduce){.hopper,.shadow,.eye,.bar i{animation:none}}
 </style>
 </head>
 <body>
@@ -73,22 +76,26 @@
 (function () {
   var splash = document.getElementById('splash'), grow = document.getElementById('grow'), fill = document.getElementById('barfill');
   if (!splash) { window.splashProgress = window.splashDone = function () {}; return; }
-  var target = 0, shown = 0, last = performance.now(), finished = false, ended = false;
+  var target = 0, shown = 0, t0 = performance.now(), last = t0, finished = false, ended = false;
   function show(p) {
-    fill.style.width = (p * 100) + '%';
-    if (p >= 1) splash.classList.add('full');
+    fill.style.transform = 'scaleX(' + p.toFixed(4) + ')';
+    if (p >= 0.995) splash.classList.add('full');
   }
   function end() {
     if (ended) return; ended = true;
     splash.classList.add('out');
     setTimeout(function () { splash.remove(); if (grow) grow.remove(); }, 600);
   }
-  // l'affichage rattrape la progression réelle à vitesse limitée : les rayons se voient même si tout charge très vite
+  // Progression lissée : la barre avance toute seule en ralentissant (sans jamais s'arrêter net) pendant l'attente,
+  // rattrape en douceur les étapes réelles, puis file jusqu'au bout quand l'appli est prête
   function tick(now) {
-    var dt = now - last; last = now;
-    shown = Math.min(target, shown + dt * 0.003);
+    var dt = Math.min(64, now - last); last = now;
+    var creep = 0.9 * (1 - Math.exp(-(now - t0) / 2200));
+    var goal = finished ? 1 : Math.min(0.97, Math.max(target * 0.97, creep));
+    shown += (goal - shown) * (1 - Math.exp(-dt / (finished ? 140 : 260)));
+    if (finished && goal - shown < 0.004) shown = 1;
     show(shown);
-    if (finished && shown >= 1) return setTimeout(end, 120);
+    if (finished && shown >= 1) return setTimeout(end, 160);
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);

@@ -32,6 +32,13 @@ export function makeDemoApi() {
   const now = () => new Date().toISOString();
   const HOUR_MS = 3600000;
   const hasItem = (m, key) => db.fbuilds.some((b) => b.member_id === m && b.item === key);
+  // Punitions : validée à la majorité des colocs (hors puni), rejetée quand le oui ne peut plus gagner
+  const punSoap = (id) => (db.pun ?? []).filter((r) => r.target_id === id && r.status === 'validated').reduce((a, r) => a + r.soap, 0);
+  const settlePun = (id) => {
+    const r = db.pun.find((x) => x.id === id), n = base.filter((x) => x.kind === 'coloc' && x.id !== r.target_id).length, need = Math.floor(n / 2) + 1;
+    const vs = db.punv.filter((v) => v.punishment_id === id), yes = vs.filter((v) => v.vote).length, no = vs.length - yes;
+    if (yes >= need) { r.status = 'validated'; r.closed_at = now(); } else if (n - no < need) { r.status = 'rejected'; r.closed_at = now(); }
+  };
 
   // Mêmes règles de calcul que la base de données (voir migration-v7.sql)
   const addChips0 = (id, amount, reason) => { if (amount) db.chips.push({ member_id: id, amount, reason, at: now() }); };
@@ -223,6 +230,28 @@ export function makeDemoApi() {
       const r = (db.shopreq ?? []).find((x) => x.id === id); if (!r || r.requester_id !== m || r.status === 'done') fail('Impossible d\'annuler.');
       r.status = 'cancelled'; save();
     },
+    async punishments() { return (db.pun ?? []).slice().sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
+    async punishmentVotes() { return (db.punv ?? []).map((v) => ({ ...v })); },
+    async addPunishment(m, target, reason, soap) {
+      const t = String(reason ?? '').trim(), tg = base.find((x) => x.id === target && x.kind === 'coloc');
+      if (!tg) fail('Choisis un coloc à punir.'); if (target === m) fail('Tu ne peux pas te punir toi-même.');
+      if (t.length < 2) fail('Écris le motif.'); if (t.length > 120) fail('Motif trop long (120 caractères maximum).');
+      if (!(soap >= 1 && soap <= 10)) fail('Sanction entre 1 et 10 savons.');
+      db.pun ??= []; db.punv ??= []; db.nextPun ??= 1;
+      if (db.pun.filter((r) => r.author_id === m && r.status === 'open').length >= 3) fail('Déjà 3 punitions en cours.');
+      const id = db.nextPun++;
+      db.pun.push({ id, author_id: m, target_id: target, reason: t, soap, status: 'open', created_at: now(), closed_at: null });
+      db.punv.push({ punishment_id: id, member_id: m, vote: true }); settlePun(id); save(); return id;
+    },
+    async votePunishment(m, id, vote) {
+      const r = (db.pun ?? []).find((x) => x.id === id); if (!r || r.status !== 'open') fail('Ce vote est terminé.');
+      if (r.target_id === m) fail('Tu ne peux pas voter pour ta propre punition.');
+      db.punv = db.punv.filter((v) => !(v.punishment_id === id && v.member_id === m)); db.punv.push({ punishment_id: id, member_id: m, vote }); settlePun(id); save();
+    },
+    async cancelPunishment(m, id) {
+      const r = (db.pun ?? []).find((x) => x.id === id); if (!r || r.author_id !== m || r.status !== 'open') fail('Impossible d\'annuler.');
+      r.status = 'cancelled'; r.closed_at = now(); save();
+    },
     async runRecurring() {
       db.recur ??= [{ id: 1, title: 'Internet', amount_cents: 2999, payer_id: 5, start_on: '2026-11-01' }]; db.recruns ??= []; db.exp ??= []; db.nextExp ??= 1;
       const today = reunionDay(); let n = 0;
@@ -327,7 +356,7 @@ export function makeDemoApi() {
       return Object.entries(acc).map(([k, trophies]) => { const [id, week] = k.split('|'); return { member_id: Number(id), week, trophies }; });
     },
     // --- v8 : plateau, messages, blackjack (mêmes règles que migration-v8.sql) ---
-    async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) + (db.exch ?? []).filter((r) => r.member_id === m.id).reduce((a, r) => a + r.soap, 0) })); },
+    async soapSpent() { return base.map((m) => ({ member_id: m.id, spent: db.dice.filter((r) => r.member_id === m.id).reduce((a, r) => a + r.cost, 0) + (db.exch ?? []).filter((r) => r.member_id === m.id).reduce((a, r) => a + r.soap, 0) + punSoap(m.id) })); },
     async diceRolls() { return [...db.dice].sort((a, b) => b.id - a.id).map((r) => ({ ...r })); },
     async diceClock() { return Object.entries(db.dclk ?? {}).map(([id, t]) => ({ member_id: Number(id), t: new Date(t).toISOString() })); },
     async rollDice(member) {
@@ -452,7 +481,7 @@ export function makeDemoApi() {
       const o = SOAP_EXCHANGE.find((x) => x.soap === soap);
       if (!o) fail('Échange invalide.');
       const earned = db.logs.filter((l) => l.doer_id === member && l.status === 'validated').reduce((a, l) => a + l.soap, 0);
-      const spent = db.dice.filter((r) => r.member_id === member).reduce((a, r) => a + r.cost, 0) + (db.exch ??= []).filter((r) => r.member_id === member).reduce((a, r) => a + r.soap, 0);
+      const spent = db.dice.filter((r) => r.member_id === member).reduce((a, r) => a + r.cost, 0) + (db.exch ??= []).filter((r) => r.member_id === member).reduce((a, r) => a + r.soap, 0) + punSoap(member);
       if (earned - spent < soap) fail(`Il te faut ${soap} savons.`);
       db.exch.push({ member_id: member, soap, coins: o.coins }); addChips(member, o.coins, 'echange'); save();
       return { soap, coins: o.coins };

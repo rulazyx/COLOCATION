@@ -331,3 +331,12 @@ Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à 
 - Univers pirate : mer animée au centre (bateau, île au trésor, tentacule du kraken, mouette), cases dessinées en SVG et animées. Bonus : coffre (colocoins), carte au trésor (XP), vent favorable (on rejoue le même nombre). Malus : récif (−2 cases), tempête (−3), kraken (−5), pirates (−20 ou −30 colocoins, jamais plus que ton solde). La case d'arrivée est l'île au trésor.
 - La récompense de la semaine (1000 colocoins pour celui qui gagne le plus de savons) ne change pas et reste dans Tâches.
 - Base : table `dice_clock`, nouvelle fonction `roll_dice`, nouvelles cases `goose_cells` avec une colonne `name` (supabase/patch-v104.sql).
+
+### v105 — Commission, historique et cadeau
+Onglet Tâches : « Demander à quelqu'un d'acheter » devient « Missionner une commission » ; les deux boutons prennent toute la largeur. Plus de petit bouton Historique : l'historique des tâches s'affiche sous la case des savons (le plateau part dans Jeux, v104). Le bouton cadeau (récompense de la semaine) est rond, en haut de la page. Aucun SQL à lancer.
+
+### v106 — Punir quelqu'un, chargement fluide
+
+- Tâches : bouton rouge « Punir quelqu'un ! ». La bulle permet de choisir la tête d'un coloc, d'écrire un motif et de fixer une sanction de 1 à 10 savons. Les autres colocs votent 👍 / 👎 : la sanction est validée à la majorité (hors puni) et les savons sont retirés, sinon elle est rejetée. Le bouton porte une pastille quand un vote t'attend.
+- Base : tables `punishments` et `punishment_votes`, fonctions `add_punishment`, `vote_punishment`, `cancel_punishment`, et la vue `soap_spent` compte les punitions validées (voir la fin de `supabase/schema.sql`). Le bouton reste caché tant que ces tables n'existent pas.
+- Écran de lancement : la barre de chargement avance en continu et en douceur (plus d'à-coups), avec un reflet qui glisse.

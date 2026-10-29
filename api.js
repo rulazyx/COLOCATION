@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 102;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 106;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -132,13 +132,19 @@ export async function makeCloudApi() {
     async shopRequestBought(m, id) { check(await sb.rpc('shop_request_bought', { p_member: m, p_id: id })); },
     async answerShopRequest(m, id, ok) { check(await sb.rpc('answer_shop_request', { p_member: m, p_id: id, p_ok: ok })); },
     async cancelShopRequest(m, id) { check(await sb.rpc('cancel_shop_request', { p_member: m, p_id: id })); },
+    // Punitions (null tant que les tables n'existent pas dans la base : le bouton reste caché)
+    async punishments() { const r = await sb.from('punishments').select('*').order('id', { ascending: false }).limit(40); return r.error ? null : r.data; },
+    async punishmentVotes() { const r = await sb.from('punishment_votes').select('*'); return r.error ? null : r.data; },
+    async addPunishment(m, target, reason, soap) { return check(await sb.rpc('add_punishment', { p_member: m, p_target: target, p_reason: reason, p_soap: soap })); },
+    async votePunishment(m, id, vote) { check(await sb.rpc('vote_punishment', { p_member: m, p_id: id, p_vote: vote })); },
+    async cancelPunishment(m, id) { check(await sb.rpc('cancel_punishment', { p_member: m, p_id: id })); },
     async runRecurring() { return check(await sb.rpc('run_recurring')); },
     async popups(id) { return id ? check(await sb.from('popups').select('*').eq('to_id', id).is('seen_at', null).order('id')) : []; },
     async popupSeen(id, popup) { check(await sb.rpc('popup_seen', { p_member: id, p_id: popup })); },
     async questStep(id, step) { return check(await sb.rpc('quest_step', { p_member: id, p_step: step })); },
     onChange(cb) {
       // un canal par table : si l'une pose problème (table absente de la publication…), les autres continuent de marcher
-      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'sudoku_weekly', 'shop_requests', 'xp_log', 'dice_rolls', 'dice_clock', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares']) {
+      for (const table of ['tasks', 'products', 'members', 'purchases', 'duels', 'member_stats', 'coin_ledger', 'unlocks', 'task_logs', 'sudoku_weekly', 'shop_requests', 'xp_log', 'dice_rolls', 'dice_clock', 'messages', 'perks', 'perk_confirms', 'chip_ledger', 'soap_exchanges', 'farm_plots', 'farm_state', 'farm_stock', 'farm_builds', 'events', 'event_votes', 'expenses', 'expense_shares', 'punishments', 'punishment_votes']) {
         sb.channel('coloc-' + table).on('postgres_changes', { event: '*', schema: 'public', table }, () => cb(table)).subscribe();
       }
     },
