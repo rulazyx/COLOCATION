@@ -1272,3 +1272,18 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .btn.shopbtn .badge,.btn.taskbtn .badge{position:absolute;top:-6px;right:-6px;font-size:10px;min-width:18px;height:18px;background:var(--danger);color:#fff;border-radius:9px;display:grid;place-items:center;padding:0 5px}
 .btn.giftbtn{color:#f59e0b}.btn.giftbtn .tico{font-size:26px}
 .taskrow+.taskrow{margin-top:10px}
+
+/* ---------- Défis : menus par type en tuiles unies (icônes SVG) ---------- */
+.dtiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.dtile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:14px;min-height:112px;border-radius:18px;background:var(--dc);color:#fff;text-align:left;box-shadow:0 3px 10px rgba(0,0,0,.15);transition:transform .15s}
+.dtile:active{transform:scale(.97)}
+.dt-ico{width:44px;height:44px;border-radius:50%;background:#fff;color:var(--dc);display:grid;place-items:center;margin-bottom:auto}
+.dtile b{font-weight:800;font-size:16px;line-height:1.15}.dtile small{font-weight:700;font-size:12.5px;opacity:.85}
+.dt-badge{position:absolute;top:10px;right:10px;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#ffd23f;color:#3b2a00;font-style:normal;font-weight:800;font-size:12px;display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.dhead{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.dhead .dhico{width:36px;height:36px;border-radius:50%;background:var(--dc);color:#fff;display:grid;place-items:center}
+.dhead b{font-size:18px;font-weight:800}.dhead small{margin-left:auto;color:var(--muted);font-weight:700}
+.chal .cemo{color:var(--dc,var(--muted))}
+.chal.done .cemo,.chal.ready .cemo{background:var(--dc);color:#fff}
+
+.dtile .w-cc,.dhead .w-cc{color:inherit;font-family:inherit;font-weight:800;letter-spacing:0;-webkit-text-stroke:0}

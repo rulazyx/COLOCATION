@@ -360,7 +360,7 @@ export function makeDemoApi() {
       addXp(member, xp, 'plateau'); addTrophies(member, tr, 'plateau'); addChips(member, ch, 'plateau'); save();
       return { perk, roll, from, to, cost, xp, trophies: tr, chips: ch, note: note.trim() };
     },
-    async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id) })); },
+    async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id), earned: db.chips.filter((l) => l.member_id === m.id && l.amount > 0).reduce((a, l) => a + l.amount, 0) })); },
     async farm() { return db.farm.map((p) => ({ ...p })); },
     async farmState() { return Object.entries(db.farmSt).map(([id, slots]) => ({ member_id: Number(id), slots })); },
     async farmDay() {

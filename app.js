@@ -96,7 +96,7 @@ function makeCtx() {
   return {
     meId: me, members: state.members, stats: keyed(state.stats), scores: keyed(state.scores),
     balances: keyed(state.balances, (b) => b.coins), chipsMap: keyed(state.chips, (b) => b.chips), wins: keyed(state.duelStats, (d) => d.wins), xp: keyed(state.xp, (x) => x.xp),
-    duels: state.duels, owned: ownedBy(me), chips: chipsOf(me), weekly: state.weekly, currentWeek: currentWeek(),
+    duels: state.duels, owned: ownedBy(me), chips: chipsOf(me), earned: Number(state.chips.find((b) => b.member_id === me)?.earned) || 0, weekly: state.weekly, currentWeek: currentWeek(),
     viewed: new Set(state.views.filter((v) => v.viewer_id === me).map((v) => v.viewed_id)),
   };
 }
@@ -1299,7 +1299,7 @@ function dailyCardHTML() {
     ${st.wheel_ready ? `<button class="wheelban" data-action="wheel">🎡 Ta roue de la fortune est prête ! <b>Tourner</b></button>` : ''}
   </div>`;
 }
-const defisTabHTML = () => dailyCardHTML() + `<h3 class="sec">Défis ${unlockedKeys(state.me.id).size}/${CHALLENGES.length}</h3>` + defisHTML();
+const defisTabHTML = () => (state.defisGrp ? '' : dailyCardHTML() + `<h3 class="sec">Défis ${CHALLENGES.filter((c) => unlockedKeys(state.me.id).has(c.key)).length}/${CHALLENGES.length}</h3>`) + defisHTML();
 
 /* ---------- Feuilles (fenêtres du bas) ---------- */
 function sheetWrap(inner, color = 'var(--accent)') {
@@ -1563,34 +1563,51 @@ function inboxHTML() {
     <button class="mini" data-action="msg" data-id="${m.from_id}">Répondre</button></div>`).join('');
 }
 
+// Menus de défis : une tuile unie par type (icône SVG, sans emoji)
+const DGRP_SVG = {
+  'Ménage': '<path d="M6 10h12l-1.5 10h-9z"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M19 3l.7 1.6L21.3 5l-1.6.7L19 7.3l-.7-1.6L16.7 5l1.6-.4z" fill="currentColor"/>',
+  'Sudoku': '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/>',
+  'Blackjack': '<rect x="3.5" y="6" width="10" height="14" rx="2" transform="rotate(-10 8.5 13)"/><rect x="10.5" y="4" width="10" height="14" rx="2" transform="rotate(8 15.5 11)"/><path d="M15.6 9.5c-1.6 1.3-1.6 2.5-.3 2.5-.1.5-.3.8-.6 1h1.8c-.3-.2-.5-.5-.6-1 1.3 0 1.3-1.2-.3-2.5z" fill="currentColor" stroke="none"/>',
+  'Jumpy Cardinal': '<path d="M4 14q-1-4 3-4 1-4 6-4 6 0 7 5l2.5 1-2.5 1.2Q19 19 12 19q-6 0-8-5z"/><path d="M8 13q3 3 6 0"/><circle cx="15.5" cy="9.5" r="1" fill="currentColor"/>',
+  'Colo-Ferme': '<path d="M3 11l9-6 9 6"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6M9 14l6 6M15 14l-6 6"/>',
+  'Chifoumi': '<circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9 15L18 4M15 15L6 4"/>',
+  'Colocoins': '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3.5v2M12 18.5v2"/>',
+  'Personnages': '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/>',
+  'Coloc': '<path d="M4 11l8-6.5 8 6.5"/><path d="M6.5 9.5V19h11V9.5"/><path d="M10 19v-5h4v5"/>',
+};
+const DGRP_COLOR = { 'Ménage': '#2b7de9', 'Sudoku': '#5b4ce5', 'Blackjack': '#13804f', 'Jumpy Cardinal': '#e5484d', 'Colo-Ferme': '#e39a17', 'Chifoumi': '#c2357a', 'Colocoins': '#c99400', 'Personnages': '#0f9aa8', 'Coloc': '#56607a' };
+const DGRP_ORDER = ['Ménage', 'Sudoku', 'Blackjack', 'Jumpy Cardinal', 'Colo-Ferme', 'Chifoumi', 'Colocoins', 'Personnages', 'Coloc'];
+const dIcon = (g, size = 26) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DGRP_SVG[g] ?? DGRP_SVG.Coloc}</svg>`;
+const LOCK_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>';
 function defisHTML() {
   const ctx = makeCtx();
   const have = unlockedKeys(state.me.id);
   const rows = CHALLENGES.map((c) => { const p = c.check(ctx), done = have.has(c.key); return { c, p, done, ready: !done && p.done }; });
   const rewardTxt = (c) => {
     const r = rewardOf(c.key);
-    return [r.xp ? `+${r.xp} XP` : '', r.skin ? `🎭 ${outfitName(r.skin, state.me.gender)}` : ''].filter(Boolean).join(' · ');
+    return [r.xp ? `+${r.xp} XP` : '', r.skin ? `Personnage : ${outfitName(r.skin, state.me.gender)}` : ''].filter(Boolean).join(' · ');
   };
   const row = ({ c, p, done, ready }) => `
       <div class="chal ${done ? 'done' : ''} ${ready ? 'ready' : ''}">
-        <div class="cemo">${done || ready ? c.emoji : '🔒'}</div>
+        <div class="cemo" style="--dc:${DGRP_COLOR[c.cat] ?? '#56607a'}">${done || ready ? dIcon(c.cat, 22) : LOCK_SVG}</div>
         <div class="ctxt"><b>${esc(c.title)}</b><small>${esc(c.desc)}${c.hint ? ` <i>${esc(c.hint)}</i>` : ''}</small>
           ${done || ready ? '' : `<div class="bar sm"><i style="width:${(p.value / p.goal) * 100}%"></i></div><small class="cp">${p.value} / ${p.goal}</small>`}
           ${rewardTxt(c) ? `<span class="crew">${rewardTxt(c)}</span>` : ''}</div>
-        ${ready ? `<button class="mini ok claimb" data-action="chal-claim" data-id="${c.key}">🎁 Récupérer</button>` : ''}
+        ${ready ? `<button class="mini ok claimb" data-action="chal-claim" data-id="${c.key}">Récupérer</button>` : ''}
         ${done ? `<button class="mini ${state.me.title === c.key ? 'ok' : ''}" data-action="title" data-id="${c.key}">${state.me.title === c.key ? 'Affiché' : 'Afficher'}</button>` : ''}
       </div>`;
-  const cats = [...new Set(CHALLENGES.map((c) => c.cat))];
-  const group = (list) => cats.map((cat) => {
-    const part = list.filter((r) => r.c.cat === cat);
-    return part.length ? `<h4 class="cat">${esc(cat)}</h4>${part.map(row).join('')}` : '';
-  }).join('');
-  const todo = rows.filter((r) => !r.done && !r.ready), done = rows.filter((r) => r.done), ready = rows.filter((r) => r.ready);
+  const grp = DGRP_ORDER.includes(state.defisGrp) ? state.defisGrp : null;
+  if (grp) {   // un menu ouvert : ses défis (à récupérer, en cours, terminés)
+    const list = rows.filter((r) => r.c.cat === grp), order = (r) => (r.ready ? 0 : r.done ? 2 : 1);
+    return `<div class="dhead" style="--dc:${DGRP_COLOR[grp]}"><button class="mini" data-action="dgrp" data-v="">‹ Tous les défis</button><span class="dhico">${dIcon(grp, 22)}</span><b>${esc(grp)}</b><small>${list.filter((r) => r.done).length}/${list.length}</small></div>
+      ${[...list].sort((x, y) => order(x) - order(y)).map(row).join('')}`;
+  }
   return `
     <p class="summary">Chaque défi réussi débloque un <b>titre</b> à afficher sur ton profil et de l'<b>XP</b>, parfois un personnage.</p>
-    ${ready.length ? `<h3 class="sec" style="margin-top:0">🎁 À récupérer (${ready.length})</h3>${ready.map(row).join('')}` : ''}
-    ${group(todo)}
-    ${done.length ? `<h3 class="sec">Terminés (${done.length})</h3>${group(done)}` : ''}`;
+    <div class="dtiles">${DGRP_ORDER.filter((g) => rows.some((r) => r.c.cat === g)).map((g) => {
+      const list = rows.filter((r) => r.c.cat === g), nready = list.filter((r) => r.ready).length, ndone = list.filter((r) => r.done).length;
+      return `<button class="dtile" style="--dc:${DGRP_COLOR[g]}" data-action="dgrp" data-v="${esc(g)}"><span class="dt-ico">${dIcon(g)}</span><b>${esc(g)}</b><small>${ndone}/${list.length}</small>${nready ? `<i class="dt-badge">${nready}</i>` : ''}</button>`;
+    }).join('')}</div>`;
 }
 
 function titresHTML() {
@@ -1901,7 +1918,7 @@ document.addEventListener('click', (e) => {
     case 'pin-back': state.auth = null; render(); break;
     case 'switch': store.set('coloc-auth', ''); state.me = null; state.auth = null; state.tab = 'tasks'; state.sheet = null; render(); break;
     case 'tab': {
-      state.anim = state.tab !== tab; state.tab = tab; state.sheet = null; state.heads = false; render(); scrollApp(0);
+      state.anim = state.tab !== tab; if (state.tab !== tab) state.defisGrp = null; state.tab = tab; state.sheet = null; state.heads = false; render(); scrollApp(0);
       const is = INTRO_STEPS.find((x) => x.tab === tab); if (is) questStep(is.n);
       if (tab === 'me') markRead();
       break;
@@ -1952,6 +1969,7 @@ document.addEventListener('click', (e) => {
     case 'msg': state.sheet = { type: 'msg', to: Number(id), text: '' }; render(); break;
     case 'msg-send': sendMessageNow(); break;
     case 'close': if (e.target === el) closeSheet(); break;
+    case 'dgrp': state.defisGrp = v || null; render(); scrollApp(0); break;
     case 'rseg': state.anim = state.rankSeg !== v; state.rankSeg = v; render(); scrollApp(0); break;
     case 'task-open': state.sheet = { type: 'tasks' }; render(); break;
     case 'task-hist': state.sheet = { type: 'taskhist' }; render(); break;

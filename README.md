@@ -320,3 +320,6 @@ Onglet Classement : une seconde rangée d'onglets pour les jeux (Blackjack : mai
 
 ### v102 — Achats, cadeau et icônes des tâches
 Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à quelqu'un d'acheter » (icône chariot) ouvre une bulle (demande + demandes en cours, pastille si une action t'attend), et un bouton cadeau ouvre la « Récompense de la semaine » (qui quitte la case des savons). Les tâches n'ont plus d'emoji : icônes SVG (taskart.js). Aucun SQL à lancer.
+
+### v103 — Défis en menus
+Écran Défis : une tuile unie par type (Ménage, Sudoku, Blackjack, Jumpy Cardinal, Colo-Ferme, Chifoumi, Colocoins, Personnages, Coloc), icônes SVG sans emoji ; toucher une tuile ouvre ses défis. Nouveaux défis : 5/10/15 personnages, 2/5/tous les oiseaux, grille de la semaine et niveaux 3/5/10 au Sudoku, 10/50/200 mains gagnées au Blackjack, 100 à 100 000 colocoins gagnés au cumul. SQL : `supabase/patch-v103.sql` (nouvelles lignes `challenges`, colonne `earned` dans `chip_balances`).
