@@ -343,3 +343,6 @@ Onglet Tâches : « Demander à quelqu'un d'acheter » devient « Missionner une
 
 ### v107 — Récompense de la semaine à 400
 Le 1er de la semaine (le plus de savons) gagne 400 colocoins au lieu de 1000. Dans la bulle du cadeau, le texte sous la récompense est remplacé par « +400 colocoins ». SQL : `supabase/patch-v107.sql` (fonction `settle_plateau`).
+
+### v108 — Pièce dans la récompense
+La bulle du cadeau affiche « +400 🪙 colocoins » avec le petit logo de la pièce.
