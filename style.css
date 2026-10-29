@@ -1250,3 +1250,15 @@ button.glvl{cursor:pointer}
 .gfarm.gspace .gt-name{color:#fff}.gfarm.gspace .gf-txt small{opacity:.8}
 .gfarm.gspace .gbadge{z-index:2;font-family:inherit;border:0;box-shadow:0 2px 6px rgba(0,0,0,.3)}
 
+.wkcard .taskrow{margin:12px 0 0}
+/* Bulle des tâches : tuiles de couleur unie, comme les tuiles des jeux */
+.ttiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ttile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:118px;padding:12px 8px;border-radius:18px;background:var(--c);color:#fff;text-align:center;box-shadow:0 3px 10px rgba(0,0,0,.18);transition:transform .15s}
+.ttile:not(:disabled):active{transform:scale(.97)}
+.ttile:disabled{opacity:.5}
+.ttile .tt-emo{font-size:34px;line-height:1;filter:drop-shadow(0 2px 3px rgba(0,0,0,.2))}
+.ttile .tt-name{font-weight:800;font-size:17px;text-shadow:0 1px 2px rgba(0,0,0,.2)}
+.ttile .tt-det{font-size:11.5px;font-weight:600;line-height:1.25;opacity:.92}
+.ttile .tt-soap{margin-top:4px;background:#fff;color:#1b1d22;border-radius:999px;padding:3px 10px;font-weight:700;font-size:13px}
+.ttile .tt-soap em{font-style:normal;font-weight:800;color:#2b7de9}
+.ttiles .ttile:last-child:nth-child(odd){grid-column:1/-1;min-height:96px}

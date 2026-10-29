@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 98;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 101;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1025,7 +1025,7 @@ function weekHTML() {
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   const pk = perkOfWeekDef();
   return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}
-    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
+    <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>${taskRowHTML()}</div>`;
 }
 function syncBarHTML() {
   if (!state.syncErr) return '';
@@ -1077,13 +1077,17 @@ function kindStatus(kind) {
 
 // Onglet Tâches : une seule page (bouton « J'ai effectué une tâche », savons de la semaine, plateau, demandes d'achat)
 const HIST_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/><path d="M12 7.5V12l3 2"/></svg>';
-function tasksHTML() {
+// Boutons « J'ai effectué une tâche » + Historique, sous les têtes des colocs
+function taskRowHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
-  const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
+  return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}</button>
+      <button class="btn histbtn" data-action="task-hist" aria-label="Historique des tâches" title="Historique">${HIST_SVG}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>`;
+}
+function tasksHTML() {
+  const me = state.me;
+  const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
   return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce au plateau.</small></div>` : ''}
-    <div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}</button>
-      <button class="btn histbtn" data-action="task-hist" aria-label="Historique des tâches" title="Historique">${HIST_SVG}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
     ${weekHTML()}${plateauHTML()}
     <div style="margin-top:16px">${shopReqHTML()}</div>`;
 }
@@ -1228,23 +1232,20 @@ function taskBubbleHTML(s) {
   const G = s.group && TASK_GROUPS.find((g) => g.key === s.group);
   if (G) return popWrap(`
     <div class="sh"><div><h2>${G.emoji} ${esc(G.label)}</h2><div class="when">Choisis ce que tu as fait</div></div>${closeBtn}</div>
-    <div class="klist">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
+    <div class="ttiles">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
       const { st, log, left } = kindStatus(k);
       const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
         : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}` : esc(K.detail);
-      return `<button class="kcard ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
-        <span class="kemo">${K.emoji}</span><span class="ktxt"><b>${esc(K.room)}</b><small>${sub}</small></span><span class="ksoap">+${K.soap} 🧼</span></button>`;
+      return `<button class="ttile sub ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
+        <span class="tt-emo">${K.emoji}</span><b class="tt-name">${esc(K.room)}</b><small class="tt-det">${sub}</small><span class="tt-soap"><em>+${K.soap}</em> 🧼</span></button>`;
     }).join('')}</div>
     <div class="sact">${back}</div>`, G.color);
   return popWrap(`
     <div class="sh"><div><h2>🧼 J'ai effectué une tâche</h2><div class="when">Choisis le type de tâche</div></div>${closeBtn}</div>
-    <div class="klist">${TASK_GROUPS.map((G) => {
-      const ks = Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key);
-      const free = ks.filter(([k]) => kindStatus(k).st === 'free').length, max = Math.max(...ks.map(([, K]) => K.soap));
-      return `<button class="kcard" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
-        <span class="kemo">${G.emoji}</span>
-        <span class="ktxt"><b>${esc(G.label)}</b><small>${ks.length} choix · ${free} disponible${free > 1 ? 's' : ''}</small></span>
-        <span class="ksoap">jusqu'à +${max} 🧼</span></button>`;
+    <div class="ttiles">${TASK_GROUPS.map((G) => {
+      const max = Math.max(...Object.values(TASK_KINDS).filter((K) => K.group === G.key).map((K) => K.soap));
+      return `<button class="ttile" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
+        <span class="tt-emo">${G.emoji}</span><b class="tt-name">${esc(G.label)}</b><span class="tt-soap">jusqu'à <em>+${max}</em> 🧼</span></button>`;
     }).join('')}</div>`, '#2b7de9');
 }
 
