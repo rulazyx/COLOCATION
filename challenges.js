@@ -1,7 +1,7 @@
 // Défis (titres à débloquer) et classements. Fonctions pures : elles ne touchent ni au DOM ni à la base.
 // ⚠️ Les clés (key), les trophées et les apparences de récompense doivent rester identiques à la table
 //    "challenges" de supabase/migration-v4.sql (c'est la base qui verse la récompense).
-import { OUTFITS, levelOf, CHIP_GOALS } from './config.js';
+import { OUTFITS, levelOf, CHIP_GOALS, intelOf } from './config.js';
 
 // ctx = { meId, members, stats:{id→ligne}, scores:{id→{coins=savons,done_count}}, balances:{id→trophées}, wins:{id→n},
 //         duels:[…], owned:Set, viewed:Set, xp:{id→xp} }
@@ -55,11 +55,12 @@ export const BOARDS = [
   { key: 'chifoumi', emoji: '✊', label: 'Victoires chifoumi', unit: '',    low: false },
   { key: 'flappy',   emoji: '🐦', label: 'Jumpy Cardinal',    unit: '',    low: false },
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
+  { key: 'sudokulvl', emoji: '🧠', label: 'Niveau Sudoku', unit: '', low: false },
   { key: 'blackjack', emoji: '🃏', label: 'Victoires Blackjack', unit: '', low: false },
   { key: 'ferme',    emoji: '🌾', label: 'Récoltes (Colo-Ferme)', unit: '', low: false },
 ];
 export const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : board.key === 'level' ? `Niv. ${Math.floor(v / 100000)}` : `${v}${board.unit}`);
+export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : board.key === 'level' || board.key === 'sudokulvl' ? `Niv. ${Math.floor(v / 100000)}` : `${v}${board.unit}`);
 
 export function boardValue(c, key, id) {
   const s = c.stats[id] ?? {};
@@ -72,6 +73,7 @@ export function boardValue(c, key, id) {
     case 'flappy': return num(s.flappy_best);
     case 'ferme': return num(s.farm_harvests);
     case 'sudoku': return s.sudoku_best ?? null;
+    case 'sudokulvl': { const { lvl, n } = intelOf(s); return lvl * 100000 + n.e + n.m + n.h; }   // niveau d'abord, puis grilles réussies
     default: return null;
   }
 }
