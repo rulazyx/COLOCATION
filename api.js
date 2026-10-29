@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 115;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 116;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -118,7 +118,13 @@ export async function makeCloudApi() {
     },
     async sudokuWeek(week) { return check(await sb.from('sudoku_weekly').select('member_id,seconds').eq('week', week).order('seconds').limit(20)); },
     async reportSudoku(id, mode, seconds) { return check(await sb.rpc('report_sudoku', { p_member: id, p_mode: mode, p_seconds: Math.floor(seconds) })); },
-    async reportFlappy(id, score) { return check(await sb.rpc('report_flappy', { p_member: id, p_score: Math.floor(score) })); },
+    async reportFlappy(id, score) {
+      try { return check(await sb.rpc('report_flappy', { p_member: id, p_score: Math.floor(score) })); }
+      catch (e) {   // base pas encore mise à jour (patch SQL non passé) : on enregistre au moins le score avec l'ancienne fonction
+        if (!/could not find the function|report_flappy/i.test(String(e?.message))) throw e;
+        await this.reportGame(id, 'flappy', Math.floor(score)); return { xp: 0, coins: 0 };
+      }
+    },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },
     async expenses() { return check(await sb.from('expenses').select('*').order('spent_on', { ascending: false }).order('id', { ascending: false }).limit(500)); },
