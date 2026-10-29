@@ -1262,3 +1262,13 @@ button.glvl{cursor:pointer}
 .ttile .tt-soap{margin-top:4px;background:#fff;color:#1b1d22;border-radius:999px;padding:3px 10px;font-weight:700;font-size:13px}
 .ttile .tt-soap em{font-style:normal;font-weight:800;color:#2b7de9}
 .ttiles .ttile:last-child:nth-child(odd){grid-column:1/-1;min-height:96px}
+/* v102 : icônes SVG des tâches, demandes d'achat, cadeau */
+.tico{width:1em;height:1em;flex:none}
+.ttile .tt-ico{display:block;color:#fff;font-size:46px;line-height:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.18))}
+h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
+.hico.sm .tico,span.hico.sm .tico{font-size:18px;vertical-align:-3px}
+.btn.taskbtn .tico{font-size:24px}
+.btn.shopbtn{position:relative;background:#14b8a6;box-shadow:0 4px 14px rgba(20,184,166,.35);font-size:14px;white-space:nowrap;padding-left:10px;padding-right:10px;gap:6px}
+.btn.shopbtn .badge,.btn.taskbtn .badge{position:absolute;top:-6px;right:-6px;font-size:10px;min-width:18px;height:18px;background:var(--danger);color:#fff;border-radius:9px;display:grid;place-items:center;padding:0 5px}
+.btn.giftbtn{color:#f59e0b}.btn.giftbtn .tico{font-size:26px}
+.taskrow+.taskrow{margin-top:10px}

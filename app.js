@@ -3,12 +3,13 @@ import {
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
+import { TASK_ICONS, taskIcon, CART_ICON, GIFT_ICON } from './taskart.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 101;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 102;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1023,8 +1024,7 @@ function render() {
 function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
-  const pk = perkOfWeekDef();
-  return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}
+  return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div>${taskRowHTML()}</div>`;
 }
 function syncBarHTML() {
@@ -1036,7 +1036,7 @@ function confirmBannerHTML(tab) {
   if (!list.length) return '';
   return `<div class="confirmban"><b>À confirmer</b>${list.map((l) => {
     const K = TASK_KINDS[l.kind];
-    return `<div class="crow"><span>${esc(nameOf(l.doer_id))} dit avoir fait : ${K.emoji} ${esc(K.short)} <small>(+${l.soap} 🧼)</small></span>
+    return `<div class="crow"><span>${esc(nameOf(l.doer_id))} dit avoir fait : <span class="hico sm">${taskIcon(l.kind, K) || K.emoji}</span> ${esc(K.short)} <small>(+${l.soap} 🧼)</small></span>
       <button class="mini ok" data-action="task-ok" data-id="${l.id}">✓ Oui</button><button class="mini" data-action="task-no" data-id="${l.id}">✗ Non</button></div>`;
   }).join('')}</div>`;
 }
@@ -1081,15 +1081,17 @@ const HIST_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" st
 function taskRowHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
+  const reqs = shopActive().filter((r) => (r.status === 'open' && r.requester_id !== me.id) || (r.status === 'bought' && r.requester_id === me.id)).length;
   return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}</button>
-      <button class="btn histbtn" data-action="task-hist" aria-label="Historique des tâches" title="Historique">${HIST_SVG}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>`;
+      <button class="btn histbtn" data-action="task-hist" aria-label="Historique des tâches" title="Historique">${HIST_SVG}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
+    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Demander à quelqu'un d'acheter${reqs ? `<span class="badge">${reqs}</span>` : ''}</button>
+      <button class="btn histbtn giftbtn" data-action="perk-week" aria-label="Récompense de la semaine" title="Récompense de la semaine">${GIFT_ICON}</button></div>`;
 }
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
   return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce au plateau.</small></div>` : ''}
-    ${weekHTML()}${plateauHTML()}
-    <div style="margin-top:16px">${shopReqHTML()}</div>`;
+    ${weekHTML()}${plateauHTML()}`;
 }
 
 /* ---------- Plateau (jeu de l'oie, remis à zéro chaque lundi) ---------- */
@@ -1205,17 +1207,21 @@ function shopReqHTML() {
       sub = `acheté par ${esc(nameOf(r.buyer_id))}${mine ? '' : ' · en attente du demandeur'}`;
       act = mine ? `<button class="mini ok" data-action="shopreq-ok" data-id="${r.id}">✓ Reçu</button><button class="mini" data-action="shopreq-no" data-id="${r.id}">✗ Non</button>` : '';
     }
-    return `<div class="up"><div class="mini-av">${av(who, 44)}</div><div class="txt"><b>🛒 ${esc(r.item)}</b><small>${sub} · +${r.reward} 🧼 pour l'acheteur</small></div>${act}</div>`;
+    return `<div class="up"><div class="mini-av">${av(who, 44)}</div><div class="txt"><b>${esc(r.item)}</b><small>${sub} · +${r.reward} 🧼 pour l'acheteur</small></div>${act}</div>`;
   };
-  return `<button class="kcard" style="--c:#14b8a6" data-action="shop-ask" ${isColoc ? '' : 'disabled'}>
-      <span class="kemo">🛒</span><span class="ktxt"><b>Demander d'acheter quelque chose</b><small>Un coloc l'achète pour toi</small></span><span class="ksoap">+${SHOP_REQ.soap} 🧼</span></button>
-    ${list.length ? `<h3 class="sec">Demandes d'achat</h3>${list.map(row).join('')}` : ''}`;
-}
-function shopAskHTML() {
-  return sheetWrap(`
-    <div class="sh"><div><h2>🛒 Demander d'acheter</h2><div class="when">Celui qui l'achète gagne +${SHOP_REQ.soap} 🧼 une fois que tu as confirmé</div></div>${closeBtn}</div>
+  return popWrap(`
+    <div class="sh"><div><h2 class="hico">${CART_ICON}Demander d'acheter</h2><div class="when">Celui qui l'achète gagne +${SHOP_REQ.soap} 🧼 une fois que tu as confirmé</div></div>${closeBtn}</div>
     <label class="evl">Quoi ?<input id="shopitem" class="evin" maxlength="${SHOP_REQ.itemMax}" placeholder="Ex. Une bouteille de lait, du PQ…"></label>
-    <button class="btn primary" style="width:100%;margin-top:10px" data-action="shopreq-create">Demander</button>`, 'var(--accent)');
+    <button class="btn primary" style="width:100%;margin-top:10px" data-action="shopreq-create" ${isColoc ? '' : 'disabled'}>Demander</button>
+    ${list.length ? `<h3 class="sec">Demandes en cours</h3>${list.map(row).join('')}` : ''}`, '#14b8a6');
+}
+// Récompense de la semaine (bouton cadeau)
+function perkWeekHTML() {
+  const pk = perkOfWeekDef();
+  return popWrap(`
+    <div class="sh"><div><h2 class="hico">${GIFT_ICON}Récompense de la semaine</h2><div class="when">Pour celui qui gagne le plus de savons</div></div>${closeBtn}</div>
+    ${pk ? `<div class="perkbox"><span>${esc(pk.title)}</span><small>${esc(pk.short)}</small></div>` : '<div class="det">Pas de récompense cette semaine.</div>'}
+    <div class="det">En plus : 🏆 +${GOOSE.weekWin} 🪙 pour le 1er.</div>`, 'var(--gold)');
 }
 // Bulle « J'ai effectué une tâche » : catégories → sous-tâches → confirmation, avec un bouton Retour
 function taskBubbleHTML(s) {
@@ -1224,20 +1230,20 @@ function taskBubbleHTML(s) {
   if (s.kind) {
     const K = TASK_KINDS[s.kind];
     return popWrap(`
-      <div class="sh"><div><h2>${K.emoji} ${esc(K.label)}</h2><div class="when">${esc(K.detail)}</div></div>${closeBtn}</div>
+      <div class="sh"><div><h2 class="hico">${taskIcon(s.kind, K)}${esc(K.label)}</h2><div class="when">${esc(K.detail)}</div></div>${closeBtn}</div>
       <div class="reward">+${K.soap} 🧼 · +${K.soap * XP_RULES.taskPerSoap} XP une fois confirmée</div>
       <div class="det">Tu as vraiment fait cette tâche ? Un autre coloc devra confirmer pour que tu gagnes tes savons.</div>
       <div class="sact"><button class="btn primary" data-action="task-submit" data-id="${s.kind}">Oui, je l'ai faite</button>${back}</div>`, K.color);
   }
   const G = s.group && TASK_GROUPS.find((g) => g.key === s.group);
   if (G) return popWrap(`
-    <div class="sh"><div><h2>${G.emoji} ${esc(G.label)}</h2><div class="when">Choisis ce que tu as fait</div></div>${closeBtn}</div>
+    <div class="sh"><div><h2 class="hico">${TASK_ICONS[G.key]}${esc(G.label)}</h2><div class="when">Choisis ce que tu as fait</div></div>${closeBtn}</div>
     <div class="ttiles">${Object.entries(TASK_KINDS).filter(([, K]) => K.group === G.key).map(([k, K]) => {
       const { st, log, left } = kindStatus(k);
       const sub = st === 'pending' ? `⏳ ${esc(nameOf(log.doer_id))} l'a faite, à confirmer`
         : st === 'cooldown' ? `✅ ${esc(nameOf(log.doer_id))} ${ago(log.answered_at)} · dispo dans ${fmtWait(left)}` : esc(K.detail);
       return `<button class="ttile sub ${st}" style="--c:${G.color}" data-action="task-pick" data-id="${k}" ${st === 'free' && isColoc ? '' : 'disabled'}>
-        <span class="tt-emo">${K.emoji}</span><b class="tt-name">${esc(K.room)}</b><small class="tt-det">${sub}</small><span class="tt-soap"><em>+${K.soap}</em> 🧼</span></button>`;
+        <span class="tt-ico">${taskIcon(k, K)}</span><b class="tt-name">${esc(K.room)}</b><small class="tt-det">${sub}</small><span class="tt-soap"><em>+${K.soap}</em> 🧼</span></button>`;
     }).join('')}</div>
     <div class="sact">${back}</div>`, G.color);
   return popWrap(`
@@ -1245,7 +1251,7 @@ function taskBubbleHTML(s) {
     <div class="ttiles">${TASK_GROUPS.map((G) => {
       const max = Math.max(...Object.values(TASK_KINDS).filter((K) => K.group === G.key).map((K) => K.soap));
       return `<button class="ttile" style="--c:${G.color}" data-action="task-group" data-id="${G.key}" ${isColoc ? '' : 'disabled'}>
-        <span class="tt-emo">${G.emoji}</span><b class="tt-name">${esc(G.label)}</b><span class="tt-soap">jusqu'à <em>+${max}</em> 🧼</span></button>`;
+        <span class="tt-ico">${TASK_ICONS[G.key]}</span><b class="tt-name">${esc(G.label)}</b><span class="tt-soap">jusqu'à <em>+${max}</em> 🧼</span></button>`;
     }).join('')}</div>`, '#2b7de9');
 }
 
@@ -1257,7 +1263,7 @@ function taskHistHTML() {
   const row = (l, extra, actions = '') => {
     const K = TASK_KINDS[l.kind];
     return `<div class="up hist"><div class="mini-av">${av(memberById(l.doer_id), 38)}</div>
-      <div class="txt"><b>${esc(nameOf(l.doer_id))} : ${K.emoji} ${esc(K.short)}</b><small>${extra}</small></div>${actions}</div>`;
+      <div class="txt"><b class="hico sm">${esc(nameOf(l.doer_id))} : ${taskIcon(l.kind, K) || K.emoji} ${esc(K.short)}</b><small>${extra}</small></div>${actions}</div>`;
   };
   return popWrap(`
     <div class="sh"><div><h2>Historique des tâches</h2><div class="when">Les tâches de toute la coloc</div></div>${closeBtn}</div>
@@ -1352,7 +1358,8 @@ function sheetHTML() {
     case 'tasks': return taskBubbleHTML(s);
     case 'taskhist': return taskHistHTML();
     case 'exphist': return expHistHTML();
-    case 'shop-ask': return shopAskHTML();
+    case 'shopreqs': return shopReqHTML();
+    case 'perkweek': return perkWeekHTML();
     case 'levelup': return levelUpSheetHTML();
     case 'exp': return expFormHTML(s);
     case 'expd': return expDetailHTML(s);
@@ -1815,7 +1822,7 @@ function profileSheetHTML(s) {
     ${activePerksOf(m.id).map((pk) => perkCardHTML(pk, mine)).join('')}
     ${mine ? '' : `<div class="sact two"><button class="btn primary" data-action="duel-with" data-id="${m.id}">Défier au chifoumi</button><button class="btn" data-action="msg" data-id="${m.id}">Envoyer un message</button></div>`}
     ${m.kind === 'copain' ? '' : `<h3 class="sec">3 dernières tâches</h3>
-      ${last.length ? last.map((l) => { const K = TASK_KINDS[l.kind]; return `<div class="up hist"><div class="txt"><b>${K.emoji} ${esc(K.short)}</b><small>${ago(l.answered_at)} · +${l.soap} 🧼</small></div></div>`; }).join('')
+      ${last.length ? last.map((l) => { const K = TASK_KINDS[l.kind]; return `<div class="up hist"><div class="txt"><b class="hico sm">${taskIcon(l.kind, K) || K.emoji} ${esc(K.short)}</b><small>${ago(l.answered_at)} · +${l.soap} 🧼</small></div></div>`; }).join('')
         : '<div class="det">Aucune tâche validée pour l\'instant.</div>'}`}
     ${unlocked.length ? `<h3 class="sec">Titres débloqués</h3><div class="tags">${unlocked.map((c) => `<span class="tag">${c.emoji} ${esc(c.title)}</span>`).join('')}</div>` : ''}
     ${mine ? `<div class="sact"><button class="btn primary" data-action="goprofile">Modifier mon profil</button></div>` : ''}`);
@@ -1952,8 +1959,9 @@ document.addEventListener('click', (e) => {
     case 'task-pick': if (s?.type === 'tasks') { s.kind = id; render(); } break;
     case 'task-back': if (s?.type === 'tasks') { if (s.kind) s.kind = null; else s.group = null; render(); } break;
     case 'task-submit': submitTaskNow(id); break;
-    case 'shop-ask': state.sheet = { type: 'shop-ask' }; render(); break;
-    case 'shopreq-create': { const item = document.getElementById('shopitem')?.value ?? ''; calAct(() => state.api.addShopRequest(state.me.id, item), () => { state.sheet = null; toast('Demande envoyée !'); render(); }); break; }
+    case 'shop-reqs': state.sheet = { type: 'shopreqs' }; render(); break;
+    case 'perk-week': state.sheet = { type: 'perkweek' }; render(); break;
+    case 'shopreq-create': { const item = document.getElementById('shopitem')?.value ?? ''; calAct(() => state.api.addShopRequest(state.me.id, item), () => { toast('Demande envoyée !'); render(); }); break; }
     case 'shopreq-bought': calAct(() => state.api.shopRequestBought(state.me.id, Number(id)), () => toast('Merci ! Le demandeur doit confirmer.')); break;
     case 'shopreq-ok': calAct(() => state.api.answerShopRequest(state.me.id, Number(id), true), () => toast('Confirmé, les savons sont donnés !')); break;
     case 'shopreq-no': calAct(() => state.api.answerShopRequest(state.me.id, Number(id), false)); break;
