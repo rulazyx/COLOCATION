@@ -1230,3 +1230,4 @@ button.glvl{cursor:pointer}
 .hbub::before{content:'';position:absolute;bottom:100%;right:18px;border:8px solid transparent;border-bottom-color:#fff3cf}
 @keyframes hbubin{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:reduce){.sheet.bubble.popin,.hbub{animation:none}}
+.shophead{margin:6px 0 10px}.shophead .bigttl{margin:0 0 2px;display:flex;align-items:center;gap:8px}.shophead .when{color:var(--muted);font-size:14px}

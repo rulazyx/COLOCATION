@@ -1003,7 +1003,7 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
       <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Quêtes »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
@@ -1331,8 +1331,7 @@ function headMenuHTML() {
     ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
     ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
     ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 2)}
-    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Notifications, messages, réglages', msgs, 3)}
-    ${item('goseg', 'data-seg="sugg"', '💡', 'Suggestions', 'Une idée ou un bug ? Dis-le nous', 0, 4)}
+    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Réglages, messages, suggestions', msgs, 3)}
   </div></div>`;
 }
 function sheetHTML() {
@@ -1345,7 +1344,6 @@ function sheetHTML() {
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
     case 'gboards': return gBoardsSheetHTML();
-    case 'shop': return shopHTML(s);
     case 'headmenu': return headMenuHTML();
     case 'crate': return crateHTML(s);
     case 'cal-new': return calNewHTML();
@@ -1517,6 +1515,7 @@ function gameInfoHTML(s) {
 /* ---------- Onglet Profil ---------- */
 function meHTML() {
   const me = state.me, seg = state.meSeg, lp = levelProgress(xpOf(me.id));
+  if (seg === 'regl' || seg === 'sugg') return `<h2 class="bigttl" style="margin-top:6px">⚙️ Paramètres</h2>${reglagesHTML()}`;   // Paramètres : seulement les réglages
   const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres']];
   return `
     <div class="mehead"><div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div></div>
@@ -1524,8 +1523,7 @@ function meHTML() {
     <div class="lvlline"><b>Niveau ${lp.level}</b> · ${xpOf(me.id)} XP · encore ${lp.need - lp.into} pour le niveau ${lp.level + 1}
       <div class="bar sm lvlbar"><i style="width:${lp.pct}%"></i></div></div>
     <div class="seg four">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'regl' ? '' : ''}
-    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : seg === 'sugg' ? suggestHTML() : robeHTML()}`;
+    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : robeHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
@@ -1626,7 +1624,7 @@ function cadresHTML() {
 }
 
 function suggestHTML() {
-  return `<h3 class="sec" style="margin-top:14px">💡 Suggestions</h3>
+  return `<h3 class="sec">💡 Suggestions</h3>
     <p class="muted" style="margin:0 0 8px">Une idée, un bug, une envie de jeu ou de défi ? Écris-la ici, elle part directement vers le développeur.</p>
     <textarea id="suggtxt" class="suggtxt" maxlength="1000" rows="6" placeholder="Ma suggestion…"></textarea>
     <button class="btn primary" style="width:100%;margin-top:8px" data-action="suggest-send">Envoyer</button>`;
@@ -1634,15 +1632,12 @@ function suggestHTML() {
 
 function reglagesHTML() {
   const me = state.me;
-  const head = '<h3 class="sec" style="margin-top:14px">⚙️ Réglages</h3>';
+  const head = '<h3 class="sec" style="margin-top:4px">Réglages</h3>';
   const swatches = (list, field, current) => list.map((o) =>
     `<button class="sw ${current?.toLowerCase() === o.c ? 'sel' : ''}" style="background:${o.c}" data-action="${field}" data-v="${o.c}" aria-label="${esc(o.name)}" aria-pressed="${current?.toLowerCase() === o.c}"></button>`).join('');
   const cur = OUTFITS[me.outfit] ?? OUTFITS.none;
   return `
     ${head}
-    <button class="btn foldbtn" data-action="tog" data-id="sexe" aria-expanded="${!!state.open.sexe}">Changer de sexe ${state.open.sexe ? '▴' : '▾'}</button>
-    ${state.open.sexe ? `<div class="seg small" style="margin-top:8px">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
-      `<button class="${me.gender === k ? 'on' : ''}" data-action="gender" data-v="${k}">${l}</button>`).join('')}</div>` : ''}
     <button class="btn foldbtn" data-action="tog" data-id="couleur" aria-expanded="${!!state.open.couleur}">Changer de couleur ${state.open.couleur ? '▴' : '▾'}</button>
     ${state.open.couleur ? `
       <h3 class="sec">Couleur de peau ${cur.hidesSkin ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
@@ -1656,6 +1651,7 @@ function reglagesHTML() {
     <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Jumpy Cardinal) : activé' : 'Compteur FPS (Jumpy Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
+    ${suggestHTML()}
     <h3 class="sec">Mes messages</h3>
     ${inboxHTML()}`;
 }
@@ -1706,8 +1702,8 @@ async function crateOpen() {
   } catch (e) { toast(e.message || 'Ouverture impossible.'); refresh(true).catch(() => {}); }
 }
 
-function shopHTML(s) {
-  const me = state.me, slot = s.slot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
+function shopHTML() {
+  const me = state.me, slot = state.shopSlot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
   const none = { outfit: 'Tenue de base', frame: 'Sans cadre', namefx: 'Pseudo normal', bird: 'Oiseau classique' }[slot];
   const noneKey = slot === 'outfit' ? 'none' : null;
   const cur = slot === 'outfit' ? (me.outfit || 'none') : (me[slot] || null);
@@ -1720,12 +1716,12 @@ function shopHTML(s) {
       ${has ? `<button class="mini ${eq ? 'ok' : ''}" data-action="shop-equip" data-slot="${slot}" data-id="${key ?? ''}">${eq ? 'Équipé' : 'Équiper'}</button>`
         : `<button class="mini ok" data-action="shop-buy" data-slot="${slot}" data-id="${key}" ${bal >= price ? '' : 'disabled'}>${price} 🪙</button>`}</div>`;
   };
-  const head = `<div class="sh"><div><h2 class="shoph">${CART_SVG} Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>${closeBtn}</div>
+  const head = `<div class="shophead"><h2 class="bigttl shoph">${CART_SVG} Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>
     <div class="seg five" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>`;
-  if (slot === 'bird') return sheetWrap(head + birdTabHTML(me, owned, bal, cur), 'var(--gold)');
-  return sheetWrap(`${head}
+  if (slot === 'bird') return `<div class="shoppage">${head}${birdTabHTML(me, owned, bal, cur)}</div>`;
+  return `<div class="shoppage">${head}
     <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
-    <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div>`, 'var(--gold)');
+    <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div></div>`;
 }
 /* ---------- Activités proposées + sondage de présence ---------- */
 const evInvited = (e) => !e.invitees || e.creator_id === state.me?.id || e.invitees.includes(state.me?.id);
@@ -1910,7 +1906,7 @@ document.addEventListener('click', (e) => {
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': state.diceTip = false; rollDiceNow(); break;
     case 'dicetip': state.diceTip = !state.diceTip; render(); break;
-    case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
+    case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
     case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
@@ -1937,11 +1933,11 @@ document.addEventListener('click', (e) => {
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;
     case 'cal-del': calAct(() => state.api.deleteEvent(state.me.id, Number(id))); break;
     case 'hint': state.hint = state.hint === v ? null : v; render(); break;
-    case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
+    case 'shop-tab': state.shopSlot = v; render(); break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
     case 'crate-open': crateOpen(); break;
-    case 'crate-equip': saveProfile({ bird: id }); state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
-    case 'crate-again': state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
+    case 'crate-equip': saveProfile({ bird: id }); state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
+    case 'crate-again': state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
     case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
@@ -1987,11 +1983,10 @@ document.addEventListener('click', (e) => {
     case 'suggest-send': {
       const ta = document.getElementById('suggtxt'), txt = ta?.value ?? '';
       state.api.sendSuggestion(state.me.id, txt)
-        .then(() => { toast('Merci ! Suggestion envoyée 💡'); state.meSeg = 'robe'; render(); })
+        .then(() => { toast('Merci ! Suggestion envoyée 💡'); render(); })
         .catch((e) => toast(e.message || 'Envoi impossible.'));
       break;
     }
-    case 'gender': saveProfile({ gender: v }); break;
     case 'skin': saveProfile({ skin: v }); break;
     case 'hair': saveProfile({ hair: v }); break;
     case 'equip': if (ownedBy(state.me.id).has(id)) saveProfile({ outfit: id }); break;
