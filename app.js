@@ -1,6 +1,6 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, SOAP_EXCHANGE, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE_PRICES, DICE_MAX_DAY, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
 } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
@@ -8,7 +8,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 93;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 96;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -519,7 +519,7 @@ function expPreview(s) {
 }
 function expFormHTML(s) {
   const cs = state.members.filter((m) => m.kind === 'coloc');
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>${s.id ? 'Modifier la dépense' : 'Nouvelle dépense'}</h2><div class="when">Payée par ${esc(nameOf(s.payer))} · partagée à parts égales</div></div>${closeBtn}</div>
     <label class="evl">Pour quoi ?<input class="evin" data-input="exp-title" maxlength="60" placeholder="Ex. Courses, internet…" value="${esc(s.title)}"></label>
     <label class="evl">Montant (€)<input class="evin" data-input="exp-amount" inputmode="decimal" placeholder="0,00" value="${esc(s.amount)}"></label>
@@ -992,9 +992,8 @@ function render() {
     ${`<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, quêtes, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
       <span class="grow"></span>
-      ${me.kind === 'coloc' ? `<button class="hchip cur-dice" data-action="goto-plateau" title="Dés restants">🎲 ${diceLeft(me.id)}</button>` : ''}
-      <button class="hchip cur-cc" data-action="exchange" title="Échanger des savons contre des colocoins">🪙 ${chipsOf(me.id)}</button>
-      <button class="hchip cur-soap" data-action="goto-plateau" title="Plateau">🧼 ${soapOf(me.id)}</button>
+      <span class="hwrap"><button class="hchip cur-cc" data-action="hint" data-v="cc" title="Colocoins">🪙 ${chipsOf(me.id)}</button>${state.hint === 'cc' ? '<div class="hbub">Joue aux jeux pour gagner des pièces ou gagne la course !</div>' : ''}</span>
+      <span class="hwrap"><button class="hchip cur-soap" data-action="hint" data-v="soap" title="Savons">🧼 ${soapOf(me.id)}</button>${state.hint === 'soap' ? '<div class="hbub">Accomplis des tâches pour gagner des savons !</div>' : ''}</span>
           </header>
     `}
     <main class="${anim ? 'pg' : ''}">
@@ -1004,7 +1003,7 @@ function render() {
           <span style="display:flex;gap:4px;align-items:center"><button class="btn" style="background:var(--accent);color:var(--on-accent);padding:10px 14px;width:auto" data-action="push">Activer</button><button class="x" data-action="dismiss" aria-label="Fermer">✕</button></span>
         </div>`}
       ${syncBarHTML()}${confirmBannerHTML(tab)}
-      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : meHTML()}
+      ${tab === 'tasks' ? tasksHTML() : tab === 'defis' ? defisTabHTML() : tab === 'games' ? gamesHTML() : tab === 'rank' ? rankHTML() : tab === 'budget' ? budgetHTML() : tab === 'cal' ? calendarHTML() : tab === 'shop' ? shopHTML() : meHTML()}
     </main>
     ${step ? `<div class="coach" role="status"><div class="cn">Découverte · étape ${step.n} sur ${INTRO_STEPS.length}</div><b>${esc(step.title)}</b><p>${esc(step.text)}</p>
       <div class="cgo">${step.tab === 'heads' ? (tab === 'me' ? '👆 Change d\'onglet : touche ta tête pour revenir au profil' : '👆 Touche ta tête, en haut à gauche') : step.tab === 'defis' ? '👆 Touche ta tête, en haut à gauche, puis « Quêtes »' : `👇 Touche l\'onglet « ${esc(step.title)} » pour continuer`}</div></div>` : ''}
@@ -1024,7 +1023,7 @@ function weekHTML() {
   const me = state.me;
   const list = colocs().map((m) => ({ m, n: weekSoap(m.id) })).sort((a, b) => b.n - a.n || (a.m.id === me.id ? -1 : 0));
   const pk = perkOfWeekDef();
-  return `<div class="wkcard">${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}<div class="wkt"><b>🧼 Savons gagnés cette semaine</b><small>🏆 +${GOOSE.weekWin} 🪙 pour le 1er</small></div>
+  return `<div class="wkcard"><h2 class="bigttl">🧼 Savons gagnés cette semaine</h2>${pk ? `<div class="perkbox"><b>🎁 Récompense de la semaine</b><span>${esc(pk.title)}</span><small>${esc(pk.short)} · pour celui qui gagne le plus de savons</small></div>` : ''}
     <div class="wkheads">${list.map(({ m, n }, i) => `<div class="wkh ${m.id === me.id ? 'me' : ''}">${i === 0 && n > 0 ? '<i class="crown">👑</i>' : ''}${av(m, 42)}<small>${esc(m.name)}</small><b>${n} 🧼</b></div>`).join('')}</div></div>`;
 }
 function syncBarHTML() {
@@ -1164,7 +1163,10 @@ function plateauHTML() {
       <div class="gdep"><span>🏖️ Départ</span><div class="pw">${pawnHTML(0, 18)}</div></div>
       ${lastTxt ? `<small class="glast">${lastTxt}</small>` : ''}
     </div>`;
+  const nextK = rollsToday(me.id) + left;          // prochain dé encore bloqué
+  const tip = nextK >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui, reviens demain !' : `Encore ${dicePriceAt(nextK) - have} 🧼 avant le prochain dé`;
   return `
+    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">🏆 +${GOOSE.weekWin} 🪙 pour le 1er</div>
     <div class="beach ring">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
         <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#e7c27b" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff3cf" stroke-width="3" stroke-dasharray="2 9" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
@@ -1173,7 +1175,8 @@ function plateauHTML() {
         ${cells.join('')}
         <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
       </div></div>
-    <button class="btn primary" style="margin-top:12px" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : rollsToday(me.id) >= DICE_MAX_DAY ? 'Plus de dé aujourd\'hui' : have < cost ? `Encore ${cost - have} 🧼 cette semaine pour le prochain dé` : cost === 0 ? 'Lancer le dé · gratuit' : 'Lancer le dé'}${isColoc ? `<span class="dleft" title="Dés restants">🎲 ${left}</span>` : ''}</button>`;
+    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : cost === 0 && can ? 'Lancer le dé · gratuit' : 'Lancer le dé'}</button>
+      ${isColoc ? `<div class="dicewrap">${state.diceTip ? `<div class="dicetip">${tip}</div>` : ''}<button class="btn dicecount" data-action="dicetip" title="Dés restants">🎲 ${left}</button></div>` : ''}</div>`;
 }
 
 
@@ -1296,6 +1299,12 @@ const defisTabHTML = () => dailyCardHTML() + `<h3 class="sec">Défis ${unlockedK
 function sheetWrap(inner, color = 'var(--accent)') {
   return `<div class="overlay" data-action="close"><div class="sheet" role="dialog" aria-modal="true" style="--c:${color}">${inner}</div></div>`;
 }
+// Fenêtre en bulle au milieu de l'écran (dépense, activité, profil) : l'animation ne joue qu'à l'ouverture
+function popWrap(inner, color = 'var(--accent)') {
+  const s = currentSheet(), fresh = state.popShown !== s;
+  state.popShown = s;
+  return `<div class="overlay mid" data-action="close"><div class="sheet bubble ${fresh ? 'popin' : ''}" role="dialog" aria-modal="true" style="--c:${color}">${inner}</div></div>`;
+}
 const closeBtn = '<button class="close" data-action="close" aria-label="Fermer">✕</button>';
 
 // Feuille affichée : celle ouverte à la main, sinon (hors jeu) les défis réussis, sinon la récompense du jour
@@ -1322,8 +1331,7 @@ function headMenuHTML() {
     ${item('shop', 'data-slot="outfit"', '🛒', 'Boutique', 'Personnages, cadres, oiseaux…', 0, 0)}
     ${item('tab', 'data-tab="defis"', '📖', 'Quêtes', nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour', due ? (nready || true) : 0, 1)}
     ${item('goseg', 'data-seg="robe"', '🎨', 'Personnalisation', 'Personnage, titres, badges', 0, 2)}
-    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Notifications, messages, réglages', msgs, 3)}
-    ${item('goseg', 'data-seg="sugg"', '💡', 'Suggestions', 'Une idée ou un bug ? Dis-le nous', 0, 4)}
+    ${item('goseg', 'data-seg="regl"', '⚙️', 'Paramètres', msgs ? `${msgs} nouveau${msgs > 1 ? 'x' : ''} message${msgs > 1 ? 's' : ''}` : 'Réglages, messages, suggestions', msgs, 3)}
   </div></div>`;
 }
 function sheetHTML() {
@@ -1336,9 +1344,7 @@ function sheetHTML() {
     case 'msg': return msgSheetHTML(s);
     case 'ginfo': return gameInfoHTML(s);
     case 'gboards': return gBoardsSheetHTML();
-    case 'shop': return shopHTML(s);
     case 'headmenu': return headMenuHTML();
-    case 'exchange': return exchangeHTML();
     case 'crate': return crateHTML(s);
     case 'cal-new': return calNewHTML();
     case 'soaphist': return soapHistHTML();
@@ -1509,6 +1515,7 @@ function gameInfoHTML(s) {
 /* ---------- Onglet Profil ---------- */
 function meHTML() {
   const me = state.me, seg = state.meSeg, lp = levelProgress(xpOf(me.id));
+  if (seg === 'regl' || seg === 'sugg') return `<h2 class="bigttl" style="margin-top:6px">⚙️ Paramètres</h2>${reglagesHTML()}`;   // Paramètres : seulement les réglages
   const segs = [['robe', 'Garde-robe'], ['titres', 'Titres'], ['badges', 'Badges'], ['cadres', 'Cadres']];
   return `
     <div class="mehead"><div class="pname"><b>${nameHTML(me)}</b>${titleLabel(me) ? `<span class="ptitle">${esc(titleLabel(me))}</span>` : ''}${me.kind === 'copain' ? '<span class="ptitle">Copain</span>' : ''}</div></div>
@@ -1516,8 +1523,7 @@ function meHTML() {
     <div class="lvlline"><b>Niveau ${lp.level}</b> · ${xpOf(me.id)} XP · encore ${lp.need - lp.into} pour le niveau ${lp.level + 1}
       <div class="bar sm lvlbar"><i style="width:${lp.pct}%"></i></div></div>
     <div class="seg four">${segs.map(([k, l]) => `<button class="${seg === k ? 'on' : ''}" data-action="seg" data-seg="${k}">${l}</button>`).join('')}</div>
-    ${seg === 'regl' ? '' : ''}
-    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : seg === 'regl' ? reglagesHTML() : seg === 'sugg' ? suggestHTML() : robeHTML()}`;
+    ${seg === 'titres' ? titresHTML() : seg === 'badges' ? badgesTabHTML() : seg === 'cadres' ? cadresHTML() : robeHTML()}`;
 }
 
 // Cases de statistiques d'un profil (le tien ou celui d'un autre)
@@ -1618,7 +1624,7 @@ function cadresHTML() {
 }
 
 function suggestHTML() {
-  return `<h3 class="sec" style="margin-top:14px">💡 Suggestions</h3>
+  return `<h3 class="sec">💡 Suggestions</h3>
     <p class="muted" style="margin:0 0 8px">Une idée, un bug, une envie de jeu ou de défi ? Écris-la ici, elle part directement vers le développeur.</p>
     <textarea id="suggtxt" class="suggtxt" maxlength="1000" rows="6" placeholder="Ma suggestion…"></textarea>
     <button class="btn primary" style="width:100%;margin-top:8px" data-action="suggest-send">Envoyer</button>`;
@@ -1626,15 +1632,12 @@ function suggestHTML() {
 
 function reglagesHTML() {
   const me = state.me;
-  const head = '<h3 class="sec" style="margin-top:14px">⚙️ Réglages</h3>';
+  const head = '<h3 class="sec" style="margin-top:4px">Réglages</h3>';
   const swatches = (list, field, current) => list.map((o) =>
     `<button class="sw ${current?.toLowerCase() === o.c ? 'sel' : ''}" style="background:${o.c}" data-action="${field}" data-v="${o.c}" aria-label="${esc(o.name)}" aria-pressed="${current?.toLowerCase() === o.c}"></button>`).join('');
   const cur = OUTFITS[me.outfit] ?? OUTFITS.none;
   return `
     ${head}
-    <button class="btn foldbtn" data-action="tog" data-id="sexe" aria-expanded="${!!state.open.sexe}">Changer de sexe ${state.open.sexe ? '▴' : '▾'}</button>
-    ${state.open.sexe ? `<div class="seg small" style="margin-top:8px">${[['homme', '👨 Homme'], ['femme', '👩 Femme']].map(([k, l]) =>
-      `<button class="${me.gender === k ? 'on' : ''}" data-action="gender" data-v="${k}">${l}</button>`).join('')}</div>` : ''}
     <button class="btn foldbtn" data-action="tog" data-id="couleur" aria-expanded="${!!state.open.couleur}">Changer de couleur ${state.open.couleur ? '▴' : '▾'}</button>
     ${state.open.couleur ? `
       <h3 class="sec">Couleur de peau ${cur.hidesSkin ? '<small>(cachée par ta tenue)</small>' : ''}</h3>
@@ -1648,6 +1651,7 @@ function reglagesHTML() {
     <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Jumpy Cardinal) : activé' : 'Compteur FPS (Jumpy Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
+    ${suggestHTML()}
     <h3 class="sec">Mes messages</h3>
     ${inboxHTML()}`;
 }
@@ -1698,8 +1702,8 @@ async function crateOpen() {
   } catch (e) { toast(e.message || 'Ouverture impossible.'); refresh(true).catch(() => {}); }
 }
 
-function shopHTML(s) {
-  const me = state.me, slot = s.slot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
+function shopHTML() {
+  const me = state.me, slot = state.shopSlot || 'outfit', owned = shopOwned(me.id), bal = chipsOf(me.id), skins = ownedBy(me.id);
   const none = { outfit: 'Tenue de base', frame: 'Sans cadre', namefx: 'Pseudo normal', bird: 'Oiseau classique' }[slot];
   const noneKey = slot === 'outfit' ? 'none' : null;
   const cur = slot === 'outfit' ? (me.outfit || 'none') : (me[slot] || null);
@@ -1712,12 +1716,12 @@ function shopHTML(s) {
       ${has ? `<button class="mini ${eq ? 'ok' : ''}" data-action="shop-equip" data-slot="${slot}" data-id="${key ?? ''}">${eq ? 'Équipé' : 'Équiper'}</button>`
         : `<button class="mini ok" data-action="shop-buy" data-slot="${slot}" data-id="${key}" ${bal >= price ? '' : 'disabled'}>${price} 🪙</button>`}</div>`;
   };
-  const head = `<div class="sh"><div><h2 class="shoph">${CART_SVG} Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>${closeBtn}</div>
+  const head = `<div class="shophead"><h2 class="bigttl shoph">${CART_SVG} Boutique</h2><div class="when">Tu as ${bal} 🪙</div></div>
     <div class="seg five" style="margin-bottom:10px">${SHOP_SLOTS.map(([k, l]) => `<button class="${slot === k ? 'on' : ''}" data-action="shop-tab" data-v="${k}">${l}</button>`).join('')}</div>`;
-  if (slot === 'bird') return sheetWrap(head + birdTabHTML(me, owned, bal, cur), 'var(--gold)');
-  return sheetWrap(`${head}
+  if (slot === 'bird') return `<div class="shoppage">${head}${birdTabHTML(me, owned, bal, cur)}</div>`;
+  return `<div class="shoppage">${head}
     <div class="shop shopgrid">${tile(noneKey, none, 0)}${SHOP[slot].map((it) => tile(it.key, it.name, it.price)).join('')}</div>
-    <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div>`, 'var(--gold)');
+    <div class="det">${{ outfit: 'Des personnages à acheter : 100 🪙 chacun (dino : 200 🪙).', frame: 'Un cadre autour de ton personnage, visible partout.', namefx: 'Une couleur ou un effet pour ton pseudo.' }[slot]}</div></div>`;
 }
 /* ---------- Activités proposées + sondage de présence ---------- */
 const evInvited = (e) => !e.invitees || e.creator_id === state.me?.id || e.invitees.includes(state.me?.id);
@@ -1748,7 +1752,7 @@ function calendarHTML() {
 function calNewHTML() {
   const s = state.sheet, others = state.members.filter((m) => m.id !== state.me.id);
   const d = new Date(Date.now() + 86400000), pad = (n) => String(n).padStart(2, '0'), day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>Nouvelle activité</h2><div class="when">Tout le monde pourra répondre</div></div>${closeBtn}</div>
     <label class="evl">Quoi ?<input id="evtitle" class="evin" maxlength="60" placeholder="Ex. Soirée jeux de société" value="${esc(s.t ?? '')}"></label>
     <label class="evl">Où ? <small>(facultatif)</small><input id="evplace" class="evin" maxlength="60" placeholder="Ex. Au salon" value="${esc(s.p ?? '')}"></label>
@@ -1764,22 +1768,6 @@ async function calAct(fn, ok) {
   try { await fn(); await refresh(true); if (ok) ok(); } catch (e) { toast(e.message || 'Action impossible.'); refresh(true).catch(() => {}); }
 }
 
-function exchangeHTML() {
-  const me = state.me, have = soapOf(me.id), coloc = me.kind === 'coloc';
-  return sheetWrap(`
-    <div class="sh"><div><h2>Échange</h2><div class="when">Tu as ${have} 🧼 · ${chipsOf(me.id)} 🪙</div></div>${closeBtn}</div>
-    <div class="det">Change tes savons contre des colocoins : plus tu en échanges d'un coup, plus c'est avantageux.</div>
-    ${SOAP_EXCHANGE.map((o) => `<div class="up"><div class="txt"><b>${o.soap} 🧼 → ${o.coins} 🪙</b><small>${o.coins / o.soap} colocoins par savon</small></div>
-      <button class="mini ok" data-action="exchange-do" data-id="${o.soap}" ${coloc && have >= o.soap ? '' : 'disabled'}>Échanger</button></div>`).join('')}
-    ${coloc ? '' : '<div class="det">Seuls les colocataires gagnent des savons.</div>'}`, 'var(--gold)');
-}
-async function exchangeNow(soap) {
-  try {
-    const r = await state.api.exchangeSoap(state.me.id, soap);
-    await refresh(true);
-    toast(`+${r.coins} colocoins !`);
-  } catch (e) { toast(e.message || 'Échange impossible.'); refresh(true).catch(() => {}); }
-}
 async function shopBuy(slot, key) {
   try {
     await state.api.buyShop(state.me.id, `${slot}:${key}`);
@@ -1820,7 +1808,7 @@ function profileSheetHTML(s) {
   const t = titleLabel(m);
   const unlocked = CHALLENGES.filter((c) => unlockedKeys(m.id).has(c.key));
   const last = state.logs.filter((l) => l.status === 'validated' && l.doer_id === m.id).slice(0, 3);
-  return sheetWrap(`
+  return popWrap(`
     <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
     <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${nameHTML(m)}</b></div>
@@ -1899,6 +1887,7 @@ function wheelSheetHTML(s) {
    ========================================================= */
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-action]');
+  if (state.hint && el?.dataset.action !== 'hint') { state.hint = null; if (!el) { render(); return; } }   // toucher ailleurs ferme la bulle
   if (!el) return;
   const { action, id, tab, d, v, seg } = el.dataset;
   const s = state.sheet;
@@ -1915,8 +1904,9 @@ document.addEventListener('click', (e) => {
     }
     case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
-    case 'roll': rollDiceNow(); break;
-    case 'shop': state.heads = false; state.sheet = { type: 'shop', slot: el.dataset.slot || 'outfit' }; render(); break;
+    case 'roll': state.diceTip = false; rollDiceNow(); break;
+    case 'dicetip': state.diceTip = !state.diceTip; render(); break;
+    case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
     case 'headmenu': state.sheet = { type: 'headmenu' }; render(); break;
     case 'goseg': state.anim = state.tab !== 'me' || state.meSeg !== el.dataset.seg; state.tab = 'me'; state.meSeg = el.dataset.seg; state.sheet = null; render(); scrollApp(0); questStep(5); questStep(6); markRead(); break;
@@ -1942,13 +1932,12 @@ document.addEventListener('click', (e) => {
     }
     case 'cal-vote': calAct(() => state.api.voteEvent(state.me.id, Number(id), v)); break;
     case 'cal-del': calAct(() => state.api.deleteEvent(state.me.id, Number(id))); break;
-    case 'exchange': state.heads = false; state.sheet = { type: 'exchange' }; render(); break;
-    case 'exchange-do': exchangeNow(Number(id)); break;
-    case 'shop-tab': if (s?.type === 'shop') { s.slot = v; render(); } break;
+    case 'hint': state.hint = state.hint === v ? null : v; render(); break;
+    case 'shop-tab': state.shopSlot = v; render(); break;
     case 'shop-buy': shopBuy(el.dataset.slot, id); break;
     case 'crate-open': crateOpen(); break;
-    case 'crate-equip': saveProfile({ bird: id }); state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
-    case 'crate-again': state.sheet = { type: 'shop', slot: 'bird' }; render(); break;
+    case 'crate-equip': saveProfile({ bird: id }); state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
+    case 'crate-again': state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
     case 'goto-plateau': state.tab = 'tasks'; state.tasksSeg = 'plateau'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
@@ -1994,11 +1983,10 @@ document.addEventListener('click', (e) => {
     case 'suggest-send': {
       const ta = document.getElementById('suggtxt'), txt = ta?.value ?? '';
       state.api.sendSuggestion(state.me.id, txt)
-        .then(() => { toast('Merci ! Suggestion envoyée 💡'); state.meSeg = 'robe'; render(); })
+        .then(() => { toast('Merci ! Suggestion envoyée 💡'); render(); })
         .catch((e) => toast(e.message || 'Envoi impossible.'));
       break;
     }
-    case 'gender': saveProfile({ gender: v }); break;
     case 'skin': saveProfile({ skin: v }); break;
     case 'hair': saveProfile({ hair: v }); break;
     case 'equip': if (ownedBy(state.me.id).has(id)) saveProfile({ outfit: id }); break;
