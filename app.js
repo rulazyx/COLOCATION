@@ -1450,8 +1450,7 @@ function gamesListHTML() {
   return `
 
     ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
-      return `<button class="kcard gdefis ${nready || due ? 'dot' : ''}" style="--c:var(--gold)" data-action="tab" data-tab="defis"><span class="kemo">📖</span>
-        <span class="ktxt"><b>Défis</b><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span><span class="ksoap">›</span></button>`; })()}
+      return `<button class="gfarm gspace" data-action="tab" data-tab="defis" aria-label="Défis"><span class="gf-ico">${DEFIS_ICON}</span><span class="gf-txt"><span class="gt-name">Défis</span><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span>${nready || due ? `<span class="gbadge">${nready || '!'}</span>` : ''}</button>`; })()}
     <button class="gfarm" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gf-ico">${FARM_ICON}</span><span class="gf-txt"><span class="gt-name">Colo-Ferme</span><small>Plante, récolte, construis</small></span>${farmReadyBadge()}</button>
     <div class="gtiles">${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
@@ -1472,6 +1471,8 @@ function farmReadyBadge() {
   const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
 }
+// Étoile-médaille de la tuile Défis (même trait que la botte de paille)
+const DEFIS_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#3b1d7a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 30l-5 13 6-3 4 5 4-12M31 30l5 13-6-3-4 5-4-12" fill="#7c5cff"/><circle cx="24" cy="21" r="15" fill="#ffd23f" stroke="#9a6a00"/><path d="M24 11.5l2.9 5.9 6.5.9-4.7 4.6 1.1 6.5-5.8-3.1-5.8 3.1 1.1-6.5-4.7-4.6 6.5-.9z" fill="#fff6c7" stroke="#9a6a00" stroke-width="2"/></svg>';
 // Botte de paille de la tuile Colo-Ferme (trait simple, comme les icônes de l'appli)
 const FARM_ICON = '<svg viewBox="0 0 48 48" width="38" height="38" fill="none" stroke="#7a4b0c" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="14" width="36" height="24" rx="4" fill="#f5c84c"/><path d="M10 21h8M22 21h6M32 21h6M10 27h4M18 27h10M32 27h6M10 33h8M22 33h6M32 33h6" stroke="#c98f1c" stroke-width="2"/><path d="M15 14v24M33 14v24" stroke="#b5452a" stroke-width="3"/><path d="M9 14l-2-4M14 14l1-5M24 14l-1-5M29 14l2-4M38 14l2-4"/></svg>';
 
