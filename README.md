@@ -331,3 +331,6 @@ Onglet Tâches : sous « J'ai effectué une tâche », un bouton « Demander à 
 - Univers pirate : mer animée au centre (bateau, île au trésor, tentacule du kraken, mouette), cases dessinées en SVG et animées. Bonus : coffre (colocoins), carte au trésor (XP), vent favorable (on rejoue le même nombre). Malus : récif (−2 cases), tempête (−3), kraken (−5), pirates (−20 ou −30 colocoins, jamais plus que ton solde). La case d'arrivée est l'île au trésor.
 - La récompense de la semaine (1000 colocoins pour celui qui gagne le plus de savons) ne change pas et reste dans Tâches.
 - Base : table `dice_clock`, nouvelle fonction `roll_dice`, nouvelles cases `goose_cells` avec une colonne `name` (supabase/patch-v104.sql).
+
+### v105 — Commission, historique et cadeau
+Onglet Tâches : « Demander à quelqu'un d'acheter » devient « Missionner une commission » ; les deux boutons prennent toute la largeur. Plus de petit bouton Historique : l'historique des tâches s'affiche sous la case des savons (le plateau part dans Jeux, v104). Le bouton cadeau (récompense de la semaine) est rond, en haut de la page. Aucun SQL à lancer.

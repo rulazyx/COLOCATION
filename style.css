@@ -1356,3 +1356,8 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .landed .sart{width:56px;height:56px}
 .landed.mal b{color:var(--danger)}
 @media (prefers-reduced-motion:reduce){.seascene *,.sart *{animation:none!important}}
+/* v105 : boutons pleine largeur, cadeau rond en haut */
+.wkcard .taskrow .btn.taskbtn{position:relative;width:100%}
+.giftrow{display:flex;justify-content:flex-end;margin:-2px 0 8px}
+.giftbtn{width:54px;height:54px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffd75e,#f0a91c);color:#4a2e05;box-shadow:0 4px 14px rgba(240,169,28,.4);border:0;cursor:pointer}
+.giftbtn:active{transform:scale(.94)}.giftbtn .tico{font-size:30px}

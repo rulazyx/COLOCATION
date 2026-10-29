@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 102;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 105;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -1082,16 +1082,16 @@ function taskRowHTML() {
   const me = state.me, isColoc = me.kind === 'coloc';
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
   const reqs = shopActive().filter((r) => (r.status === 'open' && r.requester_id !== me.id) || (r.status === 'bought' && r.requester_id === me.id)).length;
-  return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}</button>
-      <button class="btn histbtn" data-action="task-hist" aria-label="Historique des tâches" title="Historique">${HIST_SVG}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
-    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Demander à quelqu'un d'acheter${reqs ? `<span class="badge">${reqs}</span>` : ''}</button>
-      <button class="btn histbtn giftbtn" data-action="perk-week" aria-label="Récompense de la semaine" title="Récompense de la semaine">${GIFT_ICON}</button></div>`;
+  return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
+    <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Missionner une commission${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>`;
 }
 function tasksHTML() {
   const me = state.me;
   const vac = activePerksOf(me.id).find((pk) => pk.kind === 'vacances');
-  return `${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
-    ${weekHTML()}`;
+  return `<div class="giftrow"><button class="giftbtn" data-action="perk-week" aria-label="Récompense de la semaine" title="Récompense de la semaine">${GIFT_ICON}</button></div>
+    ${vac ? `<div class="perk vacances"><b>${esc(perkDef('vacances').title)}</b><small>Tu as gagné une semaine sans tâche ménagère grâce à la course aux pièces.</small></div>` : ''}
+    ${weekHTML()}
+    <h2 class="bigttl" style="margin-top:4px">Historique des tâches</h2>${taskHistBody()}`;
 }
 
 /* ---------- Course aux pièces (plateau en anneau, jamais remis à zéro) ---------- */
@@ -1253,7 +1253,8 @@ function taskBubbleHTML(s) {
 }
 
 // Historique : mes tâches en attente de confirmation, puis les dernières tâches confirmées
-function taskHistHTML() {
+// Historique des tâches (affiché sous la case des savons) : mes tâches à confirmer, puis les dernières confirmées
+function taskHistBody() {
   const me = state.me;
   const mine = pendingLogs().filter((l) => l.doer_id === me.id);
   const done = state.logs.filter((l) => l.status === 'validated').slice(0, 20);
@@ -1262,12 +1263,10 @@ function taskHistHTML() {
     return `<div class="up hist"><div class="mini-av">${av(memberById(l.doer_id), 38)}</div>
       <div class="txt"><b class="hico sm">${esc(nameOf(l.doer_id))} : ${taskIcon(l.kind, K) || K.emoji} ${esc(K.short)}</b><small>${extra}</small></div>${actions}</div>`;
   };
-  return popWrap(`
-    <div class="sh"><div><h2>Historique des tâches</h2><div class="when">Les tâches de toute la coloc</div></div>${closeBtn}</div>
-    ${mine.length ? `<h3 class="sec" style="margin-top:6px">En attente de confirmation</h3>
+  return `${mine.length ? `<h3 class="sec" style="margin-top:0">En attente de confirmation</h3>
       ${mine.map((l) => row(l, `${ago(l.created_at)} · +${l.soap} 🧼`, `<button class="mini" data-action="task-cancel" data-id="${l.id}">Annuler</button>`)).join('')}` : ''}
-    <h3 class="sec" style="margin-top:${mine.length ? 14 : 6}px">Dernières tâches</h3>
-    ${done.length ? done.map((l) => row(l, `${ago(l.answered_at)} · +${l.soap} 🧼 · confirmé par ${esc(nameOf(l.validator_id))}`)).join('') : '<div class="det">Aucune tâche confirmée pour l\'instant.</div>'}`, '#2b7de9');
+    <h3 class="sec" style="margin-top:${mine.length ? 14 : 0}px">Dernières tâches</h3>
+    ${done.length ? done.map((l) => row(l, `${ago(l.answered_at)} · +${l.soap} 🧼 · confirmé par ${esc(nameOf(l.validator_id))}`)).join('') : '<div class="det">Aucune tâche confirmée pour l\'instant.</div>'}`;
 }
 
 // Écran du code secret (4 chiffres)
@@ -1353,7 +1352,6 @@ function sheetHTML() {
     case 'soaphist': return soapHistHTML();
     case 'wheel': return wheelSheetHTML(s);
     case 'tasks': return taskBubbleHTML(s);
-    case 'taskhist': return taskHistHTML();
     case 'exphist': return expHistHTML();
     case 'shopreqs': return shopReqHTML();
     case 'perkweek': return perkWeekHTML();
@@ -1983,7 +1981,6 @@ document.addEventListener('click', (e) => {
     case 'dgrp': state.defisGrp = v || null; render(); scrollApp(0); break;
     case 'rseg': state.anim = state.rankSeg !== v; state.rankSeg = v; render(); scrollApp(0); break;
     case 'task-open': state.sheet = { type: 'tasks' }; render(); break;
-    case 'task-hist': state.sheet = { type: 'taskhist' }; render(); break;
     case 'task-group': if (s?.type === 'tasks') { s.group = id; render(); } break;
     case 'task-pick': if (s?.type === 'tasks') { s.kind = id; render(); } break;
     case 'task-back': if (s?.type === 'tasks') { if (s.kind) s.kind = null; else s.group = null; render(); } break;
