@@ -568,7 +568,7 @@ async function rollDiceNow() {
     for (let i = 1; i <= r.roll; i++) { state.moving.pos = r.from + i; render(); await sleep(400); }
     if (r.to !== r.from + r.roll) { await sleep(500); state.moving.pos = r.to; render(); await sleep(600); }
     state.moving = null; state.rolling = false;
-    state.sheet = { type: 'dice', r };
+    if (state.game === 'course') { state.courseRes = r; courseRefresh(); } else state.sheet = { type: 'dice', r };
     await refresh(true);
   } catch (e) { state.moving = null; state.rolling = false; toast(e.message || 'Lancer impossible.'); refresh(true).catch(() => {}); }
 }
@@ -656,7 +656,8 @@ async function openProfile(id) {
 const GAMES = {
   chifoumi: { name: 'Chifoumi', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
   flappy: { name: 'Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP, chaque palier franchi (50, 100, 150, 200, 250) des colocoins.' },
-  blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
+  course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
   ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
@@ -685,6 +686,7 @@ const GHOME = {
   sudoku: ['play', 'quit'],   // les niveaux se consultent en touchant « Niveau N » en haut
   chifoumi: ['duel', 'quit'],   // l'historique s'ouvre via l'icône livre en haut à droite
   ferme: ['play', 'quit'],
+  course: ['play', 'quit'],
   blackjack: ['play', 'quit'],
 };
 const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
@@ -812,6 +814,13 @@ async function gPlay() {
   try {
     const mod = await u.modP;
     if (gameUI !== u) return;
+    if (id === 'course') {
+      const body = layer.querySelector('.gbody');
+      body.innerHTML = '<canvas class="seaw" aria-hidden="true"></canvas><div class="cwrap"></div>';
+      const stopSea = mod.mountSea(body.querySelector('canvas'));
+      gameHandle = { destroy: stopSea }; state.courseRes = null; courseRefresh();
+      return;
+    }
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
       balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
       ...(id === 'ferme' ? farmCtx() : {}),
@@ -973,6 +982,7 @@ const pendingForMe = () => state.duels.filter((d) => d.status === 'pending' && d
 
 function render() {
   const app = $('#app');
+  if (state.game === 'course') courseRefresh();
   if (state.error) {
     app.innerHTML = `<div class="pick"><h1>😕 Oups</h1><p>Impossible de charger les données.<br><small>${esc(state.error)}</small></p><button data-action="reload">Réessayer</button></div>`;
     return;
@@ -1157,7 +1167,18 @@ const ringXY = (n) => {                       // n = 1..30 → [colonne, ligne] 
   if (n <= 2 * cols + rows - 2) return [cols - 1 - (n - (cols + rows - 1)), 0];   // haut : droite → gauche
   return [0, n - (2 * cols + rows - 2)];                                     // gauche : vers le bas
 };
-function plateauHTML() {
+function courseRefresh() {
+  const w = glayer()?.querySelector('.cwrap'); if (!w || state.game !== 'course') return;
+  const sc = w.scrollTop; w.innerHTML = plateauHTML(true) + (state.courseRes ? courseResultHTML(state.courseRes) : ''); w.scrollTop = sc;
+}
+function courseResultHTML(r) {
+  const c = GOOSE.cells[cellOfPos(r.from + r.roll)];
+  return `<div class="cres"><div class="cbox"><h2>Tu as fait ${r.roll}</h2><div class="when">Case ${cellOfPos(r.from) || 'départ'} → case ${cellOfPos(r.to) || 'départ'}</div>
+    <div class="dicebig"><span class="die d${r.roll}">${Array.from({ length: r.roll }, () => '<i></i>').join('')}</span>${c ? `<span class="landed ${cellKind(c)}">${seaArt(c.art)}<b>${esc(c.name)}</b></span>` : ''}</div>
+    ${r.note ? `<div class="reward">${esc(r.note)}</div>` : '<div class="det">Case sans effet.</div>'}
+    <button class="gh-btn go" data-action="course-ok">OK</button></div></div>`;
+}
+function plateauHTML(inGame = false) {
   const me = state.me, isColoc = canPlay(me);
   const { cols, rows } = RING;
   const pawns = {};
@@ -1181,9 +1202,9 @@ function plateauHTML() {
     </div>`;
   const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
   return `
-    <div class="racehead"><button class="mini" data-action="tab" data-tab="games">‹ Jeux</button></div>
+    ${inGame ? '' : '<div class="racehead"><button class="mini" data-action="tab" data-tab="games">‹ Jeux</button></div>'}
     <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">Un dé toutes les ${DICE.everyH} h · ${DICE.max} en réserve au maximum</div>
-    <div class="beach ring pirate">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
+    <div class="beach ring pirate ${inGame ? 'atsea' : ''}">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
       <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
         <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#5e3415" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#c99a5b" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
         <div class="glagoon" style="grid-column:2/${cols};grid-row:2/${rows}">${SEA_SCENE}</div>
@@ -1504,7 +1525,7 @@ function gamesListHTML() {
       return `<button class="gfarm gspace" data-action="tab" data-tab="defis" aria-label="Défis"><span class="gf-ico">${DEFIS_ICON}</span><span class="gf-txt"><span class="gt-name">Défis</span><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span>${nready || due ? `<span class="gbadge">${nready || '!'}</span>` : ''}</button>`; })()}
     <div class="gtiles">
       <button class="gtile g-ferme" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gt-ico">${FARM_ICON.replace(/width="38" height="38"/, 'width="64" height="64"')}</span><span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
-      <button class="gtile g-race" data-action="race" aria-label="Course aux pièces"><span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${me.kind === 'coloc' && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
+      <button class="gtile g-race" data-action="game" data-id="course" aria-label="Course aux pièces"><span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${canPlay(me) && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
       <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
 `;
 }
@@ -1997,7 +2018,8 @@ document.addEventListener('click', (e) => {
     case 'tog': state.open[id] = !state.open[id]; render(); break;
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
-    case 'race': state.anim = true; state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'course-ok': state.courseRes = null; courseRefresh(); break;
+    case 'race': state.sheet = null; state.heads = false; openGame('course'); break;
     case 'dicetip': break;
     case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;
     case 'calendar': state.sheet = null; state.tab = 'cal'; state.anim = true; render(); scrollApp(0); break;
@@ -2033,7 +2055,7 @@ document.addEventListener('click', (e) => {
     case 'crate-equip': saveProfile({ bird: id }); state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'crate-again': state.sheet = null; state.tab = 'shop'; state.shopSlot = 'bird'; render(); break;
     case 'shop-equip': saveProfile({ [el.dataset.slot]: id || null }); break;
-    case 'goto-plateau': state.tab = 'race'; state.sheet = null; state.heads = false; render(); scrollApp(0); break;
+    case 'goto-plateau': state.sheet = null; state.heads = false; openGame('course'); break;
     case 'hist-soap': state.sheet = { type: 'soaphist' }; render(); break;
     case 'perk-ok': confirmPerkNow(Number(id)); break;
     case 'ginfo': state.sheet = { type: 'ginfo', id }; render(); break;

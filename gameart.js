@@ -36,6 +36,7 @@ export function logoArt(id) {
     }
     case 'chifoumi':
       return `<div class="gl-chif">${['pierre', 'feuille', 'ciseaux'].map((k, i) => `<i style="--i:${i}">${moveIcon(k, 42)}</i>`).join('')}</div>`;
+    case 'course': return `<div class="gl-race"><svg viewBox="0 0 120 90" width="150" height="112" aria-hidden="true"><path class="w1" d="M0 70q15-10 30 0t30 0t30 0t30 0v20H0z" fill="#1c93bb"/><path class="w2" d="M0 78q15-10 30 0t30 0t30 0t30 0v12H0z" fill="#0d5f86"/><g class="gl-chest"><rect x="40" y="38" width="40" height="28" rx="4" fill="#8b5a2b" stroke="#4a2a0c" stroke-width="3"/><path d="M40 48h40" stroke="#4a2a0c" stroke-width="3"/><rect x="55" y="46" width="10" height="9" rx="2" fill="#ffc928" stroke="#4a2a0c" stroke-width="2"/><circle cx="52" cy="34" r="6" fill="#ffc928" stroke="#9a6209" stroke-width="2"/><circle cx="66" cy="31" r="6" fill="#ffd95a" stroke="#9a6209" stroke-width="2"/></g></svg></div>`;
     case 'ferme': return `<div class="gl-farmer">${FARMER}</div>`;
     case 'blackjack':
       return `<div class="gl-cards"><div class="gl-card c1"><b>A</b><i>♠</i></div><div class="gl-card c2 red"><b>K</b><i>♥</i></div></div>`;

@@ -1419,3 +1419,26 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 @media (prefers-reduced-motion:reduce){.hcoin svg,.hsoap circle{animation:none}}
 
 .sdk-mode.resume{border-color:#ffc928;background:rgba(255,201,40,.14)}
+
+/* Course aux pièces en jeu : mer animée tout autour */
+.g-course{background:#0d5f86}
+.g-course .gbody{position:relative;padding:0;overflow:hidden;flex:1}
+.seaw{position:absolute;inset:0;width:100%;height:100%;display:block}
+.cwrap{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:calc(64px + env(safe-area-inset-top)) 12px 28px;color:#fff}
+.cwrap .bigttl{color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35);margin:0;text-align:center}
+.cwrap .bigsub{color:#d6f3ff;text-align:center;margin-bottom:10px}
+.cwrap .dicenext{color:#d6f3ff;text-align:center;margin-top:8px}
+.beach.atsea{background:transparent!important;border:0!important;box-shadow:none!important;overflow:visible}
+.beach.atsea .glagoon{background:transparent}
+.beach.atsea .glagoon .seascene rect:first-of-type{display:none}
+.beach.atsea .gc{background:rgba(255,248,226,.96);border-radius:12px;box-shadow:0 4px 0 #cda257,0 8px 12px rgba(0,30,50,.35)}
+.beach.atsea .gc:nth-child(odd){animation:cbob 3.4s ease-in-out infinite}.beach.atsea .gc:nth-child(even){animation:cbob 3.4s ease-in-out -1.7s infinite}
+@keyframes cbob{50%{transform:translateY(-2px)}}
+.beach.atsea .gc.on{animation:none}
+.cres{position:fixed;inset:0;z-index:30;background:rgba(5,30,45,.55);display:grid;place-items:center;padding:20px}
+.cres .cbox{width:min(340px,100%);background:var(--card,#fff);color:var(--text,#222);border-radius:20px;padding:18px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.4);animation:splashpop .35s cubic-bezier(.2,1.4,.4,1) both}
+.cres .cbox h2{margin:0}.cres .cbox .gh-btn{margin-top:12px;width:100%}
+.gl-race .w1{animation:rwave 3s ease-in-out infinite}.gl-race .w2{animation:rwave 3s ease-in-out -1.5s infinite}
+.gl-race .gl-chest{animation:cbob 2.4s ease-in-out infinite}
+@keyframes rwave{50%{transform:translateX(-8px)}}
+@media (prefers-reduced-motion:reduce){.beach.atsea .gc,.gl-race *{animation:none}}
