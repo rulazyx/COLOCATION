@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 126;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 128;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -659,7 +659,7 @@ const GAMES = {
   flappy: { name: 'Cardinal', board: 'flappy', mod: './games/cardinal.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. 16 décors à découvrir : chaque nouveau palier franchi (15, 30, 50, 75, 100…) rapporte des colocoins. Quêtes du jour, 22 oiseaux à débloquer.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
-  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (1 h), arbres à couper (3 à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
+  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (2 min), arbres à couper (3 à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
@@ -802,7 +802,7 @@ function gShow(view) {
   const title = view === 'move' ? 'Chifoumi' : view === 'result' ? 'Résultat' : view === 'reveal' ? 'Caisse mystère' : (view === 'board' && u.id === 'blackjack' ? 'Classement victoires' : GTITLE[view]);
   const back = view === 'move' || view === 'result' ? 'duel' : view === 'reveal' ? 'perso' : 'home';
   home.className = `ghome gpanel v-${view}`;
-  home.innerHTML = `<div class="gp-head"><button class="gh-btn mini ghost" data-gh="${back}">‹ ${back === 'home' ? 'Menu principal' : 'Retour'}</button><h2>${esc(title)}</h2></div><div class="gp-card">${bodies[view]()}</div>`;
+  home.innerHTML = `<div class="gp-head"><button class="gh-btn mini ghost" data-gh="${back}">‹ ${back === 'home' && u.id !== 'sudoku' ? 'Menu principal' : 'Retour'}</button><h2>${esc(title)}</h2></div><div class="gp-card">${bodies[view]()}</div>`;
   if (view === 'board' && u.id === 'sudoku') {
     Promise.resolve(state.api.sudokuWeek(currentWeek())).then((rows) => {
       const el = home.querySelector('#gp-week'); if (!el || gameUI !== u) return;
@@ -817,7 +817,7 @@ function gBadge() {
     : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
-  if (gameUI?.id === 'ferme' || gameUI?.id === 'flappy') return closeGame();
+  if (gameUI?.id === 'ferme' || gameUI?.id === 'flappy' || gameUI?.id === 'sudoku') return closeGame();
   try { gameHandle?.destroy(); } catch { /* rien */ }
   gameHandle = null;
   const layer = glayer(); if (!layer) return;
@@ -845,7 +845,7 @@ async function gPlay() {
       ...(id === 'ferme' ? farmCtx() : {}),
       ...(id === 'flappy' ? cardinalCtx() : {}),
       ...(id === 'sudoku' ? { sudoku: {
-        week: currentWeek(), me: state.me.id, name: nameOf,
+        week: currentWeek(), me: state.me.id, name: nameOf, quit: () => closeGame(), level: () => intelOf(statsOf(state.me.id)).lvl,
         report: async (mode, secs) => {
           const before = intelOf(statsOf(state.me.id)).lvl;
           const r = await state.api.reportSudoku(state.me.id, mode, secs);
@@ -878,7 +878,7 @@ async function gAction(k, el) {
   switch (k) {
     case 'quit': return closeGame();
     case 'play': return gPlay();
-    case 'home': return gShow('home');
+    case 'home': if (u.id === 'sudoku' && gameHandle) { glayer()?.classList.remove('onhome'); return; } return gShow('home');   // Sudoku : on revient directement sur sa page animée
     case 'perso': case 'board': case 'intel': case 'hist': return gShow(k);
     case 'duel': u.duel = null; return gShow('duel');
     case 'equip': {
@@ -929,7 +929,7 @@ async function openGame(id) {
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
   gShow('home'); gBadge();
-  if (id === 'ferme' || id === 'flappy' || id === 'course') gPlay();   // Colo-Ferme, Cardinal et la Course : leur accueil est dans le jeu : pas d'écran d'accueil, on arrive directement dans le jeu
+  if (id === 'ferme' || id === 'flappy' || id === 'course' || id === 'sudoku') gPlay();   // Colo-Ferme, Cardinal et la Course : leur accueil est dans le jeu : pas d'écran d'accueil, on arrive directement dans le jeu
   layer.addEventListener('click', (e) => {
     const a = e.target.closest('[data-gact]'), h = e.target.closest('[data-gh]');
     if (a) { const k = a.dataset.gact; if (k === 'close') closeGame(); else if (k === 'menu') gPauseOpen(); else if (k === 'resume') gPauseClose(); else if (k === 'home') gToHome(); }
@@ -1185,16 +1185,11 @@ const SEA_SCENE = `<svg class="seascene" viewBox="0 0 700 600" preserveAspectRat
 // Plateau : 30 îlots posés sur la mer le long d'une boucle arrondie (la case 30 rejoint la case 1, on tourne à l'infini).
 // Coordonnées dans un cadre de 360 × 560 ; les îlots sont répartis à égale distance sur une forme de « galet » qui remplit l'écran.
 const ARCH = { w: 360, h: 560 };
-const ISLETS = (() => {
-  const cx = 180, cy = 280, a = 140, b = 232, N = GOOSE.size, pts = [], pw = (v) => Math.sign(v) * Math.abs(v) ** (2 / 3);
-  const at = (t) => [cx + a * pw(Math.cos(t)) * (1 + 0.085 * Math.sin(3 * t + 1)), cy + b * pw(Math.sin(t)) * (1 + 0.05 * Math.cos(2 * t + 0.5))];
-  const T0 = Math.PI / 2 + 0.2;                       // départ : en bas à gauche, on avance vers la droite puis on monte
-  let len = 0, prev = at(T0); const cum = [[0, T0]];
-  for (let i = 1; i <= 720; i++) { const t = T0 - (i / 720) * 2 * Math.PI, q = at(t); len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q; cum.push([len, t]); }
-  for (let n = 1; n <= N; n++) {
-    const want = ((n - 1) / N) * len; let j = 1; while (j < cum.length - 1 && cum[j][0] < want) j++;
-    const [x, y] = at(cum[j][1]);
-    pts.push([x + 4 * Math.sin(n * 1.9), y + 4 * Math.cos(n * 2.3)]);
+const ISLETS = (() => {   // 5 colonnes × 6 rangées en serpentin (bas → haut), un peu ondulé : beaucoup d'espace entre les îlots
+  const pts = [];
+  for (let n = 1; n <= GOOSE.size; n++) {
+    const r = Math.floor((n - 1) / 5), k = (n - 1) % 5, c = r % 2 === 0 ? k : 4 - k;
+    pts.push([38 + c * 71 + 7 * Math.sin(n * 1.9), 510 - r * 92 + 9 * Math.sin(n * 2.3)]);
   }
   return pts;
 })();
@@ -1223,27 +1218,23 @@ function plateauHTML() {
   const me = state.me, isColoc = canPlay(me);
   const pawns = {};
   players().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
-  const pawnHTML = (n, sz = 16) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
+  const pawnHTML = (n, sz = 21) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
   const cells = [], pts = [];
   for (let n = 1; n <= GOOSE.size; n++) {
     const [x, y] = ISLETS[n - 1];
     pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
     cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="left:${(x / ARCH.w * 100).toFixed(2)}%;top:${(y / ARCH.h * 100).toFixed(2)}%;--br:${BLOBS[n % 4]}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
-  pts.push(pts[0]);
   const left = diceLeft(me.id), can = isColoc && left > 0 && !state.rolling;
   const ranked = players().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
-  const center = `<div class="gcenter">
-      <div class="gttl">Tours de plateau</div>
-      <div class="glaps">${ranked.map(({ m, l }) => `<div class="${l && l === top ? 'lead' : ''}">${av(m, 18)}<span class="nm">${esc(m.name)}</span><b>${l}</b>${l && l === top ? '<em class="crown">★</em>' : ''}</div>`).join('')}</div>
-      <div class="gdep"><span>${seaArt('anchor')}Port</span><div class="pw">${pawnHTML(0, 18)}</div></div>
-    </div>`;
+  const center = `<div class="cboard"><span class="cport" title="Port (départ)">${seaArt('anchor')}<span class="pw">${pawnHTML(0, 22)}</span></span>
+      ${ranked.map(({ m, l }) => `<span class="ci ${l && l === top ? 'lead' : ''}">${av(m, 22)}<b>${l}</b>${l && l === top ? '<em class="crown">★</em>' : ''}</span>`).join('')}</div>`;
   const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
-  return `<button class="cback" data-action="course-back" aria-label="Retour">${BACK_SVG}</button>
+  return `<button class="cback" data-action="course-back" aria-label="Retour">${BACK_SVG}</button>${center}
     <div class="cstage"><div class="arch">
       <svg class="apath" viewBox="0 0 ${ARCH.w} ${ARCH.h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#f3dd9a" stroke-opacity=".5" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff7d6" stroke-opacity=".75" stroke-width="3" stroke-dasharray="1 9" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="acenter">${SEA_DECOR}${center}</div>
+      <div class="acenter">${SEA_DECOR}</div>
       ${cells.join('')}
       ${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
     </div></div>

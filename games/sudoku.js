@@ -72,6 +72,7 @@ export const MODES = {
 };
 
 /* ---------- Interface ---------- */
+const TROPHY = '<svg viewBox="0 0 48 48" width="26" height="26" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 8h20v12a10 10 0 0 1-20 0z" fill="#ffc928" stroke="#9a6209" stroke-width="2.6"/><path d="M14 12H7c0 7 3 10 8 11M34 12h7c0 7-3 10-8 11" stroke="#9a6209" stroke-width="2.6"/><path d="M24 30v7M16 41h16" stroke="#9a6209" stroke-width="3"/></svg>';
 export function mount(root, ctx = {}) {
   const S = ctx.sudoku ?? {};
   // Fond du jeu : des chiffres qui flottent et réagissent au doigt (menu) ; l'interface se redessine dans `ui`
@@ -145,7 +146,7 @@ export function mount(root, ctx = {}) {
   function drawMenu() {
     showBg(true);
     const mine = board?.find((r) => r.member_id === S.me), sv = loadSave();
-    ui.innerHTML = `<div class="sdk-menu">
+    ui.innerHTML = `<div class="sdk-top"><button class="sdk-round" data-act="leave" aria-label="Retour à La Kaz">‹</button><span class="sdk-spacer"></span>${S.level ? `<button class="sdk-pill" data-gh="intel" aria-label="Niveau suivant">Niveau ${S.level()} ›</button>` : ''}<button class="sdk-round" data-gh="board" aria-label="Classement">${TROPHY}</button></div><div class="sdk-menu">
       <div class="sdk-logo">SUDOKU</div>
       ${sv ? `<button class="sdk-mode resume" data-act="resume"><span><b>Reprendre ma partie</b><small>${MODES[sv.mode].label} · ${sv.grid.filter(Boolean).length - sv.puz.filter(Boolean).length} case(s) remplie(s)${sv.mode === 'week' ? ` · ${fmt(sv.elapsed || 0)}` : ''}</small></span></button>` : ''}
       <button class="sdk-mode week" data-act="mode" data-m="week"><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
@@ -197,7 +198,7 @@ export function mount(root, ctx = {}) {
     }
     const hearts = [0, 1, 2].map((i) => `<i class="${i < lives ? 'on' : ''} ${f?.lose === i ? 'lose' : ''}">♥</i>`).join('');
     ui.innerHTML = `
-      <div class="sbar"><span class="sdk-title">${m.label}</span>${mode === 'week' ? `<span>Temps <b class="stime">${fmt(elapsed)}</b></span>` : ''}<span class="lives" aria-label="${lives} vies">${hearts}</span></div>
+      <div class="sbar"><button class="sdk-round sm" data-act="menu" aria-label="Retour au menu">‹</button><span class="sdk-title">${m.label}</span>${mode === 'week' ? `<span>Temps <b class="stime">${fmt(elapsed)}</b></span>` : ''}<span class="lives" aria-label="${lives} vies">${hearts}</span></div>
       <div class="sgrid ${f?.err !== undefined ? 'gshake' : ''}">${cells}</div>
       <div class="spad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button data-n="${n}">${n}</button>`).join('')}<button data-n="0" class="era">⌫</button></div>
       ${lost ? `<div class="sdk-over"><h2>Plus de vies</h2><p>Trois erreurs : la grille est perdue.</p>${mode === 'week' ? '<button class="btn primary" data-act="mode" data-m="week">Réessayer la grille de la semaine</button>' : `<button class="btn primary" data-act="mode" data-m="${mode}">Nouvelle grille</button>`}<button class="btn" data-act="menu">Choisir un mode</button></div>` : ''}
@@ -244,7 +245,8 @@ export function mount(root, ctx = {}) {
   }
   root.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.act === 'resume') resume();
+    if (b.dataset.act === 'leave') S.quit?.();
+    else if (b.dataset.act === 'resume') resume();
     else if (b.dataset.act === 'mode') start(b.dataset.m);
     else if (b.dataset.act === 'menu') { view = 'menu'; loading = false; loadBoard(); drawMenu(); }
     else if (view !== 'play' || loading) return;

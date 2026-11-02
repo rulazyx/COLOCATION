@@ -4,7 +4,7 @@ export const FA = {
   N: 30, T: 44, cx: 15, cy: 15, R: 13.4,
   start: { x0: 11, x1: 19, y0: 8, y1: 16 },        // zone dégagée au départ
   house: { x: 14, y: 9, w: 3, h: 3 },
-  growS: 3600, yield: 2, startCane: 0,               // une canne pousse en 1 h, rapporte 2 cannes ; on commence sans canne
+  growS: 120, yield: 2, startCane: 0,               // une canne pousse en 2 minutes, rapporte 2 cannes ; on commence sans canne
   parcelCost: (n) => (n < 3 ? 0 : n - 2),             // les 3 premières parcelles sont gratuites, puis 1, 2, 3… colocoins (achat en boutique)
   maxChop: 3,                                         // 3 arbres coupés en même temps au maximum
   ship: { cane: 25, hours: 3, coins: 12 },            // export par bateau : on charge 25 cannes, retour en 3 h avec 12 colocoins

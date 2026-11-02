@@ -1499,3 +1499,26 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 @keyframes majglow{0%,100%{box-shadow:0 0 8px 1px rgba(255,214,60,.7),0 2px 5px rgba(0,0,0,.3)}50%{box-shadow:0 0 16px 4px rgba(255,226,90,1),0 2px 5px rgba(0,0,0,.3)}}
 @keyframes majshine{0%,55%{left:-60%}100%{left:140%}}
 @media (prefers-reduced-motion:reduce){.gtmaj,.gtmaj::after{animation:none}}
+
+/* Sudoku : on arrive directement sur la page animée (identité Cardinal : bouton retour rond, pastilles blanches) */
+.g-sudoku .ghead{display:none!important}
+.sdk-top{position:fixed;left:0;right:0;top:0;z-index:4;display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 0}
+.sdk-spacer{flex:1}
+.sdk-round{width:44px;height:44px;padding:0 0 4px;border:0;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 6px rgba(0,0,0,.25);display:grid;place-items:center;font:700 30px/1 system-ui;color:#1b1d22;cursor:pointer;flex:none}
+.sdk-round svg{margin-bottom:-4px}.sdk-round:active{transform:scale(.94)}
+.sdk-round.sm{width:38px;height:38px;font-size:26px}
+.sdk-pill{height:44px;padding:0 16px;border:0;border-radius:99px;background:rgba(255,255,255,.94);box-shadow:0 1px 6px rgba(0,0,0,.25);font:800 15px system-ui;color:#1b1d22;cursor:pointer}
+.g-sudoku .sbar{gap:10px}
+
+/* Course v4 : serpentin aéré, classement en bandeau en haut */
+.arch .gc{width:12.4%}
+.arch .gc .pw{bottom:-13px}
+.arch .gc .pawn{width:21px;height:21px;margin:0 -3px;border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.4)}
+.acenter{left:0;right:0;top:0;bottom:0}
+.acenter .seadecor{height:100%;opacity:.3}
+.cboard{position:absolute;z-index:5;top:calc(10px + env(safe-area-inset-top));left:68px;right:12px;height:44px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:22px;background:rgba(6,58,80,.5);backdrop-filter:blur(3px);color:#fff;overflow-x:auto;scrollbar-width:none}
+.cboard::-webkit-scrollbar{display:none}
+.cboard .cport{display:inline-flex;align-items:center;gap:2px;flex:none;font-size:11px}.cboard .cport svg{width:20px;height:20px}
+.cboard .cport .pw{position:static;transform:none;display:inline-flex}.cboard .pawn{width:22px;height:22px;margin:0 -3px;border:2px solid #fff;border-radius:50%}
+.cboard .ci{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:14px;font-weight:800}
+.cboard .ci.lead b{color:#ffd23f}.cboard .crown{color:#ffd23f;font-style:normal}

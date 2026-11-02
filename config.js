@@ -263,7 +263,7 @@ export const SHOP = {
     { key: 'tenebres', name: 'Oiseau des ténèbres', w: 1, body: '#15121c', belly: '#2c2638', wing: '#0b0910', eye: '#ef1d1d', eyeBg: '#1a0000', acc: 'dark' },
   ],
 };
-export const BIRD_CRATE = { price: 150 };
+export const BIRD_CRATE = { price: 100 };
 export const birdRarity = (w) => (w >= 12 ? 'Commun' : w >= 5 ? 'Rare' : w >= 2 ? 'Épique' : 'Légendaire');
 // Apparences vendues (voir OUTFITS : price). Stockées dans purchases.item sous le nom simple (ex. 'pirate')
 SHOP.outfit = Object.entries(OUTFITS).filter(([, o]) => o.price).map(([key, o]) => ({ key, name: o.name, price: o.price }));

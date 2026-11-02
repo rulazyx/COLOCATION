@@ -73,3 +73,7 @@
 .fm-tcard p { margin: 0; font-size: 15px; line-height: 1.4; color: #4b5563; }
 .fm-tdots { display: flex; gap: 6px; margin: 4px 0; } .fm-tdots i { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; } .fm-tdots i.on { background: #ffc928; width: 20px; border-radius: 4px; }
 .fm-tcard .fm-btn { margin-top: 2px; } .fm-tskip { border: 0; background: none; color: #6b7280; font: 700 14px system-ui; padding: 6px; cursor: pointer; }
+
+.fm-shopbtn { margin: 0 auto; padding: 0; border: 0; background: none; box-shadow: none; cursor: pointer; filter: drop-shadow(0 3px 0 rgba(0,0,0,.28)) drop-shadow(0 6px 8px rgba(0,0,0,.3)); transition: transform .12s; }
+.fm-shopbtn:active { transform: scale(.92); }
+.fm-shopbtn svg { display: block; }

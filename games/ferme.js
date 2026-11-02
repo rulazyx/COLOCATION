@@ -1,5 +1,5 @@
 // « Colo-Ferme » v3 : une île à faire grandir, dessinée en canvas (rendu en relief, aucun emoji). On glisse le doigt pour se déplacer.
-// Parcelles achetées en colocoins (1, 2, 3…), canne à sucre (1 h), arbres coupés avec du temps. Règles et données : ../farmlogic.js
+// Parcelles achetées en colocoins (1, 2, 3…), canne à sucre (2 min), arbres coupés avec du temps. Règles et données : ../farmlogic.js
 import { FA, BUILDINGS, DECORS, newFarm, normalize, isLand, isSand, isCleared, isTree, onHouse, bldAt, decorAt, free, isOwned, canPlace, hasPort, shipState, shipCoins, frontier, growMs, yieldN, plotState, cycleMs, bldCycles, bldCoins, summary, chopMs } from '../farmlogic.js';
 
 const T = FA.T, TAU = Math.PI * 2;
@@ -25,7 +25,7 @@ export function mount(root, ctx) {
   let W = 360, H = 640, K = 1, raf = 0, destroyed = false, paused = false, view = 'home', toastT = 0;
   let mine = normalize(null), shown = mine, owner = ctx.meId, others = {}, mode = null, loaded = false, bubTile = null;
   const cam = { x: 0, y: 0, vx: 0, vy: 0 }, parts = [], anims = [];
-  let dirty = false, saveT = 0;
+  let dirty = false, saveT = 0, carry = null, holdT = 0;
 
   const fit = () => { K = Math.min(devicePixelRatio || 1, 2); W = Math.max(200, root.clientWidth || root.offsetWidth); H = Math.max(200, root.clientHeight || root.offsetHeight); cv.style.width = `${W}px`; cv.style.height = `${H}px`; cv.width = W * K; cv.height = H * K; c.setTransform(K, 0, 0, K, 0, 0); };
   const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null; ro?.observe(root); fit();
@@ -53,10 +53,7 @@ export function mount(root, ctx) {
     }
     $ui.className = 'fm-ui m-play';
     const bar = own ? (mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : 'Terminer le placement'}</button>` : `
-      <button class="fm-tool" data-fm="menu" data-t="shop">${I_SHOP(34)}<span>Boutique</span></button>
-      <button class="fm-tool" data-fm="menu" data-t="decor">${I_DECOR(34)}<span>Décors</span></button>
-      <button class="fm-tool" data-fm="menu" data-t="house">${I_HOUSE(34)}<span>Maison</span></button>
-      <button class="fm-tool ${s.plots ? 'ready' : ''}" data-fm="all" ${s.plots ? '' : 'disabled'}>${I_HARVEST(34)}<span>Récolter${s.plots ? ` (${s.plots})` : ''}</span></button>`)
+      <button class="fm-shopbtn" data-fm="menu" data-t="shop" aria-label="Boutique">${I_SHOP(78)}</button>`)
       : `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>`;
     $ui.innerHTML = `${top}${own ? '' : `<div class="fm-own">Île de ${ctx.esc(ctx.nameOf(owner))}</div>`}<div class="fm-bar">${bar}</div>`;
   }
@@ -82,21 +79,24 @@ export function mount(root, ctx) {
       return `<h3>Boutique</h3><p class="fm-sub">Les parcelles s'achètent en colocoins, les bâtiments en canne à sucre.</p>
         <button class="fm-row" data-fm="parcel" ${canP ? '' : 'disabled'}><span class="fm-ico">${buildIcon('parcelle')}</span><span><b>Parcelle de culture</b><small>${freeLeft ? `Gratuite · encore ${freeLeft} parcelle${freeLeft > 1 ? 's' : ''} offerte${freeLeft > 1 ? 's' : ''}` : 'Pour planter de la canne à sucre'}</small></span>${n ? `<span class="fm-price ${canP ? '' : 'no'}">${COIN(14)} ${n}</span>` : '<span class="fm-price">Gratuit</span>'}</button>
         <h4>Élevage et production</h4>${['poulailler', 'chevrerie', 'porcherie', 'brasserie', 'raffinerie'].map(bl).join('')}
-        <h4>Port d'export</h4><p class="fm-sub">Le quai (sur la plage) et l'entrepôt sont nécessaires pour accéder à la mer.</p>${['quai', 'entrepot'].map(bl).join('')}`;
+        <h4>Port d'export</h4><p class="fm-sub">Le quai (sur la plage) et l'entrepôt sont nécessaires pour accéder à la mer.</p>${['quai', 'entrepot'].map(bl).join('')}
+        <h4>Décors</h4><div class="fm-grid">${Object.entries(DECORS).map(([k, D]) => `<button class="fm-dec" data-fm="placed" data-k="${k}" ${mine.cane >= D.cost ? '' : 'disabled'}>${decorIcon(k)}<b>${D.name}</b>${price(D.cost)}</button>`).join('')}</div>`;
     }
     if (t === 'decor') return `<h3>Décors</h3><p class="fm-sub">Pose-les où tu veux sur ton terrain.</p><div class="fm-grid">` + Object.entries(DECORS).map(([k, D]) => `<button class="fm-dec" data-fm="placed" data-k="${k}" ${mine.cane >= D.cost ? '' : 'disabled'}>${decorIcon(k)}<b>${D.name}</b>${price(D.cost)}</button>`).join('') + '</div>';
     const hu = FA.houseUp[mine.house], tu = FA.toolsUp[mine.tools];
-    return `<h3>Ma maison</h3><p class="fm-sub">Niveau ${mine.house} · tes bâtiments rapportent +${Math.round(FA.houseBonus * 100 * (mine.house - 1))} %</p>
+    return `<h3>Ma maison · améliorations</h3><p class="fm-sub">Niveau ${mine.house} · tes bâtiments rapportent +${Math.round(FA.houseBonus * 100 * (mine.house - 1))} %</p>
       ${hu ? `<button class="fm-row" data-fm="upHouse" ${mine.cane >= hu ? '' : 'disabled'}><span><b>Améliorer la maison (niveau ${mine.house + 1})</b><small>+${Math.round(FA.houseBonus * 100)} % de colocoins sur tous les bâtiments</small></span>${price(hu)}</button>` : '<p class="fm-max">Maison au niveau maximum.</p>'}
       <p class="fm-sub" style="margin-top:12px">Outils niveau ${mine.tools} · pousse ${Math.round(FA.toolGrow * 100 * (mine.tools - 1))} % plus vite, +${mine.tools - 1} canne par récolte</p>
       ${tu ? `<button class="fm-row" data-fm="upTools" ${mine.cane >= tu ? '' : 'disabled'}><span><b>Améliorer les outils (niveau ${mine.tools + 1})</b><small>Pousse −${Math.round(FA.toolGrow * 100)} % de temps · +1 canne par récolte</small></span>${price(tu)}</button>` : '<p class="fm-max">Outils au niveau maximum.</p>'}
+      <h4>Bâtiments</h4>${mine.blds.filter((b) => BUILDINGS[b.k].up).map((b) => { const B = BUILDINGS[b.k], up = B.up[b.lvl - 1], i = mine.blds.indexOf(b);
+        return up ? `<button class="fm-row" data-fm="upBld" data-i="${i}" ${mine.cane >= up ? '' : 'disabled'}><span class="fm-ico">${buildIcon(b.k)}</span><span><b>${B.name} · niv. ${b.lvl} → ${b.lvl + 1}</b><small>${B.coins[b.lvl - 1]} → ${B.coins[b.lvl]} colocoins par cycle</small></span>${price(up)}</button>` : `<div class="fm-chk ok">${B.name} · niveau maximum</div>`; }).join('') || '<p class="fm-sub">Construis un bâtiment dans la Boutique pour pouvoir l\'améliorer ici.</p>'}
       <div class="fm-stats"><span><b>${mine.st.harvests}</b> récoltes</span><span><b>${mine.st.trees}</b> arbres coupés</span><span><b>${mine.st.cash}</b> colocoins gagnés</span></div>`;
   }
   function bldHTML(b) {
-    const B = BUILDINGS[b.k], n = bldCycles(b), coins = bldCoins(mine, b), up = B.up[b.lvl - 1], next = cycleMs(b) - ((Date.now() - b.t) % cycleMs(b));
+    const B = BUILDINGS[b.k], n = bldCycles(b), coins = bldCoins(mine, b), next = cycleMs(b) - ((Date.now() - b.t) % cycleMs(b));
     return `<h3>${B.name} · niveau ${b.lvl}</h3><p class="fm-sub">${B.text}</p>
       <button class="fm-row ${coins ? 'gold' : ''}" data-fm="collect" data-i="${mine.blds.indexOf(b)}" ${coins ? '' : 'disabled'}><span><b>${coins ? `Récolter ${coins} colocoins` : 'Rien à récolter'}</b><small>${n >= FA.maxStore ? 'Stock plein' : `Prochaine production dans ${fmtT(next)}`}</small></span></button>
-      ${up ? `<button class="fm-row" data-fm="upBld" data-i="${mine.blds.indexOf(b)}" ${mine.cane >= up ? '' : 'disabled'}><span><b>Améliorer (niveau ${b.lvl + 1})</b><small>${B.coins[b.lvl - 1]} → ${B.coins[b.lvl]} colocoins par cycle</small></span>${price(up)}</button>` : '<p class="fm-max">Niveau maximum.</p>'}`;
+      <p class="fm-sub" style="margin-top:10px">Pour améliorer ce bâtiment, touche ta maison. Maintiens ton doigt dessus puis glisse pour le déplacer.</p>`;
   }
   function portHTML() {
     const q = mine.blds.find((z) => z.k === 'quai'), e = mine.blds.find((z) => z.k === 'entrepot'), ok = hasPort(mine), sh = shipState(mine);
@@ -127,14 +127,8 @@ export function mount(root, ctx) {
     if (a === 'all') { harvestAll(); return; }
     if (a === 'upHouse') { const n = FA.houseUp[mine.house]; if (n && buy(n)) { mine.house++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); puff(FA.house.x * T + 66, FA.house.y * T, '#ffd95a', 14); } return; }
     if (a === 'upTools') { const n = FA.toolsUp[mine.tools]; if (n && buy(n)) { mine.tools++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); } return; }
-    if (a === 'upBld') { const bl = mine.blds[Number(b.dataset.i)], n = BUILDINGS[bl.k].up[bl.lvl - 1]; if (n && buy(n)) { bl.lvl++; mine.st.builds++; touch(); drawUI(); openSheet(bldHTML(bl)); puff((bl.x + 1) * T, bl.y * T, '#ffd95a', 14); } return; }
-    if (a === 'collect') {
-      const bl = mine.blds[Number(b.dataset.i)], n = bldCoins(mine, bl); if (!n) return;
-      b.disabled = true;
-      try { const got = await ctx.cash(n); bl.t = Date.now(); mine.st.cash += got; touch(); say((bl.x + 1) * T, bl.y * T - 20, `+${got}`, '#ffe14d'); puff((bl.x + 1) * T, bl.y * T, '#ffd23f', 10);
-        if (got < n) toast(got ? `Plafond du jour : ${got} colocoins crédités.` : 'Plafond du jour atteint (200 colocoins).'); } catch (er) { toast(er.message || 'Impossible de récolter.'); }
-      closeSheet(); drawUI(); return;
-    }
+    if (a === 'upBld') { const bl = mine.blds[Number(b.dataset.i)], n = BUILDINGS[bl.k].up[bl.lvl - 1]; if (n && buy(n)) { bl.lvl++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); puff((bl.x + 1) * T, bl.y * T, '#ffd95a', 14); } return; }
+    if (a === 'collect') { b.disabled = true; await collectBld(mine.blds[Number(b.dataset.i)]); closeSheet(); drawUI(); return; }
     const xy = () => b.dataset.t.split(',').map(Number);
     if (a === 'parcel') { mode = { t: 'parcel' }; closeSheet(); drawUI(); toast('Touche un terrain dégagé pour poser ta parcelle.'); return; }
     if (a === 'ship') { if (buy(FA.ship.cane)) { mine.ship = { t: Date.now() }; touch(); drawUI(); openSheet(portHTML()); } return; }
@@ -152,6 +146,16 @@ export function mount(root, ctx) {
     if (a === 'chop') { const [x, y] = xy(); if (!isTree(mine, x, y) || !frontier(mine, x, y) || mine.chop[`${x},${y}`]) return closeBubble(); if (Object.keys(mine.chop).length >= FA.maxChop) { toast(`${FA.maxChop} arbres maximum en même temps.`); return closeBubble(); } mine.chop[`${x},${y}`] = { t: Date.now(), ms: chopMs(mine.st.trees + Object.keys(mine.chop).length) }; touch(); closeBubble(); puff(x * T + 22, y * T + 18, '#c9a46a', 8); return; }
     if (a === 'rm') { const [x, y] = xy(), o = decorAt(mine, x, y); if (!o) return; mine.decor = mine.decor.filter((z) => z !== o); mine.cane += Math.floor(DECORS[o.k].cost / 2); touch(); closeBubble(); drawUI(); return; }
   });
+  async function collectBld(bl) {
+    const n = bldCoins(mine, bl); if (!n || bl.busy) return; bl.busy = true;
+    try { const got = await ctx.cash(n); bl.t = Date.now(); mine.st.cash += got; touch(); say((bl.x + 1) * T, bl.y * T - 20, `+${got}`, '#ffe14d'); puff((bl.x + 1) * T, bl.y * T, '#ffd23f', 10);
+      if (got < n) toast(got ? `Plafond du jour : ${got} colocoins crédités.` : 'Plafond du jour atteint (200 colocoins).'); } catch (er) { toast(er.message || 'Impossible de récolter.'); }
+    bl.busy = false; drawUI();
+  }
+  function harvestOne(x, y) {
+    const key = `${x},${y}`, p = mine.plots[key]; if (!p || !plotState(mine, p).ready) return;
+    delete mine.plots[key]; const n = yieldN(mine); mine.cane += n; mine.st.harvests++; touch(); say(x * T + 22, y * T, `+${n}`, '#e6ffb0'); puff(x * T + 22, y * T + 12, '#8fd14f', 10); drawUI();
+  }
   function harvestAll() {
     const now = Date.now(); let n = 0;
     for (const [kk, p] of Object.entries(mine.plots)) if (plotState(mine, p, now).ready) { const [x, y] = kk.split(',').map(Number); delete mine.plots[kk]; n += yieldN(mine); mine.st.harvests++; puff(x * T + 22, y * T + 10, '#8fd14f', 6); }
@@ -175,7 +179,7 @@ export function mount(root, ctx) {
   const SLIDES = [
     { ico: I_HARVEST(76), t: 'Bienvenue à la Colo-Ferme !', p: "Ton île t'attend : fais pousser de la canne à sucre, élève des animaux et envoie ta marchandise par bateau pour gagner des colocoins." },
     { ico: buildIcon('parcelle'), t: 'Tes parcelles', p: "Ouvre la Boutique, choisis « Parcelle de culture » puis touche un terrain dégagé. Les 3 premières parcelles sont gratuites, les suivantes coûtent 1, 2, 3 colocoins…" },
-    { ico: CANE_ICON(70), t: 'Planter et récolter', p: "Touche une parcelle vide, puis « Planter canne ». Elle pousse en 1 heure : reviens la toucher pour la collecter. Tout le monde commence avec 0 canne." },
+    { ico: CANE_ICON(70), t: 'Planter et récolter', p: "Touche une parcelle vide, puis « Planter canne ». Elle pousse en 2 minutes : touche-la ensuite pour récolter les cannes prêtes. Tout le monde commence avec 0 canne." },
     { ico: buildIcon('arbre'), t: 'Couper des arbres', p: "Les arbres au bord de ton terrain se coupent avec du temps (pas de canne). Tu peux en couper 3 en même temps, pour agrandir ton île." },
     { ico: buildIcon('chevrerie'), t: 'Bâtiments et animaux', p: "Avec ta canne, construis poulailler, enclos à chèvres ou à cochons, brasserie, raffinerie. Ils produisent des colocoins à récolter (2 cycles stockés au maximum)." },
     { ico: buildIcon('quai'), t: 'Le port', p: "Pour accéder à la mer, construis le quai (sur la plage) et l'entrepôt d'export. Charge ensuite le bateau de cannes : il revient avec des colocoins." },
@@ -195,19 +199,58 @@ export function mount(root, ctx) {
 
   /* ---------- Gestes : glisser pour se déplacer, toucher pour agir ---------- */
   let down = null;
-  cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture?.(e.pointerId); down = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, t: performance.now(), moved: false, lx: e.clientX, ly: e.clientY, lt: performance.now() }; cam.vx = cam.vy = 0; });
+  cv.addEventListener('pointerdown', (e) => {
+    cv.setPointerCapture?.(e.pointerId); down = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, t: performance.now(), moved: false, lx: e.clientX, ly: e.clientY, lt: performance.now() }; cam.vx = cam.vy = 0;
+    clearTimeout(holdT);
+    if (view === 'play' && shown === mine && !mode && loaded && !carry) { const r = cv.getBoundingClientRect(), tx = Math.floor((e.clientX - r.left + cam.x) / T), ty = Math.floor((e.clientY - r.top + cam.y) / T); holdT = setTimeout(() => { if (down && !down.moved) pickUp(tx, ty, e.clientX, e.clientY); }, 320); }
+  });
+  /* Déplacer un bâtiment, un décor ou une parcelle vide : on maintient le doigt dessus puis on glisse */
+  const footprint = () => carry.t === 'bld' ? [BUILDINGS[carry.ref.k].w, BUILDINGS[carry.ref.k].h] : [1, 1];
+  function carryOk(ax, ay) {
+    if (carry.t === 'bld') { const i = mine.blds.indexOf(carry.ref); mine.blds.splice(i, 1); const ok = canPlace(mine, carry.ref.k, ax, ay); mine.blds.splice(i, 0, carry.ref); return ok; }
+    if (carry.t === 'decor') { const i = mine.decor.indexOf(carry.ref); mine.decor.splice(i, 1); const ok = free(mine, ax, ay); mine.decor.splice(i, 0, carry.ref); return ok; }
+    const i = mine.owned.indexOf(carry.key); mine.owned.splice(i, 1); const ok = free(mine, ax, ay); mine.owned.splice(i, 0, carry.key); return ok;
+  }
+  function carryUpdate() {
+    const r = cv.getBoundingClientRect(), px = Math.floor((carry.px - r.left + cam.x) / T), py = Math.floor((carry.py - r.top + cam.y) / T);
+    carry.ax = px - carry.gx; carry.ay = py - carry.gy; carry.ok = carryOk(carry.ax, carry.ay);
+    const m = 70, ex = carry.px - r.left, ey = carry.py - r.top; carry.pan = [ex < m ? -6 : ex > W - m ? 6 : 0, ey < m + 40 ? -6 : ey > H - m - 60 ? 6 : 0];
+  }
+  function pickUp(tx, ty, px, py) {
+    if (!loaded || carry) return;
+    const key = `${tx},${ty}`; let c = null;
+    const dc = decorAt(mine, tx, ty), bl = bldAt(mine, tx, ty);
+    if (dc) c = { t: 'decor', ref: dc, gx: 0, gy: 0 };
+    else if (bl) c = { t: 'bld', ref: bl, gx: tx - bl.x, gy: ty - bl.y };
+    else if (mine.plots[key]) { toast('Une canne qui pousse ou qui est prête ne peut pas être déplacée.'); return; }
+    else if (isOwned(mine, tx, ty)) c = { t: 'parcel', key, gx: 0, gy: 0 };
+    if (!c) return;
+    closeBubble(); closeSheet(); carry = { ...c, px, py, ax: tx - c.gx, ay: ty - c.gy, ok: true, pan: [0, 0], ox: c.t === 'bld' ? c.ref.x : c.t === 'decor' ? c.ref.x : tx, oy: c.t === 'bld' ? c.ref.y : c.t === 'decor' ? c.ref.y : ty };
+    carryUpdate(); navigator.vibrate?.(12); toast('Glisse pour déplacer, relâche pour poser.');
+  }
+  function drop() {
+    const c = carry; carry = null; if (!c) return;
+    if (!c.ok) { toast('Emplacement impossible : retour à la place d\'origine.'); return; }
+    if (c.ax === c.ox && c.ay === c.oy) return;
+    if (c.t === 'bld') { c.ref.x = c.ax; c.ref.y = c.ay; initAnimals(); puff((c.ax + 1) * T, (c.ay + 1) * T, '#d8c9a8', 14); }
+    else if (c.t === 'decor') { c.ref.x = c.ax; c.ref.y = c.ay; puff(c.ax * T + 22, c.ay * T + 30, '#ffe9a8', 8); }
+    else { const i = mine.owned.indexOf(c.key); mine.owned[i] = `${c.ax},${c.ay}`; puff(c.ax * T + 22, c.ay * T + 22, '#8b5a2b', 10); }
+    touch(); drawUI();
+  }
   cv.addEventListener('pointermove', (e) => {
     if (!down) return;
+    if (carry) { carry.px = e.clientX; carry.py = e.clientY; carryUpdate(); return; }
     const dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (!down.moved && Math.hypot(dx, dy) > 8) down.moved = true;
+    if (!down.moved && Math.hypot(dx, dy) > 8) { down.moved = true; clearTimeout(holdT); }
     if (down.moved && view === 'play') { const now = performance.now(), dt = Math.max(1, now - down.lt); cam.vx = (down.lx - e.clientX) / dt * 16; cam.vy = (down.ly - e.clientY) / dt * 16; down.lx = e.clientX; down.ly = e.clientY; down.lt = now; cam.x = down.cx - dx; cam.y = down.cy - dy; clamp(); placeBubble(); }
   });
   const up = (e) => {
+    clearTimeout(holdT); if (carry) { down = null; drop(); return; }
     if (!down) return; const d = down; down = null;
     if (view !== 'play') return;
     if (!d.moved && performance.now() - d.t < 500) { const r = cv.getBoundingClientRect(); tap(Math.floor((e.clientX - r.left + cam.x) / T), Math.floor((e.clientY - r.top + cam.y) / T)); cam.vx = cam.vy = 0; }
   };
-  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { down = null; });
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', () => { clearTimeout(holdT); down = null; if (carry) { carry.ok = false; drop(); } });
 
   function tap(x, y) {
     closeBubble(); closeSheet();
@@ -237,14 +280,14 @@ export function mount(root, ctx) {
       mine.decor.push({ k: mode.k, x, y }); mine.st.decor++; touch(); drawUI(); puff(wx, y * T + T, '#ffe9a8', 8); return;
     }
     if (onHouse(x, y)) return openSheet(menuHTML('house'));
-    const bl = bldAt(mine, x, y); if (bl) return openSheet(BUILDINGS[bl.k].port ? portHTML() : bldHTML(bl));
+    const bl = bldAt(mine, x, y); if (bl) { if (!BUILDINGS[bl.k].port && bldCoins(mine, bl) > 0) return collectBld(bl); return openSheet(BUILDINGS[bl.k].port ? portHTML() : bldHTML(bl)); }
     const dc = decorAt(mine, x, y); if (dc) return openBubble(x, y, `<b>${DECORS[dc.k].name}</b><div class="fm-bbtns"><button class="fm-bb go" data-fm="rm" data-t="${x},${y}">Ranger (+${Math.floor(DECORS[dc.k].cost / 2)} cannes)</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>`);
     if (isSand(x, y)) return;
     const key = `${x},${y}`, p = mine.plots[key];
     if (p) {
       const s = plotState(mine, p), left = growMs(mine) * (1 - s.pct);
-      return openBubble(x, y, s.ready ? `<b>Canne à sucre prête !</b><small>Récolte : +${yieldN(mine)} cannes</small><div class="fm-bbtns"><button class="fm-bb go" data-fm="harvest" data-t="${key}">Collecter</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>`
-        : `<b>Canne à sucre</b><div class="fm-bar2"><i style="width:${Math.round(s.pct * 100)}%"></i></div><small>Encore ${fmtT(left)} avant la collecte</small><div class="fm-bbtns"><button class="fm-bb" data-fm="bclose">Fermer</button></div>`);
+      if (s.ready) return harvestOne(x, y);
+      return openBubble(x, y, `<b>Canne à sucre</b><div class="fm-bar2"><i style="width:${Math.round(s.pct * 100)}%"></i></div><small>Encore ${fmtT(left)} avant la collecte</small><div class="fm-bbtns"><button class="fm-bb" data-fm="bclose">Fermer</button></div>`);
     }
     if (isOwned(mine, x, y)) return openBubble(x, y, `<b>Parcelle vide</b><small>La canne met ${fmtT(growMs(mine))} à pousser</small><div class="fm-bbtns"><button class="fm-bb go" data-fm="plant" data-t="${key}">${CANE_ICON(16)} Planter canne</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>`);
     if (isTree(mine, x, y)) {
@@ -503,6 +546,7 @@ export function mount(root, ctx) {
     if (loaded && ts - lastChop > 1000) { lastChop = ts; resolveChops(); }
     if (view === 'home') { const bx = (FA.house.x + 1.5) * T - W / 2 + 40, by = (FA.house.y + 3.5) * T - H / 2 - 70; cam.x = bx + Math.sin(t * 0.18) * 40; cam.y = by + Math.cos(t * 0.13) * 24; clamp(); }
     else if (!down && (Math.abs(cam.vx) > 0.05 || Math.abs(cam.vy) > 0.05)) { cam.x += cam.vx; cam.y += cam.vy; cam.vx *= 0.93; cam.vy *= 0.93; clamp(); placeBubble(); }
+    if (carry) { if (carry.pan[0] || carry.pan[1]) { cam.x += carry.pan[0]; cam.y += carry.pan[1]; clamp(); carryUpdate(); } }
     // eau
     const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#46c6e6'); g.addColorStop(1, '#1b84ae'); c.fillStyle = g; c.fillRect(0, 0, W, H);
     c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 2;
@@ -524,17 +568,24 @@ export function mount(root, ctx) {
       const px = x * T, py = y * T, v = (x + y) & 1;
       c.drawImage(isSand(x, y) ? sandT(v) : isCleared(shown, x, y) ? grass(Math.floor(hash(x, y) * 4) % 4, hash(x + 9, y + 4) > 0.93) : forest(), px, py, T + 0.5, T + 0.5);
       
-      if (shown.owned.includes(`${x},${y}`) && !shown.plots[`${x},${y}`]) c.drawImage(soil(), px, py, T, T);
+      if (shown.owned.includes(`${x},${y}`) && !shown.plots[`${x},${y}`] && !(carry && carry.t === 'parcel' && carry.key === `${x},${y}`)) c.drawImage(soil(), px, py, T, T);
     }
     if (mode && shown === mine) { c.fillStyle = 'rgba(255,255,255,.3)'; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (mode.t === 'decor' || mode.t === 'parcel' ? free(mine, x, y) : canPlace(mine, mode.k, x, y)) c.fillRect(x * T + 2, y * T + 2, T - 4, T - 4); }
     const items = [];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (isTree(shown, x, y)) items.push({ y: y + 1, f: () => drawTree(x, y, t) });
     for (const [kk, p] of Object.entries(shown.plots)) { const [x, y] = kk.split(',').map(Number); if (x >= x0 && x <= x1 && y >= y0 && y <= y1) { const s = plotState(shown, p); items.push({ y: y + 0.5, f: () => caneDraw(x * T, y * T, s.pct, s.ready, t) }); } }
-    for (const o of shown.decor) items.push({ y: o.y + 1, f: () => drawDecor(o, t) });
-    for (const b of shown.blds) { const B = BUILDINGS[b.k]; if (B.animal) { items.push({ y: b.y + 0.4, f: () => drawBuilding(b, t, 0) }); items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 1) }); } else items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 2) }); }
+    for (const o of shown.decor) if (!(carry && carry.ref === o)) items.push({ y: o.y + 1, f: () => drawDecor(o, t) });
+    for (const b of shown.blds) { if (carry && carry.ref === b) continue; const B = BUILDINGS[b.k]; if (B.animal) { items.push({ y: b.y + 0.4, f: () => drawBuilding(b, t, 0) }); items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 1) }); } else items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 2) }); }
     items.push({ y: FA.house.y + FA.house.h, f: () => drawHouse(t) });
     stepAnimals(); for (const a of anims) items.push({ y: a.y / T, f: () => drawAnimal(a) });
     items.sort((a, b) => a.y - b.y).forEach((i) => i.f());
+    if (carry) {
+      const [fw, fh] = footprint();
+      c.fillStyle = carry.ok ? 'rgba(90,230,110,.45)' : 'rgba(240,70,70,.45)'; for (let i = 0; i < fw; i++) for (let j = 0; j < fh; j++) rr((carry.ax + i) * T + 2, (carry.ay + j) * T + 2, T - 4, T - 4, 8), c.fill();
+      c.save(); c.globalAlpha = 0.82; c.translate(0, -8 + Math.sin(t * 8) * 1.5);
+      if (carry.t === 'bld') drawBuilding({ ...carry.ref, x: carry.ax, y: carry.ay, busy: true }, t, 2); else if (carry.t === 'decor') drawDecor({ k: carry.ref.k, x: carry.ax, y: carry.ay }, t); else c.drawImage(soil(), carry.ax * T, carry.ay * T, T, T);
+      c.restore();
+    }
     for (let i = parts.length - 1; i >= 0; i--) {
       const q = parts[i]; q.life++; if (q.life > q.max) { parts.splice(i, 1); continue; }
       const a = 1 - q.life / q.max;
