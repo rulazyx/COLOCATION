@@ -45,7 +45,7 @@ export function mount(root, ctx) {
     const own = shown === mine, s = summary(mine);
     const top = `<div class="fm-top"><button class="fm-round" data-fm="settings" aria-label="Paramètres">${I_GEAR(26)}</button>
       <span class="fm-pill">${CANE_ICON(20)}<b>${mine.cane}</b></span><span class="fm-pill">${COIN(20)}<b>${ctx.coins()}</b></span>
-      ${view === 'play' ? `<button class="fm-round fr" data-fm="friends" aria-label="Amis">${FRIENDS(30)}</button>` : ''}${view === 'play' && own ? `<button class="fm-shopbtn" data-fm="menu" data-t="shop" aria-label="Boutique">${I_SHOP(54)}</button>` : ''}</div>`;
+      </div>`;
     if (view === 'home') {
       $ui.className = 'fm-ui m-home';
       $ui.innerHTML = `${top}<div class="fm-home"><h1>Colo-Ferme</h1><p class="fm-best">${mine.cane} canne${mine.cane > 1 ? 's' : ''} · ${mine.st.harvests} récolte${mine.st.harvests > 1 ? 's' : ''}</p>
@@ -53,7 +53,7 @@ export function mount(root, ctx) {
       return;
     }
     $ui.className = 'fm-ui m-play';
-    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' || mode.t === 'house' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
+    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : !mode && view === 'play' ? `<button class="fm-btn big go wide fm-shopb" data-fm="menu" data-t="shop">${I_SHOP(30)}<span>Boutique</span></button>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' || mode.t === 'house' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
     $ui.innerHTML = `${top}${own ? '' : `<div class="fm-own">Île de ${ctx.esc(ctx.nameOf(owner))}</div>`}${bar ? `<div class="fm-bar">${bar}</div>` : ''}`;
   }
   const closeSheet = () => { $sheet.hidden = true; $sheet.innerHTML = ''; };
@@ -157,7 +157,7 @@ export function mount(root, ctx) {
     }
     if (a === 'tuto') { closeSheet(); showTuto(0); return; }
     if (a === 'settings') { const ic = (d, c) => `<span class="fm-seti" style="background:${c}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
-      openSheet(`<h3>Paramètres</h3><div class="fm-set"><button data-fm="tuto">${ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', '#3b9be8')}<span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? `<button data-fm="home">${ic('<path d="M4 11l8-7 8 7v9H4z"/>', '#f2a516')}<span><b>Accueil de la ferme</b><small>Écran d'accueil du jeu</small></span></button>` : ''}<button data-fm="leave">${ic('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>', '#e5543f')}<span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button></div>`, true); return; }
+      openSheet(`<h3>Paramètres</h3><div class="fm-set"><button data-fm="tuto">${ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', '#3b9be8')}<span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? `<button data-fm="home">${ic('<path d="M4 11l8-7 8 7v9H4z"/>', '#f2a516')}<span><b>Accueil de la ferme</b><small>Écran d'accueil du jeu</small></span></button>` : ''}<button data-fm="friends">${ic('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 5.2a3 3 0 0 1 0 5.6M18 14.5c1.8.7 3 2.5 3 5.5"/>', '#8b5cf6')}<span><b>Amis</b><small>Visiter l'île d'un coloc</small></span></button><button data-fm="leave">${ic('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>', '#e5543f')}<span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button></div>`, true); return; }
     if (a === 'tab') { shopTab = k; openSheet(menuHTML('shop'), true); return; }
     if (a === 'movehouse') { mode = { t: 'house' }; closeSheet(); drawUI(); toast('Touche le coin haut-gauche du nouvel emplacement de la maison.'); return; }
     if (a === 'movebld') { const bl = mine.blds[Number(b.dataset.i)]; if (!bl) return; mode = { t: 'move', ref: bl }; closeSheet(); drawUI(); toast('Touche le nouvel emplacement du bâtiment.'); return; }

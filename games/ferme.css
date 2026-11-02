@@ -105,3 +105,5 @@
 .fm-seti { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; flex: none; }
 .fm-set b { display: block; font-size: 17px; font-family: 'Lilita One', 'Fredoka', inherit; font-weight: 800; }
 .fm-set small { color: #6b7280; font-size: 13px; }
+.fm-shopb { gap: 12px; font-size: 20px; }
+.fm-shopb svg { display: block; filter: drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
