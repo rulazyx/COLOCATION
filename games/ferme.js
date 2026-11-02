@@ -45,7 +45,7 @@ export function mount(root, ctx) {
     const own = shown === mine, s = summary(mine);
     const top = `<div class="fm-top"><button class="fm-round" data-fm="settings" aria-label="Paramètres">${I_GEAR(26)}</button>
       <span class="fm-pill">${CANE_ICON(20)}<b>${mine.cane}</b></span><span class="fm-pill">${COIN(20)}<b>${ctx.coins()}</b></span>
-      ${view === 'play' && own ? `<button class="fm-shopbtn fr" data-fm="menu" data-t="shop" aria-label="Boutique">${I_SHOP(54)}</button>` : ''}${view === 'play' ? `<button class="fm-round ${own ? '' : 'fr'}" data-fm="friends" aria-label="Amis">${FRIENDS(30)}</button>` : ''}</div>`;
+      ${view === 'play' ? `<button class="fm-round fr" data-fm="friends" aria-label="Amis">${FRIENDS(30)}</button>` : ''}${view === 'play' && own ? `<button class="fm-shopbtn" data-fm="menu" data-t="shop" aria-label="Boutique">${I_SHOP(54)}</button>` : ''}</div>`;
     if (view === 'home') {
       $ui.className = 'fm-ui m-home';
       $ui.innerHTML = `${top}<div class="fm-home"><h1>Colo-Ferme</h1><p class="fm-best">${mine.cane} canne${mine.cane > 1 ? 's' : ''} · ${mine.st.harvests} récolte${mine.st.harvests > 1 ? 's' : ''}</p>
@@ -73,13 +73,13 @@ export function mount(root, ctx) {
   function menuHTML(t) {
     if (t === 'shop') {
       const n = FA.parcelCost(mine.owned.length), lvl = ctx.level?.() ?? 1, lim = parcelLimit(lvl), used = mine.owned.length, full = used >= lim, canP = ctx.coins() >= n && !full, freeLeft = Math.max(0, 3 - used), nl = nextParcelLevel(lvl);
-      const bl = (k) => { const B = BUILDINGS[k], done = B.port && mine.blds.some((z) => z.k === k), cnt = mine.blds.filter((z) => z.k === k).length;
-        return `<button class="fm-row" data-fm="place" data-k="${k}" ${mine.cane >= B.cost && !done ? '' : 'disabled'}><span class="fm-ico">${buildIcon(k)}</span><span><b>${B.name}</b><small>${done ? 'Déjà construit' : B.text}${cnt && !B.port ? ` · ${cnt} construit${cnt > 1 ? 's' : ''}` : ''}</small></span>${done ? '<span class="fm-price">✓</span>' : price(B.cost)}</button>`; };
+      const bl = (k) => { if (mine.blds.some((z) => z.k === k)) return ''; const B = BUILDINGS[k], done = (B.port || B.unique) && mine.blds.some((z) => z.k === k), cnt = mine.blds.filter((z) => z.k === k).length;
+        return `<button class="fm-row" data-fm="place" data-k="${k}" ${mine.cane >= B.cost && !done ? '' : 'disabled'}><span class="fm-ico">${buildIcon(k)}</span><span><b>${B.name}</b><small>${done ? 'Déjà construit' : B.text}${cnt && !B.port && !B.unique ? ` · ${cnt} construit${cnt > 1 ? 's' : ''}` : ''}</small></span>${done ? '<span class="fm-price">✓</span>' : price(B.cost)}</button>`; };
       const tabs = `<div class="fm-tabs">${[['ferme', 'Ferme'], ['bat', 'Bâtiments'], ['decor', 'Décors']].map(([k, l]) => `<button class="fm-tab ${shopTab === k ? 'on' : ''}" data-fm="tab" data-k="${k}">${l}</button>`).join('')}</div>`;
       let body;
       if (shopTab === 'ferme') body = `<button class="fm-row" data-fm="parcel" ${canP ? '' : 'disabled'}><span class="fm-ico">${buildIcon('parcelle')}</span><span><b>Parcelle de culture</b><small>${full ? `Limite atteinte (${used}/${lim})${nl ? ` · plus de parcelles au niveau ${nl}` : ''}` : `${used}/${lim} parcelles${freeLeft ? ` · encore ${freeLeft} offerte${freeLeft > 1 ? 's' : ''}` : ''}`}</small></span>${n ? `<span class="fm-price ${canP ? '' : 'no'}">${COIN(14)} ${n}</span>` : '<span class="fm-price">Gratuit</span>'}</button>
-        <h4>Élevage et cultures</h4>${['poulailler', 'chevrerie', 'porcherie', 'serre'].map(bl).join('')}`;
-      else if (shopTab === 'bat') body = `${['brasserie', 'raffinerie'].map(bl).join('')}<h4>Port d'export</h4><p class="fm-sub">Le quai (sur la plage) et l'entrepôt sont nécessaires pour accéder à la mer.</p>${['quai', 'entrepot'].map(bl).join('')}`;
+        ${(() => { const h = ['poulailler', 'chevrerie', 'porcherie', 'serre'].map(bl).join(''); return h ? `<h4>Élevage et cultures</h4>${h}` : '<h4>Élevage et cultures</h4><p class="fm-sub">Tout est construit !</p>'; })()}`;
+      else if (shopTab === 'bat') { const m = ['marche', 'brasserie', 'raffinerie'].map(bl).join(''), pt = ['quai', 'entrepot'].map(bl).join(''); body = `${m}${pt ? `<h4>Port d'export</h4><p class="fm-sub">Le quai (sur la plage) et l'entrepôt sont nécessaires pour accéder à la mer.</p>${pt}` : ''}${m || pt ? '' : '<p class="fm-sub">Tous tes bâtiments sont construits !</p>'}`; }
       else body = `<div class="fm-grid">${Object.entries(DECORS).map(([k, D]) => { const lock = D.soaps && !mine.unl?.[k] && (ctx.soaps?.() ?? 0) < D.soaps; return lock ? `<button class="fm-dec lock" disabled>${decorIcon(k)}<b>${D.name}</b><small>Se débloque à ${D.soaps} savons (tu en as ${ctx.soaps?.() ?? 0})</small></button>` : `<button class="fm-dec" data-fm="placed" data-k="${k}" ${mine.cane >= D.cost ? '' : 'disabled'}>${decorIcon(k)}<b>${D.name}</b>${price(D.cost)}</button>`; }).join('')}</div>`;
       return `<h3>Boutique</h3>${tabs}${body}`;
     }
@@ -98,6 +98,13 @@ export function mount(root, ctx) {
     return `<h3>${B.name} · niveau ${b.lvl}</h3><p class="fm-sub">${B.text}</p>
       <button class="fm-row ${coins ? 'gold' : ''}" data-fm="collect" data-i="${mine.blds.indexOf(b)}" ${coins ? '' : 'disabled'}><span><b>${coins ? `Récolter ${coins} colocoins` : 'Rien à récolter'}</b><small>${n >= FA.maxStore ? 'Stock plein' : `Prochaine production dans ${fmtT(next)}`}</small></span></button>
       <button class="fm-row" data-fm="movebld" data-i="${mine.blds.indexOf(b)}"><span><b>Déplacer</b><small>Choisis un autre emplacement</small></span></button><p class="fm-sub" style="margin-top:6px">Pour améliorer ce bâtiment, touche ta maison.</p>`;
+  }
+  function marketHTML(b) {
+    const M = FA.market, lots = Math.floor(mine.cane / M.cane), i = mine.blds.indexOf(b);
+    return `<h3>Marché</h3><p class="fm-sub">Ici tu vends tes cannes à sucre : ${M.cane} cannes = ${M.coins} colocoins. Tu as ${mine.cane} canne${mine.cane > 1 ? 's' : ''}. D'autres marchandises arriveront bientôt.</p>
+      <button class="fm-row" data-fm="sell" data-n="1" ${lots >= 1 ? '' : 'disabled'}><span><b>Vendre ${M.cane} cannes</b><small>Contre ${M.coins} colocoins</small></span>${price(M.cane)}</button>
+      <button class="fm-row gold" data-fm="sell" data-n="${lots}" ${lots >= 2 ? '' : 'disabled'}><span><b>Tout vendre${lots >= 2 ? ` (${lots * M.cane} cannes)` : ''}</b><small>Contre ${lots * M.coins} colocoins</small></span></button>
+      <button class="fm-row" data-fm="movebld" data-i="${i}"><span><b>Déplacer</b><small>Choisis un autre emplacement</small></span></button><p class="fm-sub" style="margin-top:6px">Plafond de gains : 200 colocoins par jour.</p>`;
   }
   function portHTML() {
     const q = mine.blds.find((z) => z.k === 'quai'), e = mine.blds.find((z) => z.k === 'entrepot'), ok = hasPort(mine), sh = shipState(mine);
@@ -134,6 +141,13 @@ export function mount(root, ctx) {
     const xy = () => b.dataset.t.split(',').map(Number);
     if (a === 'parcel') { mode = { t: 'parcel' }; closeSheet(); drawUI(); toast('Touche un terrain dégagé pour poser ta parcelle.'); return; }
     if (a === 'ship') { if (buy(FA.ship.cane)) { mine.ship = { t: Date.now() }; touch(); drawUI(); openSheet(portHTML()); } return; }
+    if (a === 'sell') {
+      const M = FA.market, lots = Math.min(Number(b.dataset.n) || 0, Math.floor(mine.cane / M.cane)); if (!lots) return; b.disabled = true;
+      try { const got = await ctx.cash(lots * M.coins); if (!got) toast('Plafond du jour atteint (200 colocoins).'); else { const sold = Math.min(lots, Math.ceil(got / M.coins)); mine.cane -= sold * M.cane; mine.st.cash += got; touch();
+          const m = mine.blds.find((z) => z.k === 'marche'); if (m) { say((m.x + 1.5) * T, m.y * T - 20, `+${got}`, '#ffe14d'); puff((m.x + 1.5) * T, m.y * T, '#ffd23f', 12); }
+          if (got < lots * M.coins) toast(`Plafond du jour : ${got} colocoins crédités.`); } } catch (er) { toast(er.message || 'Vente impossible.'); }
+      drawUI(); openSheet(marketHTML(mine.blds.find((z) => z.k === 'marche'))); return;
+    }
     if (a === 'shipcash') {
       const n = shipCoins(mine); b.disabled = true;
       try { const got = await ctx.cash(n); mine.ship = null; mine.st.cash += got; touch(); const q = mine.blds.find((z) => z.k === 'quai'); if (q) { say((q.x + 1) * T, q.y * T - 20, `+${got}`, '#ffe14d'); puff((q.x + 1) * T, q.y * T, '#ffd23f', 12); }
@@ -141,7 +155,8 @@ export function mount(root, ctx) {
       closeSheet(); drawUI(); return;
     }
     if (a === 'tuto') { closeSheet(); showTuto(0); return; }
-    if (a === 'settings') { openSheet(`<h3>Paramètres</h3><button class="fm-row" data-fm="tuto"><span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? '<button class="fm-row" data-fm="home"><span><b>Accueil de la ferme</b><small>Revenir à l\'écran d\'accueil du jeu</small></span></button>' : ''}<button class="fm-row" data-fm="leave"><span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button>`, true); return; }
+    if (a === 'settings') { const ic = (d, c) => `<span class="fm-seti" style="background:${c}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
+      openSheet(`<h3>Paramètres</h3><div class="fm-set"><button data-fm="tuto">${ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', '#3b9be8')}<span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? `<button data-fm="home">${ic('<path d="M4 11l8-7 8 7v9H4z"/>', '#f2a516')}<span><b>Accueil de la ferme</b><small>Écran d'accueil du jeu</small></span></button>` : ''}<button data-fm="leave">${ic('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>', '#e5543f')}<span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button></div>`, true); return; }
     if (a === 'tab') { shopTab = k; openSheet(menuHTML('shop'), true); return; }
     if (a === 'movebld') { const bl = mine.blds[Number(b.dataset.i)]; if (!bl) return; mode = { t: 'move', ref: bl }; closeSheet(); drawUI(); toast('Touche le nouvel emplacement du bâtiment.'); return; }
     if (a === 'tnext') { showTuto(tutoI + 1); return; }
@@ -188,6 +203,7 @@ export function mount(root, ctx) {
     { ico: buildIcon('arbre'), t: 'Couper des arbres', p: "Les arbres au bord de ton terrain se coupent avec du temps (pas de canne). Un seul à la fois, pour agrandir ton île." },
     { ico: buildIcon('chevrerie'), t: 'Bâtiments et animaux', p: "Avec ta canne, construis poulailler, enclos à chèvres ou à cochons, brasserie, raffinerie. Ils produisent des colocoins à récolter (2 cycles stockés au maximum)." },
     { ico: buildIcon('quai'), t: 'Le port', p: "Pour accéder à la mer, construis le quai (sur la plage) et l'entrepôt d'export. Charge ensuite le bateau de cannes : il revient avec des colocoins." },
+    { ico: buildIcon('marche'), t: 'Le marché', p: "Pour 10 cannes, construis le marché : tu y vends tes cannes contre des colocoins, tout de suite. D'autres marchandises arriveront plus tard." },
     { ico: FRIENDS(70), t: 'À toi de jouer !', p: "Visite les îles de tes colocs avec le bouton Amis. Tu retrouves ce didacticiel avec le bouton « ? » en haut." },
   ];
   let tutoI = 0;
@@ -291,7 +307,7 @@ export function mount(root, ctx) {
       mine.decor.push({ k: mode.k, x, y }); mine.st.decor++; touch(); drawUI(); puff(wx, y * T + T, '#ffe9a8', 8); return;
     }
     if (onHouse(x, y)) return openSheet(menuHTML('house'));
-    const bl = bldAt(mine, x, y); if (bl) { if (!BUILDINGS[bl.k].port && bldCoins(mine, bl) > 0) return collectBld(bl); return openSheet(BUILDINGS[bl.k].port ? portHTML() : bldHTML(bl)); }
+    const bl = bldAt(mine, x, y); if (bl) { if (BUILDINGS[bl.k].cycleH && bldCoins(mine, bl) > 0) return collectBld(bl); return openSheet(BUILDINGS[bl.k].port ? portHTML() : BUILDINGS[bl.k].market ? marketHTML(bl) : bldHTML(bl)); }
     const dc = decorAt(mine, x, y); if (dc) return openBubble(x, y, `<b>${DECORS[dc.k].name}</b><div class="fm-bbtns"><button class="fm-bb go" data-fm="rm" data-t="${x},${y}">Ranger (+${Math.floor(DECORS[dc.k].cost / 2)} cannes)</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>`);
     if (isSand(x, y)) return;
     const key = `${x},${y}`, p = mine.plots[key];
@@ -433,6 +449,18 @@ export function mount(root, ctx) {
         g.beginPath(); for (let i = 1; i < 6; i++) { const t0 = i / 6; g.moveTo(x - 4 + t0 * (ww + 8), yt + 2); g.lineTo(x - 4 + d / 2 + t0 * (ww + 8), ry); } g.stroke();
         g.fillStyle = '#8a5a2b'; g.fillRect(x - 1, yb - 4, ww + 2, 5); door(g, x + ww / 2, yb, 18, 30);
       }
+      else if (k === 'marche') {
+        const px = 10, pw = w - 28, yb = h - 8, ty = yb - 34;
+        g.lineJoin = 'round'; g.lineWidth = 2; g.strokeStyle = '#4a2c10';
+        g.fillStyle = 'rgba(0,0,0,.18)'; g.beginPath(); g.ellipse(w / 2 + 6, yb + 2, pw / 2 + 8, 6, 0, 0, TAU); g.fill();
+        g.fillStyle = lin(g, ty, yb, '#d9a45a', '#a8742e'); g.fillRect(px, ty, pw, yb - ty); g.strokeRect(px, ty, pw, yb - ty);
+        g.strokeStyle = 'rgba(80,45,15,.45)'; g.lineWidth = 1.2; for (let i = 1; i < 7; i++) { g.beginPath(); g.moveTo(px + i * pw / 7, ty); g.lineTo(px + i * pw / 7, yb); g.stroke(); }
+        g.strokeStyle = '#4a2c10'; g.lineWidth = 2; for (const xx of [px + 4, px + pw - 4]) { g.fillStyle = '#7a5226'; g.fillRect(xx - 3, ty - 48, 6, 48); g.strokeRect(xx - 3, ty - 48, 6, 48); }
+        for (let i = 0; i < 4; i++) { const x0 = px + i * pw / 4; g.fillStyle = i % 2 ? '#fff6e6' : '#e5543f'; g.beginPath(); g.moveTo(x0 - 2, ty - 26); g.lineTo(x0 + 10, ty - 56); g.lineTo(x0 + pw / 4 + 10, ty - 56); g.lineTo(x0 + pw / 4 - 2, ty - 26); g.closePath(); g.fill(); g.stroke();
+          g.beginPath(); g.arc(x0 + pw / 8 - 2, ty - 26, pw / 8, 0, Math.PI); g.fill(); g.stroke(); }
+        for (let i = 0; i < 5; i++) { g.strokeStyle = '#4f9a2a'; g.lineWidth = 4; g.beginPath(); g.moveTo(px + 18 + i * 9, ty); g.lineTo(px + 14 + i * 9, ty - 16); g.stroke(); g.strokeStyle = '#d9c24a'; g.lineWidth = 1.5; g.stroke(); }
+        crate(g, px + pw - 40, ty - 12, 16); g.fillStyle = '#ffc928'; g.beginPath(); g.arc(px + pw - 62, ty - 4, 7, 0, TAU); g.fill(); g.strokeStyle = '#9a6209'; g.lineWidth = 1.5; g.stroke();
+      }
       else if (k === 'entrepot') hut(g, w, h, { wall: ['#c9d4df', '#a2b3c4'], side: '#7c8ea0', gable: '#8d9fb1', line: '#41505f', roof: ['#b5473c', '#8b2f27'], roofSide: '#5e1f1a', rh: 24,
         detail: (g2, q) => { g2.fillStyle = '#6a7b8c'; g2.beginPath(); g2.roundRect(q.x + q.ww * 0.5 - 22, q.yb - 36, 44, 36, 3); g2.fill(); g2.strokeStyle = '#34414e'; g2.lineWidth = 1.8; g2.stroke(); g2.beginPath(); g2.moveTo(q.x + q.ww * 0.5, q.yb - 36); g2.lineTo(q.x + q.ww * 0.5, q.yb); g2.stroke(); g2.fillStyle = 'rgba(255,255,255,.16)'; g2.fillRect(q.x + q.ww * 0.5 - 20, q.yb - 34, 18, 32);
           crate(g2, q.x + 4, q.yb - 14, 14); crate(g2, q.x + q.ww - 22, q.yb - 14, 14); crate(g2, q.x + q.ww - 22, q.yb - 28, 14); } });
@@ -487,7 +515,7 @@ export function mount(root, ctx) {
     if (b.k === 'quai' && hasPort(shown) && shipState(shown).st !== 'away') drawBoat(b, t);
     const cx = b.x * T + B.w * T - 20;
     if (b.k === 'brasserie' || b.k === 'raffinerie') { c.fillStyle = 'rgba(255,255,255,.7)'; for (let k = 0; k < 3; k++) { const p = (t * 0.45 + k / 3) % 1; c.globalAlpha = 1 - p; c.beginPath(); c.arc(cx - 12 + Math.sin(p * 5 + k) * 5, y + 10 - p * 26, 4 + p * 6, 0, TAU); c.fill(); } c.globalAlpha = 1; }
-    if (!B.port) { c.fillStyle = '#ffc928'; for (let i = 0; i < b.lvl; i++) { c.beginPath(); c.arc(b.x * T + 12 + i * 12, (b.y + B.h) * T + 8, 4.2, 0, TAU); c.fill(); c.strokeStyle = '#9a6209'; c.lineWidth = 1.2; c.stroke(); } }
+    if (!B.port && !B.market) { c.fillStyle = '#ffc928'; for (let i = 0; i < b.lvl; i++) { c.beginPath(); c.arc(b.x * T + 12 + i * 12, (b.y + B.h) * T + 8, 4.2, 0, TAU); c.fill(); c.strokeStyle = '#9a6209'; c.lineWidth = 1.2; c.stroke(); } }
     const ready = B.port ? (b.k === 'quai' && shown === mine && hasPort(mine) && shipState(mine).st === 'ready') : (shown === mine && bldCycles(b) > 0);
     if (ready) { const by = y - 6 + Math.sin(t * 4) * 3 + (B.animal ? 40 : 0), bx = b.x * T + B.w * T / 2; c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(bx, by, 12, 0, TAU); c.fill(); c.strokeStyle = '#9a6209'; c.lineWidth = 2.5; c.stroke(); c.fillStyle = '#9a6209'; c.font = '800 14px system-ui'; c.textAlign = 'center'; c.fillText('$', bx, by + 5); }
   }
@@ -643,6 +671,7 @@ function buildIcon(k) {
   if (k === 'arbre') return S('<rect x="17" y="24" width="6" height="12" fill="#8a5a2b"/><circle cx="20" cy="16" r="12" fill="#3fb057" stroke="#1f7a39" stroke-width="2"/><circle cx="15" cy="13" r="4.5" fill="#7fdc8a"/>');
   if (k === 'chevrerie') return S('<rect x="4" y="18" width="32" height="16" rx="3" fill="#dcc78a" stroke="#8a6a2a" stroke-width="2"/><path d="M6 18v-6M14 18v-6M22 18v-6M30 18v-6M4 14h32" stroke="#8a6a2a" stroke-width="2"/><ellipse cx="17" cy="27" rx="7" ry="4.5" fill="#fffaf0" stroke="#8a7a55" stroke-width="1.6"/><circle cx="24.5" cy="23.5" r="3.4" fill="#fffaf0" stroke="#8a7a55" stroke-width="1.6"/><path d="M24 20.5q-2-4-5-3.5" stroke="#8a7a55" stroke-width="1.6" fill="none"/>');
   if (k === 'porcherie') return S('<rect x="4" y="18" width="32" height="16" rx="3" fill="#b98355" stroke="#6e4423" stroke-width="2"/><path d="M6 18v-6M14 18v-6M22 18v-6M30 18v-6M4 14h32" stroke="#6e4423" stroke-width="2"/><ellipse cx="17" cy="27" rx="8" ry="5" fill="#ffb3c1" stroke="#c0607a" stroke-width="1.6"/><circle cx="25" cy="25.5" r="4" fill="#ffb3c1" stroke="#c0607a" stroke-width="1.6"/><ellipse cx="28" cy="26.5" rx="2" ry="1.6" fill="#f29bb0"/>');
+  if (k === 'marche') return S('<rect x="6" y="24" width="28" height="11" fill="#c98f45" stroke="#6e4a1e" stroke-width="2"/><path d="M4 14h32l-3 10H7z" fill="#fff6e6" stroke="#6e4a1e" stroke-width="2"/><path d="M10 14l-1.5 10M16 14l-.5 10M22 14l.5 10M28 14l1.5 10" stroke="#e5543f" stroke-width="3"/><circle cx="20" cy="30" r="3" fill="#ffc928" stroke="#9a6209" stroke-width="1.5"/>');
   if (k === 'quai') return S('<rect x="3" y="26" width="30" height="7" fill="#b9803f" stroke="#6e4a1e" stroke-width="2"/><path d="M7 26V17M29 26V17" stroke="#6e4a1e" stroke-width="3"/><path d="M33 31l6-5-1 8h-8z" fill="#fff" stroke="#4b6a7a" stroke-width="1.8"/><path d="M7 19q11 6 22 0" stroke="#e8d3a2" stroke-width="2" fill="none"/>');
   if (k === 'entrepot') return S('<path d="M4 18L20 7l16 11z" fill="#b5473c" stroke="#5e1f1a" stroke-width="2"/><rect x="6" y="18" width="28" height="16" fill="#b9c8d6" stroke="#41505f" stroke-width="2"/><rect x="13" y="22" width="14" height="12" fill="#6a7b8c" stroke="#34414e" stroke-width="1.6"/>');
   if (k === 'poulailler') return S('<path d="M6 18L20 6l14 12z" fill="#c0392b"/><rect x="9" y="18" width="22" height="16" fill="#e0a763" stroke="#8b5a2b" stroke-width="2"/><rect x="17" y="24" width="7" height="10" rx="3" fill="#4a2a0c"/>');

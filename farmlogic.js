@@ -7,6 +7,7 @@ export const FA = {
   growS: 120, yield: 2, startCane: 0,               // une canne pousse en 2 minutes, rapporte 2 cannes ; on commence sans canne
   parcelCost: (n) => (n < 3 ? 0 : n - 2),             // les 3 premières parcelles sont gratuites, puis 1, 2, 3… colocoins (achat en boutique)
   maxChop: 1,                                         // un seul arbre coupé à la fois
+  market: { cane: 10, coins: 3 },                     // marché : 10 cannes vendues = 3 colocoins (instantané)
   ship: { cane: 25, hours: 3, coins: 12 },            // export par bateau : on charge 25 cannes, retour en 3 h avec 12 colocoins
   treeMin: (cut) => Math.min(60, 5 + cut * 2),        // couper un arbre demande du temps (en minutes), pas de canne
   houseUp: [0, 60, 150],                              // coût pour passer niveau 1 → 2 → 3 (index = niveau visé − 1)
@@ -16,12 +17,13 @@ export const FA = {
   maxStore: 2,                                        // un bâtiment stocke 2 cycles au maximum
 };
 export const BUILDINGS = {
-  poulailler: { name: 'Poulailler', w: 2, h: 2, cost: 30, cycleH: 4, coins: [3, 5, 8], up: [60, 120], text: 'Des poules qui pondent : des colocoins toutes les 4 h.' },
-  brasserie: { name: 'Brasserie de rhum', w: 3, h: 2, cost: 90, cycleH: 6, coins: [10, 16, 24], up: [180, 360], text: 'Le rhum de canne se vend bien : des colocoins toutes les 6 h.' },
-  raffinerie: { name: 'Raffinerie de sucre', w: 2, h: 2, cost: 60, cycleH: 5, coins: [6, 10, 15], up: [120, 240], text: 'Du sucre roux : des colocoins toutes les 5 h.' },
-  serre: { name: 'Serre à tomates', w: 3, h: 2, cost: 55, cycleH: 3, coins: [4, 7, 11], up: [80, 160], text: 'Des tomates sous serre : des colocoins toutes les 3 h.' },
-  chevrerie: { name: 'Enclos à chèvres', w: 3, h: 2, cost: 45, cycleH: 5, coins: [5, 8, 12], up: [90, 180], animal: 'chevre', text: 'Des chèvres et leur lait : des colocoins toutes les 5 h.' },
-  porcherie: { name: 'Enclos à cochons', w: 3, h: 2, cost: 70, cycleH: 6, coins: [8, 13, 19], up: [140, 280], animal: 'cochon', text: 'Des cochons bien nourris : des colocoins toutes les 6 h.' },
+  poulailler: { unique: true, name: 'Poulailler', w: 2, h: 2, cost: 30, cycleH: 4, coins: [3, 5, 8], up: [60, 120], text: 'Des poules qui pondent : des colocoins toutes les 4 h.' },
+  brasserie: { unique: true, name: 'Brasserie de rhum', w: 3, h: 2, cost: 90, cycleH: 6, coins: [10, 16, 24], up: [180, 360], text: 'Le rhum de canne se vend bien : des colocoins toutes les 6 h.' },
+  raffinerie: { unique: true, name: 'Raffinerie de sucre', w: 2, h: 2, cost: 60, cycleH: 5, coins: [6, 10, 15], up: [120, 240], text: 'Du sucre roux : des colocoins toutes les 5 h.' },
+  serre: { unique: true, name: 'Serre à tomates', w: 3, h: 2, cost: 55, cycleH: 3, coins: [4, 7, 11], up: [80, 160], text: 'Des tomates sous serre : des colocoins toutes les 3 h.' },
+  chevrerie: { unique: true, name: 'Enclos à chèvres', w: 3, h: 2, cost: 45, cycleH: 5, coins: [5, 8, 12], up: [90, 180], animal: 'chevre', text: 'Des chèvres et leur lait : des colocoins toutes les 5 h.' },
+  porcherie: { unique: true, name: 'Enclos à cochons', w: 3, h: 2, cost: 70, cycleH: 6, coins: [8, 13, 19], up: [140, 280], animal: 'cochon', text: 'Des cochons bien nourris : des colocoins toutes les 6 h.' },
+  marche: { name: 'Marché', w: 3, h: 2, cost: 10, unique: true, market: true, text: 'Vends tes cannes contre des colocoins. D\'autres marchandises viendront.' },
   quai: { name: 'Quai', w: 2, h: 1, cost: 80, sand: true, port: true, text: 'Se construit sur la plage. Avec l\'entrepôt, il ouvre l\'accès à la mer.' },
   entrepot: { name: 'Entrepôt d\'export', w: 2, h: 2, cost: 100, port: true, text: 'Stocke la marchandise à exporter. Avec le quai, il ouvre l\'accès à la mer.' },
 };
@@ -48,7 +50,7 @@ export const free = (d, x, y) => isLand(x, y) && isCleared(d, x, y) && !isSand(x
 export const buyable = (d, x, y) => free(d, x, y);   // une parcelle s'achète sur un terrain dégagé libre
 export const chopMs = (cut) => FA.treeMin(cut) * 60000;
 const freeSand = (d, x, y) => isLand(x, y) && isSand(x, y) && !bldAt(d, x, y) && !decorAt(d, x, y);
-export const canPlace = (d, k, x, y) => { const B = BUILDINGS[k]; if (B.port && d.blds.some((b) => b.k === k)) return false; for (let i = 0; i < B.w; i++) for (let j = 0; j < B.h; j++) if (!(B.sand ? freeSand(d, x + i, y + j) : free(d, x + i, y + j))) return false;
+export const canPlace = (d, k, x, y) => { const B = BUILDINGS[k]; if ((B.port || B.unique) && d.blds.some((b) => b.k === k)) return false; for (let i = 0; i < B.w; i++) for (let j = 0; j < B.h; j++) if (!(B.sand ? freeSand(d, x + i, y + j) : free(d, x + i, y + j))) return false;
   if (B.sand) { let sea = false; for (let i = 0; i < B.w; i++) for (let j = 0; j < B.h; j++) for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!isLand(x + i + a, y + j + b)) sea = true; if (!sea) return false; }   // le quai touche l'eau
   return true; };
 export const hasPort = (d) => d.blds.some((b) => b.k === 'quai') && d.blds.some((b) => b.k === 'entrepot');   // quai + entrepôt = accès à la mer

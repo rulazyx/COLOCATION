@@ -93,8 +93,15 @@
 .fm-sheet.flat .fm-price { font: 400 20px 'Lilita One', system-ui, sans-serif; }
 .fm-sheet.flat .fm-grid { gap: 12px; }
 
-.fm-top .fm-shopbtn { margin-left: auto; width: 54px; height: 54px; flex: none; }
+.fm-top .fm-shopbtn { margin: 0; width: 54px; height: 54px; flex: none; }
 .fm-tabs { display: flex; gap: 8px; margin: 6px 0 14px; }
 .fm-tab { flex: 1; padding: 10px 6px; border: 0; border-radius: 14px; background: rgba(255,255,255,.55); color: #1b1d22; font: 400 18px 'Lilita One', system-ui, sans-serif; box-shadow: 0 4px 0 rgba(0,0,0,.14); cursor: pointer; }
 .fm-tab.on { background: #ffc928; box-shadow: 0 4px 0 #c99400; }
 .fm-dec small { font-size: 12px; font-weight: 600; color: #5b6270; text-align: center; line-height: 1.2; } .fm-dec.lock { opacity: .75; }
+
+.fm-set { display: grid; gap: 10px; margin-top: 8px; }
+.fm-set button { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 0; border-radius: 20px; background: #fff; box-shadow: 0 4px 0 #cfd3da; text-align: left; cursor: pointer; font: inherit; color: #1d1d22; }
+.fm-set button:active { transform: translateY(3px); box-shadow: 0 1px 0 #cfd3da; }
+.fm-seti { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; flex: none; }
+.fm-set b { display: block; font-size: 17px; font-family: 'Lilita One', 'Fredoka', inherit; font-weight: 800; }
+.fm-set small { color: #6b7280; font-size: 13px; }
