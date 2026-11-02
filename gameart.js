@@ -27,6 +27,7 @@ const MI = {
 };
 export const moveIcon = (k, size = 40) => `<svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true">${MI[k] ?? MI.pierre}</svg>`;
 
+let RUMN = 0;
 export function logoArt(id) {
   switch (id) {
     case 'flappy': return `<div class="gl-bird">${BIRD}</div><div class="gl-shadow"></div>`;
@@ -37,7 +38,10 @@ export function logoArt(id) {
     case 'chifoumi':
       return `<div class="gl-chif">${['pierre', 'feuille', 'ciseaux'].map((k, i) => `<i style="--i:${i}">${moveIcon(k, 42)}</i>`).join('')}</div>`;
     case 'course': return `<div class="gl-race"><svg viewBox="0 0 120 90" width="150" height="112" aria-hidden="true"><path class="w1" d="M0 70q15-10 30 0t30 0t30 0t30 0v20H0z" fill="#1c93bb"/><path class="w2" d="M0 78q15-10 30 0t30 0t30 0t30 0v12H0z" fill="#0d5f86"/><g class="gl-chest"><rect x="40" y="38" width="40" height="28" rx="4" fill="#8b5a2b" stroke="#4a2a0c" stroke-width="3"/><path d="M40 48h40" stroke="#4a2a0c" stroke-width="3"/><rect x="55" y="46" width="10" height="9" rx="2" fill="#ffc928" stroke="#4a2a0c" stroke-width="2"/><circle cx="52" cy="34" r="6" fill="#ffc928" stroke="#9a6209" stroke-width="2"/><circle cx="66" cy="31" r="6" fill="#ffd95a" stroke="#9a6209" stroke-width="2"/></g></svg></div>`;
-    case 'ferme': return `<div class="gl-farmer">${FARMER}</div>`;
+    case 'ferme': { const cid = `rumc${++RUMN}`; return `<div class="gl-rum"><svg viewBox="0 0 80 150" width="96" height="180" aria-hidden="true"><defs><clipPath id="${cid}"><path d="M30 6h20v6h-3v22c0 6 17 14 17 34v66c0 8-6 12-14 12H30c-8 0-14-4-14-12V68c0-20 17-28 17-34V12h-3z"/></clipPath></defs>
+      <path d="M30 6h20v6h-3v22c0 6 17 14 17 34v66c0 8-6 12-14 12H30c-8 0-14-4-14-12V68c0-20 17-28 17-34V12h-3z" fill="rgba(255,255,255,.55)" stroke="#6b3d17" stroke-width="3"/>
+      <g clip-path="url(#${cid})"><g class="rum-liq"><rect x="0" y="40" width="80" height="120" fill="#c26a1b"/><path class="rum-wave" d="M-20 40q10-7 20 0t20 0t20 0t20 0t20 0t20 0v8H-20z" fill="#d98a2e"/></g></g>
+      <rect x="34" y="0" width="12" height="9" rx="2" fill="#8b5a2b" stroke="#4a2a0c" stroke-width="2"/><rect x="24" y="84" width="32" height="30" rx="3" fill="#f3ead3" stroke="#6b3d17" stroke-width="2"/><text x="40" y="104" font-size="11" font-weight="800" text-anchor="middle" fill="#6b3d17" font-family="system-ui,sans-serif">RHUM</text></svg></div>`; }
     case 'blackjack':
       return `<div class="gl-cards"><div class="gl-card c1"><b>A</b><i>♠</i></div><div class="gl-card c2 red"><b>K</b><i>♥</i></div></div>`;
     default: return `<div class="gl-bird">${BIRD}</div>`;

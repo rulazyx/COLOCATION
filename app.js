@@ -3,13 +3,14 @@ import {
   SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf
   , GAME_GUESTS } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
+import { summary as farmSummary, normalize as farmNorm } from './farmlogic.js';
 import { TASK_ICONS, taskIcon, CART_ICON, GIFT_ICON } from './taskart.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
 import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 120;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 121;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -67,7 +68,7 @@ const moveEmoji = (m) => MOVES[m]?.emoji ?? '❔';
 const state = {
   api: null, members: [], me: null, products: [], scores: [], balances: [], purchases: [], duels: [],
   stats: [], duelStats: [], unlocks: [], views: [], xp: [], weekly: [], logs: [], spent: [], dice: [], diceClk: [], perks: [], pconf: [], chips: [], msgs: [], freshMsgs: new Set(), heads: false,
-  shopReqs: [], puns: null, punVotes: [], gamesSeg: 'games', farm: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
+  shopReqs: [], puns: null, punVotes: [], gamesSeg: 'games', farm: [], farm2: [], farmSt: [], farmDay: [], farmStock: [], farmBuilds: [], events: [], evVotes: [], expenses: [], expShares: [], open: {}, anim: false, levelUps: [], auth: null,
   tab: 'tasks', meSeg: 'robe', opp: null, sheet: null, error: null, initials: {},
   game: null, won: [], viewedNow: new Set(),
 };
@@ -134,7 +135,7 @@ const TABLE_KEYS = {
   members: ['members', 'scores', 'balances', 'xp', 'chips', 'duelStats', 'spent'], products: ['products'], purchases: ['purchases'], tasks: ['scores', 'weekly', 'logs'],
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
   xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
-  soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
+  soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm2: ['farm2'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
   events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], punishments: ['puns', 'spent'], punishment_votes: ['punVotes', 'puns', 'spent'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
 async function refresh(force = false, only = null) {
@@ -148,7 +149,7 @@ async function refresh(force = false, only = null) {
     members: () => api.members(), scores: () => api.scores(), balances: () => api.balances(), products: () => api.products(), purchases: () => api.purchases(), duels: () => api.duels(),
     stats: () => api.stats(), duelStats: () => api.duelStats(), unlocks: () => api.unlocks(), views: () => api.views(), xp: () => api.xp(), weekly: () => api.weekly(), logs: () => api.taskLogs(),
     spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
-    farm: () => api.farm(), farmSt: () => api.farmState(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
+    farm: () => api.farm(), farmSt: () => api.farmState(), farm2: () => api.farm2(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
     shopReqs: () => api.shopRequests(), puns: () => api.punishments(), punVotes: () => api.punishmentVotes().then((v) => v ?? []), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
   };
@@ -658,7 +659,7 @@ const GAMES = {
   flappy: { name: 'Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP, chaque palier franchi (50, 100, 150, 200, 250) des colocoins.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
-  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
+  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : plante de la canne à sucre, coupe des arbres pour t\'agrandir, construis poulailler, brasserie et raffinerie.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
@@ -668,15 +669,11 @@ const scrollApp = (y = 0) => window.scrollTo(0, y);
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
-    meId: me.id, isColoc: () => canPlay(me), players: () => players(), canPlay, esc, toast,
-    colocs: () => colocs(), nameOf: (id) => nameOf(id), avatar: (m, sz) => av(m, sz),
-    farm: () => state.farm, slotsOf: (id) => farmSlots(id), got: () => state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0,
-    chips: () => chipsOf(me.id), level: () => lvlOf(me.id),
-    stock: () => state.farmStock.filter((x) => x.member_id === me.id), builds: (id) => state.farmBuilds.filter((b) => b.member_id === id),
-    sell: (crop, qty) => api.farmSell(me.id, crop, qty), build: (spot, item) => api.farmBuild(me.id, spot, item),
-    plant: (slot, crop) => api.farmPlant(me.id, slot, crop), harvest: (slot) => api.farmHarvest(me.id, slot),
-    water: (owner, slot) => api.farmWater(me.id, owner, slot), unlock: () => api.farmUnlock(me.id),
-    refresh: () => refresh(true),
+    meId: me.id, esc, toast, nameOf: (id) => nameOf(id), avatar: (m, sz) => av(m, sz), players: () => players(),
+    load: async () => (await api.farm2()).find((r) => r.member_id === me.id)?.data ?? null,
+    others: () => api.farm2(),
+    save: (d) => api.farm2Save(me.id, d),
+    cash: async (n) => { const got = await api.farm2Cash(me.id, n); refresh(true).catch(() => {}); return got; },
   };
 }
 /* ---------- Jeux : écran d'accueil par jeu, panneaux (perso, classement…), menu pause ---------- */
@@ -1541,7 +1538,9 @@ function farmStatus(p) {
   return n > t + FARM.witherH * 3600000 ? 'dead' : 'ready';
 }
 function farmReadyBadge() {
-  const n = state.me?.kind === 'coloc' ? farmOf(state.me.id).filter((p) => farmStatus(p) === 'ready').length : 0;
+  if (!state.me || !canPlay(state.me)) return '';
+  const row = (state.farm2 ?? []).find((r) => r.member_id === state.me.id); if (!row) return '';
+  const s = farmSummary(farmNorm(row.data)), n = s.plots + s.blds;
   return n ? `<span class="gbadge">${n} à récolter</span>` : '';
 }
 // Étoile-médaille de la tuile Défis (même trait que la botte de paille)

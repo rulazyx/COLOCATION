@@ -113,3 +113,85 @@ grant execute on function report_sudoku(int, text, int) to anon, authenticated;
 insert into task_kinds (kind, soap, cooldown_h) values
   ('mais_arrosage', 1, 48), ('mais_compost', 2, 72), ('mais_terrasse', 2, 72), ('mais_linge', 2, 96)
 on conflict (kind) do update set soap = excluded.soap, cooldown_h = excluded.cooldown_h;
+
+-- ===== Colo-Ferme v2 : une île par joueur (l'état de la ferme est gardé en JSON) =====
+create table if not exists farm2 (
+  member_id  int primary key references members(id) on delete cascade,
+  data       jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table farm2 enable row level security;
+drop policy if exists "farm2 lecture" on farm2;
+create policy "farm2 lecture" on farm2 for select using (true);
+grant select on farm2 to anon, authenticated;
+do $$ begin
+  begin alter publication supabase_realtime add table farm2; exception when duplicate_object or undefined_object then null; end;
+end $$;
+
+create or replace function farm2_save(p_member int, p_data jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_st jsonb := coalesce(p_data -> 'st', '{}'::jsonb);
+begin
+  if not can_play(p_member) then raise exception 'Seuls les joueurs invités ont une ferme.'; end if;
+  if jsonb_typeof(p_data) <> 'object' or length(p_data::text) > 60000 then raise exception 'Ferme invalide.'; end if;
+  insert into farm2 (member_id, data, updated_at) values (p_member, p_data, now())
+    on conflict (member_id) do update set data = excluded.data, updated_at = now();
+  insert into member_stats (member_id) values (p_member) on conflict do nothing;
+  update member_stats set
+    farm_harvests = greatest(farm_harvests, coalesce((v_st ->> 'harvests')::int, 0)),
+    farm_builds   = greatest(farm_builds,   coalesce((v_st ->> 'builds')::int, 0)),
+    farm_slots    = greatest(farm_slots,    coalesce((v_st ->> 'trees')::int, 0)),
+    farm_waters   = greatest(farm_waters,   coalesce((v_st ->> 'decor')::int, 0)),
+    farm_coins    = greatest(farm_coins,    coalesce((v_st ->> 'cash')::int, 0))
+  where member_id = p_member;
+end $$;
+grant execute on function farm2_save(int, jsonb) to anon, authenticated;
+
+-- Colocoins gagnés par les bâtiments : 200 par jour au maximum
+create or replace function farm2_cash(p_member int, p_coins int) returns int
+language plpgsql security definer set search_path = public as $$
+declare v_today int; v_got int;
+begin
+  if not can_play(p_member) then raise exception 'Seuls les joueurs invités ont une ferme.'; end if;
+  if p_coins is null or p_coins < 1 or p_coins > 200 then raise exception 'Montant invalide.'; end if;
+  select coalesce(sum(amount), 0) into v_today from chip_ledger
+    where member_id = p_member and reason = 'ferme' and (created_at at time zone 'Indian/Reunion')::date = (now() at time zone 'Indian/Reunion')::date;
+  v_got := greatest(0, least(p_coins, 200 - v_today));
+  if v_got > 0 then insert into chip_ledger (member_id, amount, reason) values (p_member, v_got, 'ferme'); end if;
+  return v_got;
+end $$;
+grant execute on function farm2_cash(int, int) to anon, authenticated;
+
+-- ===== Alertes dans l'appli : nouvelle activité proposée, reset hebdomadaire =====
+create or replace function notify_new_event() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into popups (key, to_id, title, body, theme)
+  select 'event-' || new.id || '-' || m.id, m.id, 'Nouvelle activité',
+         (select name from members where id = new.creator_id) || ' propose : ' || new.title
+           || coalesce(' · ' || new.place, '') || E'\n' || to_char(new.starts_at at time zone 'Indian/Reunion', 'DD/MM à HH24"h"MI'),
+         'info'
+  from members m
+  where m.id <> new.creator_id and (new.invitees is null or m.id = any(new.invitees))
+  on conflict (key) do nothing;
+  return new;
+end $$;
+drop trigger if exists trg_notify_new_event on events;
+create trigger trg_notify_new_event after insert on events for each row execute function notify_new_event();
+
+create or replace function notify_week_reset() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_names text;
+begin
+  select string_agg(name, ', ' order by name) into v_names from members where id = any(new.winners);
+  insert into popups (key, to_id, title, body, theme)
+  select 'week-' || new.week || '-' || m.id, m.id, 'Nouvelle semaine !',
+         case when v_names is null then E'La semaine est terminée, les compteurs de savons repartent à zéro.'
+              else 'Gagnant' || case when array_length(new.winners, 1) > 1 then 's' else '' end || ' de la semaine : ' || v_names || ' avec ' || new.laps || E' savons.\nLes compteurs de savons repartent à zéro.' end,
+         'info'
+  from members m
+  on conflict (key) do nothing;
+  return new;
+end $$;
+drop trigger if exists trg_notify_week_reset on plateau_weeks;
+create trigger trg_notify_week_reset after insert on plateau_weeks for each row execute function notify_week_reset();

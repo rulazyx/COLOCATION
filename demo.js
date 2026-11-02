@@ -61,8 +61,8 @@ export function makeDemoApi() {
   const dayShift = (s, n) => { const [y, m, d] = s.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
   const fail = (msg) => { throw new Error(msg); };
   const publicDuel = ({ _move, ...d }) => ({ ...d });
-  const isColoc = (id) => { const m = base.find((x) => x.id === id); return m?.kind === 'coloc' || m?.name === 'Etienne'; };
-  const canPlayId = isColoc;
+  const isColoc = (id) => base.find((m) => m.id === id)?.kind === 'coloc';
+  const canPlayId = (id) => { const m = base.find((x) => x.id === id); return m?.kind === 'coloc' || m?.name === 'Etienne'; };
 
   return {
     mode: 'demo',
@@ -309,7 +309,7 @@ export function makeDemoApi() {
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
       } else fail('Jeu inconnu.');
       const want = game === 'flappy' ? CARDINAL_TIERS.at.reduce((t, a, i) => t + (Math.min(score, 5000) >= a ? CARDINAL_TIERS.coins[i] : 0), 0) : 0, cap = CARDINAL_TIERS.dayCap;
-      if (want && isColoc(id)) {
+      if (want && canPlayId(id)) {
         const today = db.chips.filter((c) => c.member_id === id && c.reason === `jeu:${game}` && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
         addChips(id, Math.max(0, Math.min(want, cap - today)), `jeu:${game}`);
       }
@@ -327,7 +327,7 @@ export function makeDemoApi() {
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? seconds, seconds); s.sudoku_easy = (s.sudoku_easy ?? 0) + 1;
       } else {
         xp = { easy: 10, mid: 25, hard: 50 }[mode]; coins = { easy: 1, mid: 2, hard: 4 }[mode]; s.sudoku_done++; s['sudoku_' + mode] = (s['sudoku_' + mode] ?? 0) + 1;
-        if (isColoc(id)) {
+        if (canPlayId(id)) {
           const today = db.chips.filter((c) => c.member_id === id && String(c.reason).startsWith('sudoku:') && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
           coins = Math.max(0, Math.min(coins, 12 - today)); if (coins) addChips(id, coins, `sudoku:${mode}`);
         } else coins = 0;
@@ -392,6 +392,9 @@ export function makeDemoApi() {
     },
     async chips() { return base.map((m) => ({ member_id: m.id, chips: chipsOf(m.id), earned: db.chips.filter((l) => l.member_id === m.id && l.amount > 0).reduce((a, l) => a + l.amount, 0) })); },
     async farm() { return db.farm.map((p) => ({ ...p })); },
+    async farm2() { return Object.entries(db.farm2 ?? {}).map(([id, data]) => ({ member_id: Number(id), data })); },
+    async farm2Save(m, data) { db.farm2 ??= {}; db.farm2[m] = data; const s = statsOf(m), t = data.st ?? {}; s.farm_harvests = Math.max(s.farm_harvests ?? 0, t.harvests ?? 0); s.farm_builds = Math.max(s.farm_builds ?? 0, t.builds ?? 0); s.farm_slots = Math.max(s.farm_slots ?? 0, t.trees ?? 0); s.farm_waters = Math.max(s.farm_waters ?? 0, t.decor ?? 0); s.farm_coins = Math.max(s.farm_coins ?? 0, t.cash ?? 0); save(); },
+    async farm2Cash(m, n) { if (!canPlayId(m)) fail('Réservé aux joueurs de la ferme.'); const today = db.chips.filter((c) => c.member_id === m && c.reason === 'ferme' && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0); const got = Math.max(0, Math.min(n, 200 - today)); if (got) addChips(m, got, 'ferme'); save(); return got; },
     async farmState() { return Object.entries(db.farmSt).map(([id, slots]) => ({ member_id: Number(id), slots })); },
     async farmDay() {
       const day = iso(new Date()), out = {};

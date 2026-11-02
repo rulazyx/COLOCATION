@@ -1,6 +1,6 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v120';
-const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './gameart.js', './taskart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './games/sea.js', './budget.js', './manifest.webmanifest'];
+const CACHE = 'coloc-v121';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './gameart.js', './taskart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './games/sea.js', './farmlogic.js', './budget.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
   // cache:'reload' : on récupère vraiment les nouveaux fichiers (pas la copie gardée par le navigateur)

@@ -57,7 +57,7 @@ export const BOARDS = [
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
   { key: 'sudokulvl', emoji: '🧠', label: 'Niveau Sudoku', unit: '', low: false },
   { key: 'blackjack', emoji: '🃏', label: 'Victoires Blackjack', unit: '', low: false },
-  { key: 'ferme',    emoji: '🌾', label: 'Récoltes (Colo-Ferme)', unit: '', low: false },
+  { key: 'ferme',    emoji: '🌾', label: 'Récoltes de canne (Colo-Ferme)', unit: '', low: false },
 ];
 export const fmtTime = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 export const fmtValue = (board, v) => (v == null ? '—' : board.key === 'sudoku' ? fmtTime(v) : board.key === 'level' || board.key === 'sudokulvl' ? `Niv. ${Math.floor(v / 100000)}` : `${v}${board.unit}`);
@@ -134,14 +134,14 @@ export const CHALLENGES = [
   { key: 'maitre_poussin', cat: 'Cardinal', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
   { key: 'legende_airs', cat: 'Cardinal', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Colo-Ferme —
-  { key: 'premiere_recolte', cat: 'Colo-Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
+  { key: 'premiere_recolte', cat: 'Colo-Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première canne à sucre à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
   { key: 'jardinier', cat: 'Colo-Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
   { key: 'maraicher', cat: 'Colo-Ferme', xp: 1000, title: 'Maraîcher', emoji: '🚜', desc: 'Faire 100 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 100) },
-  { key: 'bon_voisin', cat: 'Colo-Ferme', xp: 300, title: 'Bon voisin', emoji: '💧', desc: 'Arroser 20 fois les parcelles des autres colocs.', check: (c) => prog(num(st(c).farm_waters), 20) },
-  { key: 'ferme_1000', cat: 'Colo-Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins en vendant ta récolte à la grange.', check: (c) => prog(num(st(c).farm_coins), 1000) },
+  { key: 'bon_voisin', cat: 'Colo-Ferme', xp: 300, title: 'Décorateur', emoji: '🌴', desc: 'Poser 10 décors sur ton île.', check: (c) => prog(num(st(c).farm_waters), 10) },
+  { key: 'ferme_1000', cat: 'Colo-Ferme', xp: 600, title: 'Gros rendement', emoji: '💰', desc: 'Gagner 1 000 colocoins avec les bâtiments de ta ferme.', check: (c) => prog(num(st(c).farm_coins), 1000) },
   { key: 'premier_bati', cat: 'Colo-Ferme', xp: 200, title: 'Premier chantier', emoji: '🔨', desc: 'Construire un premier bâtiment.', check: (c) => prog(num(st(c).farm_builds), 1) },
-  { key: 'bati_10', cat: 'Colo-Ferme', xp: 700, title: 'Grand bâtisseur', emoji: '🏗️', desc: 'Construire les 5 bâtiments de ton domaine.', check: (c) => prog(num(st(c).farm_builds), 5) },
-  { key: 'grand_domaine', cat: 'Colo-Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Débloquer les 6 parcelles.', check: (c) => prog(num(st(c).farm_slots), 6) },
+  { key: 'bati_10', cat: 'Colo-Ferme', xp: 700, title: 'Grand bâtisseur', emoji: '🏗️', desc: 'Faire 10 constructions ou améliorations (bâtiments, maison, outils).', check: (c) => prog(num(st(c).farm_builds), 10) },
+  { key: 'grand_domaine', cat: 'Colo-Ferme', xp: 500, title: 'Grand domaine', emoji: '🏡', desc: 'Couper 25 arbres pour agrandir ton île.', check: (c) => prog(num(st(c).farm_slots), 25) },
   // — Chifoumi —
   { key: 'roc', cat: 'Chifoumi', xp: 100, title: 'Solide comme un roc', emoji: '🪨', desc: 'Gagner un chifoumi en jouant pierre.', check: (c) => prog(duelRuns(c.duels, c.meId).rock ? 1 : 0, 1) },
   { key: 'tailladeur', cat: 'Chifoumi', xp: 200, title: 'Le tailladeur', emoji: '✂️', desc: 'Gagner 3 duels de chifoumi d\'affilée.', check: (c) => prog(duelRuns(c.duels, c.meId).best, 3) },
