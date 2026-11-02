@@ -68,7 +68,8 @@ export function mount(root, { onEnd, balance, quest }) {
     const canSplit = phase === 'player' && !busy && !split && hands.length === 1 && cur.cards.length === 2 && value(cur.cards[0]) === value(cur.cards[1]) && afford(cur.bet);
     const controls = phase === 'player'
       ? `<div class="bj-btns"><button class="bj-b" data-act="hit" ${busy ? 'disabled' : ''}>Tirer</button><button class="bj-b alt" data-act="stand" ${busy ? 'disabled' : ''}>Rester</button></div>
-         <div class="bj-btns"><button class="bj-b sm" data-act="double" ${canDouble ? '' : 'disabled'}>Doubler</button><button class="bj-b sm" data-act="split" ${canSplit ? '' : 'disabled'}>Séparer</button></div>`
+         <div class="bj-btns"><button class="bj-b sm" data-act="double" ${canDouble ? '' : 'disabled'}>Doubler</button><button class="bj-b sm" data-act="split" ${canSplit ? '' : 'disabled'}>Séparer</button></div>
+         ${cur && cur.cards.length === 2 && !busy && !afford(cur.bet) ? `<div class="bj-msg" style="min-height:0;font-size:12px;opacity:.85">Doubler et séparer demandent ${cur.bet} colocoins de plus (il t'en reste ${Math.max(0, bal - stake())}).</div>` : ''}`
       : phase === 'bet' || phase === 'over'
         ? `<div class="bj-bets">${bets().map((b) => `<button class="bj-chip ${b === bet ? 'sel' : ''}" data-bet="${b}" ${b > bal ? 'disabled' : ''}>${b}</button>`).join('')}</div>
            ${bal < bets()[0] ? `<div class="bj-msg lose" style="min-height:0">Il te faut au moins ${bets()[0]} colocoins pour jouer. Tu en reçois 50 chaque jour dans Défis.</div>` : ''}

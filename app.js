@@ -1,7 +1,7 @@
 import {
   CONFIG, SHOP_REQ, TASK_KINDS, TASK_GROUPS, levelOf, levelProgress, XP_RULES,
-  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf, 
-} from './config.js';
+  SKIN_COLORS, HAIR_COLORS, BG_COLORS, OUTFITS, MOVES, DAILY_XP, WHEEL_MIN, WHEEL_MAX, INTRO_STEPS, GOOSE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, betsFor, BJ_BETS, SHOP, SHOP_SLOTS, LEVEL_BONUS, FARM, shopItem, BIRD_CRATE, birdRarity, SUDOKU_INTEL, intelOf
+  , GAME_GUESTS } from './config.js';
 import { eur, parseEuros, splitCents, balances as budgetBalances, settle as budgetSettle } from './budget.js';
 import { TASK_ICONS, taskIcon, CART_ICON, GIFT_ICON } from './taskart.js';
 import { NAV_ICONS, CART_SVG, GEAR_SVG, SUGGEST_SVG, CAL_SVG, PX_CAKE, PX_MUG, PX_FOOD, PX_PAD, COIN_SVG, CRATE_SVG, TROPHY_SVG, BOOK_SVG, birdSVG } from './shopart.js';
@@ -9,7 +9,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 119;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 120;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -82,6 +82,8 @@ const soapOf = (id) => earnedSoap(id) - (state.spent.find((x) => x.member_id ===
 const xpOf = (id) => state.xp.find((x) => x.member_id === id)?.xp ?? 0;
 const lvlOf = (id) => levelOf(xpOf(id));
 const colocs = () => state.members.filter((m) => m.kind !== 'copain');
+const canPlay = (m) => m?.kind === 'coloc' || GAME_GUESTS.includes(m?.name);
+const players = () => state.members.filter(canPlay);
 const copains = () => state.members.filter((m) => m.kind === 'copain');
 // Apparences débloquées : celles gagnées par défi + celles dont le niveau est atteint
 const ownedBy = (id) => new Set(['none',
@@ -235,6 +237,7 @@ function setTheme(t) {
 }
 async function init() {
   if (APIMOD.BUILD !== BUILD && await healCaches()) return;
+  try { screen.orientation?.lock?.('portrait').catch(() => {}); } catch {}
   let step = 'démarrage';
   const sp = (p) => window.splashProgress?.(p);
   if ('serviceWorker' in navigator) {
@@ -652,7 +655,7 @@ async function openProfile(id) {
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
   chifoumi: { name: 'Chifoumi', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
-  flappy: { name: 'Jumpy Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP.' },
+  flappy: { name: 'Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP, chaque palier franchi (50, 100, 150, 200, 250) des colocoins.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 25 ou 50 (puis 25 à 200, et 100 à 500 quand tu en as beaucoup). Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Construis ta ferme : plante, arrose, récolte, puis bâtis des bâtiments et des décorations avec tes fruits et légumes.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
@@ -664,7 +667,7 @@ const scrollApp = (y = 0) => window.scrollTo(0, y);
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
-    meId: me.id, isColoc: () => me.kind === 'coloc', esc, toast,
+    meId: me.id, isColoc: () => canPlay(me), players: () => players(), canPlay, esc, toast,
     colocs: () => colocs(), nameOf: (id) => nameOf(id), avatar: (m, sz) => av(m, sz),
     farm: () => state.farm, slotsOf: (id) => farmSlots(id), got: () => state.farmDay.find((d) => d.member_id === me.id)?.got ?? 0,
     chips: () => chipsOf(me.id), level: () => lvlOf(me.id),
@@ -994,8 +997,8 @@ function render() {
     ${`<header class="top hdr">
       <button class="hav ${step?.tab === 'heads' || step?.tab === 'defis' ? 'pulse' : ''} ${dailyDue() || statsOf(me.id).wheel_ready || readyChals().length ? 'dot' : ''}" data-action="headmenu" aria-label="Menu : boutique, défis, personnalisation">${av(me, 44)}<span class="lvlcircle xs" title="Niveau" style="--lc:${lvlColor(lvlOf(me.id))}">${lvlOf(me.id)}</span>${badge(unreadCount(), 'var(--danger)')}</button>
       <span class="grow"></span>
-      <span class="hwrap"><button class="hchip cur-cc" data-action="hint" data-v="cc" title="Colocoins">🪙 ${chipsOf(me.id)}</button>${state.hint === 'cc' ? '<div class="hbub">Joue aux jeux pour gagner des pièces ou gagne la course !</div>' : ''}</span>
-      <span class="hwrap"><button class="hchip cur-soap" data-action="hint" data-v="soap" title="Savons">🧼 ${soapOf(me.id)}</button>${state.hint === 'soap' ? '<div class="hbub">Accomplis des tâches pour gagner des savons !</div>' : ''}</span>
+      <span class="hwrap"><button class="hchip cur-cc" data-action="hint" data-v="cc" title="Colocoins"><span class="hcoin">${COIN_SVG}</span> ${chipsOf(me.id)}</button>${state.hint === 'cc' ? '<div class="hbub">Joue aux jeux pour gagner des pièces ou gagne la course !</div>' : ''}</span>
+      <span class="hwrap"><button class="hchip cur-soap" data-action="hint" data-v="soap" title="Savons"><span class="hsoap">${SOAP_SVG}</span> ${soapOf(me.id)}</button>${state.hint === 'soap' ? '<div class="hbub">Accomplis des tâches pour gagner des savons !</div>' : ''}</span>
           </header>
     `}
     <main class="${anim ? 'pg' : ''}">
@@ -1083,6 +1086,7 @@ function taskRowHTML() {
   const mine = pendingLogs().filter((l) => l.doer_id === me.id).length;
   const reqs = shopActive().filter((r) => (r.status === 'open' && r.requester_id !== me.id) || (r.status === 'bought' && r.requester_id === me.id)).length;
   return `<div class="taskrow"><button class="btn taskbtn" data-action="task-open" ${isColoc ? '' : 'disabled'}><span class="soapico">🧼</span>${isColoc ? 'J\'ai effectué une tâche' : 'Tâches réservées aux colocs'}${mine ? `<span class="badge">${mine}</span>` : ''}</button></div>
+    <div class="taskrow"><button class="btn taskbtn sugtaskbtn" data-action="tasksug-open" ${isColoc ? '' : 'disabled'}>${BULB_ICON}Suggestion de tâche</button></div>
     <div class="taskrow"><button class="btn taskbtn shopbtn" data-action="shop-reqs" ${isColoc ? '' : 'disabled'}>${CART_ICON}Commissionner un achat${reqs ? `<span class="badge">${reqs}</span>` : ''}</button></div>
     ${state.puns ? `<div class="taskrow"><button class="btn taskbtn punbtn" data-action="pun-open" ${isColoc ? '' : 'disabled'}>${PUN_ICON}Punir quelqu'un${punToVote() ? `<span class="badge">${punToVote()}</span>` : ''}</button></div>` : ''}`;
 }
@@ -1154,10 +1158,10 @@ const ringXY = (n) => {                       // n = 1..30 → [colonne, ligne] 
   return [0, n - (2 * cols + rows - 2)];                                     // gauche : vers le bas
 };
 function plateauHTML() {
-  const me = state.me, isColoc = me.kind === 'coloc';
+  const me = state.me, isColoc = canPlay(me);
   const { cols, rows } = RING;
   const pawns = {};
-  colocs().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
+  players().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
   const pawnHTML = (n, sz = 16) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
   const cells = [], pts = [];
   for (let n = 1; n <= GOOSE.size; n++) {
@@ -1168,7 +1172,7 @@ function plateauHTML() {
   pts.push(pts[0]);                           // boucle fermée
   const pos = shownPos(me.id), left = diceLeft(me.id);
   const can = isColoc && left > 0 && !state.rolling;
-  const ranked = colocs().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
+  const ranked = players().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
   const center = `<div class="gcenter">
       <div class="gttl">Tours de plateau</div>
@@ -1193,6 +1197,13 @@ function plateauHTML() {
 
 
 // Demandes d'achat : un coloc demande, un autre achète et gagne des savons, le demandeur confirme
+const SOAP_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="11" width="14" height="9" rx="3.5" fill="#7cc4ff" stroke="#2b7de9" stroke-width="1.5"/><path d="M6 14.5h5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/><circle class="b1" cx="18" cy="9" r="2.6" fill="none" stroke="#2b7de9" stroke-width="1.3"/><circle class="b2" cx="14" cy="6" r="1.8" fill="none" stroke="#2b7de9" stroke-width="1.2"/><circle class="b3" cx="20" cy="4" r="1.3" fill="none" stroke="#2b7de9" stroke-width="1"/></svg>';
+const BULB_ICON = '<svg class="tico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>';
+function taskSugHTML() {
+  return sheetWrap(`<div class="sh"><div><h2 class="hico">${BULB_ICON}Suggestion de tâche</h2><div class="when">Une tâche à ajouter ? Dis-nous laquelle et combien de savons elle vaut</div></div>${closeBtn}</div>
+    <textarea id="tasksugtxt" class="suggtxt" maxlength="500" rows="5" placeholder="Ex. Nettoyer le frigo, 3 savons, une fois par semaine"></textarea>
+    <button class="btn primary" style="width:100%;margin-top:10px" data-action="tasksug-send">Envoyer</button>`, '#f59e0b');
+}
 const shopActive = () => (state.shopReqs ?? []).filter((r) => r.status === 'open' || r.status === 'bought');
 function shopReqHTML() {
   const me = state.me, isColoc = me.kind === 'coloc', list = shopActive();
@@ -1385,6 +1396,7 @@ function sheetHTML() {
     case 'tasks': return taskBubbleHTML(s);
     case 'exphist': return expHistHTML();
     case 'shopreqs': return shopReqHTML();
+    case 'tasksug': return taskSugHTML();
     case 'perkweek': return perkWeekHTML();
     case 'punish': return punishHTML();
     case 'levelup': return levelUpSheetHTML();
@@ -1579,7 +1591,7 @@ function badgeCells(m) {
     ['chores', '🧼', 'Savons', earnedSoap(m.id)],
     ['dollars', '🪙', 'Colocoins', chipsOf(m.id)],
     ['chifoumi', '✊', 'Victoires chifoumi', wins],
-    ['flappy', '🐦', 'Jumpy Cardinal', st.flappy_best || 0],
+    ['flappy', '🐦', 'Cardinal', st.flappy_best || 0],
     ['blackjack', '🃏', 'Blackjack (mains gagnées)', st.blackjack_wins || 0],
   ];
 }
@@ -1612,15 +1624,15 @@ const DGRP_SVG = {
   'Ménage': '<path d="M6 10h12l-1.5 10h-9z"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M19 3l.7 1.6L21.3 5l-1.6.7L19 7.3l-.7-1.6L16.7 5l1.6-.4z" fill="currentColor"/>',
   'Sudoku': '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9.3 4v16M14.7 4v16M4 9.3h16M4 14.7h16"/>',
   'Blackjack': '<rect x="3.5" y="6" width="10" height="14" rx="2" transform="rotate(-10 8.5 13)"/><rect x="10.5" y="4" width="10" height="14" rx="2" transform="rotate(8 15.5 11)"/><path d="M15.6 9.5c-1.6 1.3-1.6 2.5-.3 2.5-.1.5-.3.8-.6 1h1.8c-.3-.2-.5-.5-.6-1 1.3 0 1.3-1.2-.3-2.5z" fill="currentColor" stroke="none"/>',
-  'Jumpy Cardinal': '<path d="M4 14q-1-4 3-4 1-4 6-4 6 0 7 5l2.5 1-2.5 1.2Q19 19 12 19q-6 0-8-5z"/><path d="M8 13q3 3 6 0"/><circle cx="15.5" cy="9.5" r="1" fill="currentColor"/>',
+  'Cardinal': '<path d="M4 14q-1-4 3-4 1-4 6-4 6 0 7 5l2.5 1-2.5 1.2Q19 19 12 19q-6 0-8-5z"/><path d="M8 13q3 3 6 0"/><circle cx="15.5" cy="9.5" r="1" fill="currentColor"/>',
   'Colo-Ferme': '<path d="M3 11l9-6 9 6"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6M9 14l6 6M15 14l-6 6"/>',
   'Chifoumi': '<circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9 15L18 4M15 15L6 4"/>',
   'Colocoins': '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3.5v2M12 18.5v2"/>',
   'Personnages': '<circle cx="12" cy="8" r="3.6"/><path d="M5 20c.8-4 3.6-6 7-6s6.2 2 7 6"/>',
   'Coloc': '<path d="M4 11l8-6.5 8 6.5"/><path d="M6.5 9.5V19h11V9.5"/><path d="M10 19v-5h4v5"/>',
 };
-const DGRP_COLOR = { 'Ménage': '#2b7de9', 'Sudoku': '#5b4ce5', 'Blackjack': '#13804f', 'Jumpy Cardinal': '#e5484d', 'Colo-Ferme': '#e39a17', 'Chifoumi': '#c2357a', 'Colocoins': '#c99400', 'Personnages': '#0f9aa8', 'Coloc': '#56607a' };
-const DGRP_ORDER = ['Ménage', 'Sudoku', 'Blackjack', 'Jumpy Cardinal', 'Colo-Ferme', 'Chifoumi', 'Colocoins', 'Personnages', 'Coloc'];
+const DGRP_COLOR = { 'Ménage': '#2b7de9', 'Sudoku': '#5b4ce5', 'Blackjack': '#13804f', 'Cardinal': '#e5484d', 'Colo-Ferme': '#e39a17', 'Chifoumi': '#c2357a', 'Colocoins': '#c99400', 'Personnages': '#0f9aa8', 'Coloc': '#56607a' };
+const DGRP_ORDER = ['Ménage', 'Sudoku', 'Blackjack', 'Cardinal', 'Colo-Ferme', 'Chifoumi', 'Colocoins', 'Personnages', 'Coloc'];
 const dIcon = (g, size = 26) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${DGRP_SVG[g] ?? DGRP_SVG.Coloc}</svg>`;
 const LOCK_SVG = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>';
 function defisHTML() {
@@ -1709,7 +1721,7 @@ function reglagesHTML() {
       <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>` : ''}
     <h3 class="sec">Thème</h3>
     <div class="seg" style="margin-bottom:10px">${[['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button class="${(store.get('coloc-theme') || 'auto') === k ? 'on' : ''}" data-action="theme" data-v="${k}">${l}</button>`).join('')}</div>
-    <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Jumpy Cardinal) : activé' : 'Compteur FPS (Jumpy Cardinal) : désactivé'}</button>
+    <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Cardinal) : activé' : 'Compteur FPS (Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
     ${suggestHTML()}
@@ -1857,9 +1869,9 @@ async function shopBuy(slot, key) {
 const MEDALS = ['🥇', '🥈', '🥉'];
 const ordinal = (n) => (n === 1 ? '1er' : `${n}e`);
 const RSEGS = [['dollars', '🪙 Colocoins'], ['level', 'Niveau'], ['chores', '🧼 Savons']];
-const RSEGS_GAMES = [['blackjack', 'Blackjack'], ['flappy', 'Jumpy'], ['sudokulvl', 'Sudoku']];   // classements des jeux
+const RSEGS_GAMES = [['blackjack', 'Blackjack'], ['flappy', 'Cardinal'], ['sudokulvl', 'Sudoku']];   // classements des jeux
 const RSEG_TXT = { dollars: 'Le nombre de colocoins que chacun possède en ce moment.', level: 'Le niveau (puis l\'XP) de chaque coloc et copain.', chores: 'Les savons gagnés grâce aux tâches ménagères.',
-  blackjack: 'Le nombre de mains gagnées au Blackjack.', flappy: 'Le meilleur score à Jumpy Cardinal (colonnes passées).', sudokulvl: 'Le niveau au Sudoku (puis le nombre de grilles réussies).' };
+  blackjack: 'Le nombre de mains gagnées au Blackjack.', flappy: 'Le meilleur score à Cardinal (colonnes passées).', sudokulvl: 'Le niveau au Sudoku (puis le nombre de grilles réussies).' };
 function rankHTML() {
   const seg = [...RSEGS, ...RSEGS_GAMES].some(([k]) => k === state.rankSeg) ? state.rankSeg : 'dollars';
   const board = BOARDS.find((b) => b.key === seg);
@@ -1892,7 +1904,7 @@ function profileSheetHTML(s) {
     <div class="sh"><div><h2>${mine ? 'Mon profil vu par les autres' : esc(m.name)}</h2><div class="when">${t ? esc(t) : 'Aucun titre affiché'}${m.kind === 'copain' ? ' · Copain' : ''}</div></div>${closeBtn}</div>
     <div class="center-av" style="background:${esc(m.bg || '#e6ebf1')}">${av(m, 130)}</div>
     <div class="pname"><b>${nameHTML(m)}</b></div>
-    <div class="pbird">${birdSVG(m.bird, 54)}<span><small>Oiseau de Jumpy Cardinal</small><b>${esc(SHOP.bird.find((b) => b.key === m.bird)?.name ?? 'Oiseau classique')}</b></span></div>
+    <div class="pbird">${birdSVG(m.bird, 54)}<span><small>Oiseau de Cardinal</small><b>${esc(SHOP.bird.find((b) => b.key === m.bird)?.name ?? 'Oiseau classique')}</b></span></div>
     ${featuredBadgeHTML(m)}
     <details class="allbadges"><summary>${m.badge ? 'Voir tous les badges' : 'Badges'}</summary>${statGrid(m)}</details>
     ${activePerksOf(m.id).map((pk) => perkCardHTML(pk, mine)).join('')}
@@ -2037,6 +2049,13 @@ document.addEventListener('click', (e) => {
     case 'task-pick': if (s?.type === 'tasks') { s.kind = id; render(); } break;
     case 'task-back': if (s?.type === 'tasks') { if (s.kind) s.kind = null; else s.group = null; render(); } break;
     case 'task-submit': submitTaskNow(id); break;
+    case 'tasksug-open': state.sheet = { type: 'tasksug' }; render(); break;
+    case 'tasksug-send': {
+      const txt = document.getElementById('tasksugtxt')?.value.trim() ?? '';
+      if (txt.length < 3) { toast('Écris ta suggestion.'); break; }
+      state.api.sendSuggestion(state.me.id, `[Tâche] ${txt}`).then(() => { toast('Merci ! Suggestion de tâche envoyée'); state.sheet = null; render(); }).catch((e) => toast(e.message));
+      break;
+    }
     case 'shop-reqs': state.sheet = { type: 'shopreqs' }; render(); break;
     case 'pun-open': state.sheet = { type: 'punish', target: null, soap: 3, reason: '' }; render(); break;
     case 'pun-target': case 'pun-soap': {

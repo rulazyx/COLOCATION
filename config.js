@@ -86,7 +86,7 @@ export const INTRO_STEPS = [
   { n: 3, tab: 'games', title: 'Jeux', text: "Touche un jeu pour voir sa règle, puis « Jouer ». Chifoumi te fait défier un coloc (mise de 10 🪙), le blackjack se joue avec tes colocoins 🪙, les autres jeux rapportent de l'XP, et la course aux pièces te donne un dé toutes les 3 heures." },
   { n: 4, tab: 'rank', title: 'Classement', text: "Qui a le plus de colocoins 🪙 ? Qui a le meilleur niveau ? Compare-toi aux autres colocs et copains. Dans chaque jeu, la fenêtre de règle montre aussi le classement des records." },
   { n: 6, tab: 'heads', title: 'Ton profil', text: "Touche ta tête en haut à gauche : un menu s'ouvre avec la Boutique, les Défis et la Personnalisation (garde-robe, titres, badges, réglages). Pour voir le profil d'un autre, touche-le dans le classement." },
-  { n: 5, tab: 'me', title: 'Perso', text: "Ici tu personnalises ton personnage : garde-robe, titres, badges, cadres et réglages (genre, couleurs, notifications). La Boutique (menu de ta tête, en haut) propose : cadres, effets de pseudo et looks de l'oiseau de Jumpy Cardinal." },
+  { n: 5, tab: 'me', title: 'Perso', text: "Ici tu personnalises ton personnage : garde-robe, titres, badges, cadres et réglages (genre, couleurs, notifications). La Boutique (menu de ta tête, en haut) propose : cadres, effets de pseudo et looks de l'oiseau de Cardinal." },
 ];
 // Récompense quotidienne (en XP) : jours 1 à 6, le jour 7 débloque la roue de la fortune (XP aussi)
 export const DAILY_XP = [30, 40, 50, 60, 80, 100];
@@ -123,6 +123,7 @@ export const TASK_GROUPS = [
   { key: 'ser',  label: 'Serpillère', emoji: '🪣', color: '#06b6d4' },
   { key: 'poub', label: 'Poubelles',  emoji: '🗑️', color: '#10b981' },
   { key: 'cuis', label: 'Cuisiner',   emoji: '🍳', color: '#ec4899' },
+  { key: 'mais', label: 'Maison',     emoji: '🪴', color: '#16a34a' },
 ];
 const ROOMS = [['cuisine', 'Cuisine', '🍳', 24, 48], ['salon', 'Salon', '🛋️', 48, 24], ['sdb', 'Salle de bain', '🛁', 72, 48], ['wc', 'WC', '🚽', 72, 48]];
 const roomKinds = (g, verb, details, cdFn, houseCd) => Object.fromEntries([
@@ -140,11 +141,18 @@ export const TASK_KINDS = {
   cuis_patisserie: { group: 'cuis', room: 'Pâtisseries', label: 'Pâtisseries pour tout le monde', short: 'Pâtisseries', emoji: '🧁', soap: 4, cooldownH: 24, detail: 'Gâteau, cookies… pour toute la coloc' },
   cuis_repas:      { group: 'cuis', room: 'Repas', label: 'Cuisiner pour tout le monde', short: 'Repas pour tous', emoji: '🍲', soap: 8, cooldownH: 24, detail: 'Un vrai repas pour toute la coloc' },
   cuis_vaisselle:  { group: 'cuis', room: 'Vaisselle', label: 'Vaisselle pour tout le monde', short: 'Vaisselle pour tous', emoji: '🍽️', soap: 2, cooldownH: 12, detail: 'La vaisselle de toute la coloc' },
+  mais_arrosage:   { group: 'mais', room: 'Plantes', label: 'Arroser les plantes', short: 'Arrosage des plantes', emoji: '🪴', soap: 1, cooldownH: 48, detail: 'Plantes d\'intérieur et de la terrasse' },
+  mais_compost:    { group: 'mais', room: 'Compost', label: 'Vider le compost', short: 'Compost vidé', emoji: '🍂', soap: 2, cooldownH: 72, detail: 'Vider le bac à compost' },
+  mais_terrasse:   { group: 'mais', room: 'Terrasse', label: 'Balayer la terrasse', short: 'Terrasse balayée', emoji: '🧹', soap: 2, cooldownH: 72, detail: 'Un coup de balai sur toute la terrasse' },
+  mais_linge:      { group: 'mais', room: 'Torchons et plaids', label: 'Machine des torchons et plaids', short: 'Machine torchons et plaids', emoji: '🧺', soap: 2, cooldownH: 96, detail: 'Lancer, étendre et ranger' },
   courses:         { group: 'courses', label: 'Achat demandé', short: 'Achat pour un coloc', emoji: '🛒', soap: 2, cooldownH: 0, detail: 'Acheter ce qu\'un coloc a demandé' },
   ...LEGACY_KINDS,
 };
 Object.values(TASK_KINDS).forEach((K) => { K.color ??= TASK_GROUPS.find((g) => g.key === K.group)?.color; });
 
+
+// Copains invités aux jeux à colocoins (course aux pièces, ferme, gains)
+export const GAME_GUESTS = ['Etienne'];
 
 // ---------- Course aux pièces : plateau en anneau, on tourne à l'infini (jamais remis à zéro) ----------
 // Cases : xp / chips (colocoins) = gain · back = recule de n cases · goose = avance de nouveau du même nombre. Chaque tour terminé donne un bonus d'XP.
@@ -166,6 +174,8 @@ export const GOOSE = {
 // Palier de niveau : tous les 10 niveaux, des colocoins offerts
 export const LEVEL_BONUS = { every: 10, chips: 100 };
 // Course aux pièces : un dé gagné toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus)
+// Cardinal : seul le passage de palier de score rapporte des colocoins (plafond par jour)
+export const CARDINAL_TIERS = { at: [50, 100, 150, 200, 250], coins: [5, 10, 15, 25, 40], dayCap: 100 };
 export const DICE = { everyH: 3, max: 3 };
 // Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.
 export const PERKS = [
@@ -177,14 +187,14 @@ export const perkOfWeek = (monday) => PERKS[((Math.round((Date.UTC(monday.getFul
 // Colocoins (monnaie du blackjack) : récompense du jour = 50 colocoins + 50 XP
 export const DAILY = { chips: 50, xp: 50 };
 // Blackjack : on mise des colocoins. Au-dessus de 500 colocoins, les mises passent à l'échelle supérieure.
-// 3 paliers : 5-10-25-50, puis 25-50-100-200 (au-delà de 200), puis 100-200-300-500 (au-delà de 500)
-export const BJ_BETS = { low: [5, 10, 25, 50], mid: [25, 50, 100, 200], high: [100, 200, 300, 500], midThreshold: 200, threshold: 500 };
-export const betsFor = (chips) => (chips > BJ_BETS.threshold ? BJ_BETS.high : chips > BJ_BETS.midThreshold ? BJ_BETS.mid : BJ_BETS.low);
+// Mises définitives du blackjack
+export const BJ_BETS = { fixed: [5, 10, 20, 30] };
+export const betsFor = () => BJ_BETS.fixed;
 // Paliers de colocoins qui débloquent un défi
 export const CHIP_GOALS = [500, 1000, 10000];
 export const MESSAGE_MAX = 140; // longueur d'un message court
 
-// ---------- Boutique (colocoins) : cadres de profil, effets de pseudo, looks de l'oiseau de Jumpy Cardinal ----------
+// ---------- Boutique (colocoins) : cadres de profil, effets de pseudo, looks de l'oiseau de Cardinal ----------
 // Les clés sont stockées dans purchases.item sous la forme 'frame:bronze', 'namefx:or', 'bird:bleu'
 export const SHOP = {
   frame: [

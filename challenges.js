@@ -53,7 +53,7 @@ export const BOARDS = [
   { key: 'dollars',  emoji: '🪙', label: 'Colocoins',         unit: ' 🪙', low: false },
   { key: 'chores',   emoji: '🧼', label: 'Savons',            unit: ' 🧼', low: false },
   { key: 'chifoumi', emoji: '✊', label: 'Victoires chifoumi', unit: '',    low: false },
-  { key: 'flappy',   emoji: '🐦', label: 'Jumpy Cardinal',    unit: '',    low: false },
+  { key: 'flappy',   emoji: '🐦', label: 'Cardinal',    unit: '',    low: false },
   { key: 'sudoku',   emoji: '🔢', label: 'Sudoku (meilleur temps)', unit: '', low: true },
   { key: 'sudokulvl', emoji: '🧠', label: 'Niveau Sudoku', unit: '', low: false },
   { key: 'blackjack', emoji: '🃏', label: 'Victoires Blackjack', unit: '', low: false },
@@ -127,12 +127,12 @@ export const CHALLENGES = [
   { key: 'propre_soi', cat: 'Ménage', xp: 100, title: 'Le Propre sur soi', emoji: '🧼', desc: 'Faire 1 tâche de ménage (validée par un coloc).', check: (c) => prog(chores(c), 1) },
   { key: 'fee_logis', cat: 'Ménage', xp: 400, title: 'Fée du Logis', emoji: '🧚', desc: 'Faire 10 tâches de ménage.', check: (c) => prog(chores(c), 10) },
   { key: 'nickel', cat: 'Ménage', xp: 800, title: 'Monsieur Nickel', emoji: '🧽', desc: 'Faire 20 tâches de ménage.', check: (c) => prog(chores(c), 20) },
-  // — Jumpy Cardinal (score atteint en UNE partie) —
-  { key: 'premier_envol', cat: 'Jumpy Cardinal', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
-  { key: 'employe_friterie', cat: 'Jumpy Cardinal', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
-  { key: 'sauteur_pro', cat: 'Jumpy Cardinal', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
-  { key: 'maitre_poussin', cat: 'Jumpy Cardinal', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Jumpy Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
-  { key: 'legende_airs', cat: 'Jumpy Cardinal', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Jumpy Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
+  // — Cardinal (score atteint en UNE partie) —
+  { key: 'premier_envol', cat: 'Cardinal', xp: 100, title: 'Premier Envol', emoji: '🐣', desc: 'Passer 5 obstacles en une partie à Cardinal.', check: (c) => prog(num(st(c).flappy_best), 5) },
+  { key: 'employe_friterie', cat: 'Cardinal', xp: 300, title: 'Employé de la friterie', emoji: '🍗', desc: 'Passer 50 obstacles en une partie à Cardinal.', check: (c) => prog(num(st(c).flappy_best), 50) },
+  { key: 'sauteur_pro', cat: 'Cardinal', xp: 1200, title: 'Sauteur professionnel', emoji: '🦖', desc: 'Passer 500 obstacles en une partie à Cardinal.', check: (c) => prog(num(st(c).flappy_best), 500) },
+  { key: 'maitre_poussin', cat: 'Cardinal', xp: 800, title: 'Maître cardinal', emoji: '🐦', desc: 'Passer 100 obstacles en une partie à Cardinal (récompense : le skin Cardinal).', check: (c) => prog(num(st(c).flappy_best), 100) },
+  { key: 'legende_airs', cat: 'Cardinal', xp: 2000, title: 'Légende des Airs', emoji: '🦅', desc: 'Passer 1000 obstacles en une partie à Cardinal.', check: (c) => prog(num(st(c).flappy_best), 1000) },
   // — Colo-Ferme —
   { key: 'premiere_recolte', cat: 'Colo-Ferme', xp: 100, title: 'Première récolte', emoji: '🌱', desc: 'Récolter une première culture à la Colo-Ferme.', check: (c) => prog(num(st(c).farm_harvests), 1) },
   { key: 'jardinier', cat: 'Colo-Ferme', xp: 400, title: 'Jardinier', emoji: '🧑‍🌾', desc: 'Faire 25 récoltes.', check: (c) => prog(num(st(c).farm_harvests), 25) },
@@ -165,10 +165,10 @@ export const CHALLENGES = [
   { key: 'perso_5', cat: 'Personnages', xp: 300, title: 'Collectionneur', emoji: '🧍', desc: 'Débloquer 5 personnages.', check: (c) => prog(skinsOwned(c), 5) },
   { key: 'perso_10', cat: 'Personnages', xp: 700, title: 'Garde-robe pleine', emoji: '👗', desc: 'Débloquer 10 personnages.', check: (c) => prog(skinsOwned(c), 10) },
   { key: 'perso_15', cat: 'Personnages', xp: 1200, title: 'Styliste', emoji: '🕴️', desc: 'Débloquer 15 personnages.', check: (c) => prog(skinsOwned(c), 15) },
-  // — Oiseaux de Jumpy Cardinal —
-  { key: 'oiseaux_2', cat: 'Jumpy Cardinal', xp: 200, title: 'Ornithologue en herbe', emoji: '🐦', desc: 'Collectionner 2 oiseaux (caisse mystère).', check: (c) => prog(birdsOwned(c), 2) },
-  { key: 'oiseaux_5', cat: 'Jumpy Cardinal', xp: 600, title: 'Volière', emoji: '🪺', desc: 'Collectionner 5 oiseaux.', check: (c) => prog(birdsOwned(c), 5) },
-  { key: 'oiseaux_tous', cat: 'Jumpy Cardinal', xp: 1500, title: 'Gardien des oiseaux', emoji: '🦜', desc: 'Collectionner tous les oiseaux.', check: (c) => prog(birdsOwned(c), SHOP.bird.length) },
+  // — Oiseaux de Cardinal —
+  { key: 'oiseaux_2', cat: 'Cardinal', xp: 200, title: 'Ornithologue en herbe', emoji: '🐦', desc: 'Collectionner 2 oiseaux (caisse mystère).', check: (c) => prog(birdsOwned(c), 2) },
+  { key: 'oiseaux_5', cat: 'Cardinal', xp: 600, title: 'Volière', emoji: '🪺', desc: 'Collectionner 5 oiseaux.', check: (c) => prog(birdsOwned(c), 5) },
+  { key: 'oiseaux_tous', cat: 'Cardinal', xp: 1500, title: 'Gardien des oiseaux', emoji: '🦜', desc: 'Collectionner tous les oiseaux.', check: (c) => prog(birdsOwned(c), SHOP.bird.length) },
   // — Sudoku —
   { key: 'sudoku_semaine', cat: 'Sudoku', xp: 300, title: 'Défi de la semaine', emoji: '📅', desc: 'Terminer une grille de la semaine.', check: (c) => prog(st(c).sudoku_best != null ? 1 : 0, 1) },
   { key: 'sudoku_niv3', cat: 'Sudoku', xp: 300, title: 'Esprit vif', emoji: '💡', desc: 'Atteindre le niveau 3 au Sudoku.', check: (c) => prog(sudokuLvl(c), 3) },

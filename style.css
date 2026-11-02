@@ -1400,3 +1400,22 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 @media (prefers-reduced-motion:reduce){.giftwide .gtrack{animation:none}}
 .evics{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:8px 0 4px;padding:9px 12px;border-radius:12px;background:var(--bg);color:var(--text);font-weight:700;font-size:13px;border:1px solid var(--line)}
 .evics svg{width:18px;height:18px;flex:none}.evics:active{transform:scale(.98)}
+
+/* Suggestion de tâche (orange-jaune) */
+.btn.sugtaskbtn{position:relative;background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#3b2400;box-shadow:0 4px 14px rgba(245,158,11,.4);font-size:14px;white-space:nowrap;gap:6px}
+
+/* Portrait uniquement : en paysage sur téléphone, on invite à retourner l'appareil */
+@media (orientation:landscape) and (max-height:480px){
+  body::after{content:'Tourne ton téléphone en mode portrait';position:fixed;inset:0;z-index:100000;display:grid;place-items:center;background:var(--bg,#fff);color:var(--text,#222);font:600 18px system-ui,sans-serif;text-align:center;padding:24px}
+}
+
+/* Header : colocoin qui tourne, savon qui fait des bulles */
+.hcoin{display:inline-block;perspective:60px}.hcoin svg{width:17px;height:17px;vertical-align:-3px;animation:coinspin 2.6s ease-in-out infinite;transform-origin:50% 50%}
+@keyframes coinspin{0%,55%,100%{transform:rotateY(0)}80%{transform:rotateY(180deg)}}
+.hsoap{display:inline-block}.hsoap svg{vertical-align:-3px;overflow:visible}
+.hsoap .b1,.hsoap .b2,.hsoap .b3{animation:bubble 2.4s ease-in infinite;transform-box:fill-box;transform-origin:center}
+.hsoap .b2{animation-delay:.8s}.hsoap .b3{animation-delay:1.5s}
+@keyframes bubble{0%{opacity:0;transform:translateY(5px) scale(.5)}25%{opacity:1}100%{opacity:0;transform:translateY(-6px) scale(1.15)}}
+@media (prefers-reduced-motion:reduce){.hcoin svg,.hsoap circle{animation:none}}
+
+.sdk-mode.resume{border-color:#ffc928;background:rgba(255,201,40,.14)}

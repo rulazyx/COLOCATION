@@ -10,6 +10,11 @@ export const TASK_ICONS = {
   ser: I(`<path d="M11 21h22l-3 21H14z" ${T}/><path d="M11 21c0-6 5-10 11-10s11 4 11 10"/><path d="M38 4L30 30"/><path d="M26 32l8 2-2 6-8-2z" ${T}/>`),
   poub: bin(),
   cuis: I(`<circle cx="20" cy="26" r="13" ${T}/><path d="M32 22l12-6"/><ellipse cx="20" cy="26" rx="6" ry="5" fill="#fff" stroke="none"/><circle cx="20" cy="26" r="2.6" fill="#fbbf24" stroke="none"/>`),
+  mais: I(`<path d="M14 26h20l-3 16H17z" ${T}/><path d="M24 26V12M24 20c-6 0-9-4-9-9 6 0 9 3 9 9zM24 16c0-5 3-8 9-8 0 5-3 8-9 8z"/>`),
+  mais_arrosage: I(`<path d="M8 20h22v16a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4z" ${T}/><path d="M30 24h6l6-8M30 28l12 2"/><path d="M38 34v3M42 34v3M34 36v3" stroke-width="2"/>`),
+  mais_compost: I(`<path d="M10 20h28l-3 22H13z" ${T}/><path d="M8 20h32M20 20v-4h8v4"/><path d="M19 28c3 4 7 4 10 0M20 33c2 2 6 2 8 0"/>`),
+  mais_terrasse: I(`<path d="M34 5L20 31"/><path d="M12 33l12-4 8 6-4 7H12z" ${T}/><path d="M16 35l1 6M21 34l1 7M26 34l1 8" stroke-width="2"/>`),
+  mais_linge: I(`<rect x="8" y="6" width="32" height="36" rx="5" ${T}/><circle cx="24" cy="26" r="9"/><path d="M18 26c3-3 5 3 8 0 2-1.5 3 .5 4 0"/><circle cx="14" cy="12" r="1.5"/><path d="M20 12h14" stroke-width="2"/>`),
   // Pièces
   cuisine: I(`<rect x="7" y="8" width="34" height="34" rx="5" ${T}/><circle cx="17" cy="18" r="4.5"/><circle cx="31" cy="18" r="4.5"/><path d="M7 28h34M15 35h18"/>`),
   salon: I(`<path d="M10 24v-6a5 5 0 0 1 5-5h18a5 5 0 0 1 5 5v6" ${T}/><path d="M6 24a3 3 0 0 1 6 0v5h24v-5a3 3 0 0 1 6 0v12H6z" ${T}/><path d="M10 36v4M38 36v4"/>`),

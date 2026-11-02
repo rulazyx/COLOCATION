@@ -84,6 +84,18 @@ export function mount(root, ctx = {}) {
   const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+  // Partie en cours : sauvegardée sur l'appareil à chaque case, reprise depuis le menu
+  const SAVE = `kaz-sudoku-save-${S.me ?? 0}`;
+  const loadSave = () => { try { const d = JSON.parse(localStorage.getItem(SAVE)); if (d && d.puz?.length === 81 && (d.mode !== 'week' || d.week === (S.week ?? 'demo'))) return d; } catch {} return null; };
+  const saveGame = () => { try { if (finished || lost || !puz) return localStorage.removeItem(SAVE); localStorage.setItem(SAVE, JSON.stringify({ mode, week: S.week ?? 'demo', puz, sol, grid, lives, elapsed: started ? Math.floor((Date.now() - started) / 1000) : elapsed })); } catch {} };
+  function resume() {
+    const d = loadSave(); if (!d) return;
+    mode = d.mode; view = 'play'; loading = false; result = null; puz = d.puz; sol = d.sol; grid = d.grid.slice(); given = puz.map((v) => v !== 0);
+    sel = -1; elapsed = d.elapsed || 0; started = elapsed ? Date.now() - elapsed * 1000 : 0; finished = false; lives = d.lives; wrong = new Set(); lost = false; fx = null; confetti = '';
+    doneRows = new Set(); doneCols = new Set(); doneBoxes = new Set();
+    for (let k = 0; k < 9; k++) { if (unitDone('r', k)) doneRows.add(k); if (unitDone('c', k)) doneCols.add(k); if (unitDone('b', k)) doneBoxes.add(k); }
+    draw();
+  }
   /* ----- Fond interactif : chiffres qui flottent, fuient le doigt et éclatent au toucher ----- */
   const reduce = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
   const dig = []; let raf = 0, bw = 0, bh = 0, ptr = null, last = 0;
@@ -132,9 +144,10 @@ export function mount(root, ctx = {}) {
   /* ----- Menu ----- */
   function drawMenu() {
     showBg(true);
-    const mine = board?.find((r) => r.member_id === S.me);
+    const mine = board?.find((r) => r.member_id === S.me), sv = loadSave();
     ui.innerHTML = `<div class="sdk-menu">
       <div class="sdk-logo">SUDOKU</div>
+      ${sv ? `<button class="sdk-mode resume" data-act="resume"><span><b>Reprendre ma partie</b><small>${MODES[sv.mode].label} · ${sv.grid.filter(Boolean).length - sv.puz.filter(Boolean).length} case(s) remplie(s)${sv.mode === 'week' ? ` · ${fmt(sv.elapsed || 0)}` : ''}</small></span></button>` : ''}
       <button class="sdk-mode week" data-act="mode" data-m="week"><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
       <h3 class="sdk-h">Grilles aléatoires</h3>
       ${['easy', 'mid', 'hard'].map((k) => `<button class="sdk-mode ${k}" data-act="mode" data-m="${k}"><span><b>${MODES[k].label}</b><small>+${MODES[k].coins} colocoin${MODES[k].coins > 1 ? 's' : ''} par grille réussie</small></span></button>`).join('')}
@@ -168,6 +181,7 @@ export function mount(root, ctx = {}) {
   }
   function draw() {
     if (view === 'menu') return drawMenu();
+    if (view === 'play' && !loading) saveGame();
     showBg(false);
     const m = MODES[mode];
     if (loading) { ui.innerHTML = `<div class="sdk-load"><div class="sdk-spin"></div><b>Création de la grille…</b><small>${m.label}</small></div>`; return; }
@@ -230,7 +244,8 @@ export function mount(root, ctx = {}) {
   }
   root.addEventListener('click', (e) => {
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.act === 'mode') start(b.dataset.m);
+    if (b.dataset.act === 'resume') resume();
+    else if (b.dataset.act === 'mode') start(b.dataset.m);
     else if (b.dataset.act === 'menu') { view = 'menu'; loading = false; loadBoard(); drawMenu(); }
     else if (view !== 'play' || loading) return;
     else if (b.dataset.i !== undefined) { sel = Number(b.dataset.i); draw(); }

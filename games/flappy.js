@@ -251,7 +251,7 @@ const SPK_ON = gIcon('sound'), SPK_OFF = gIcon('mute');
 export function mount(root, { onEnd, bird, fps, quest }) {
   const skin = { ...BASE, ...(SHOP.bird.find((b) => b.key === bird) ?? {}) };
   const snd = makeAudio();
-  root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Jumpy Cardinal"></canvas>
+  root.innerHTML = `<canvas class="gcanvas" width="${W}" height="${H}" aria-label="Cardinal"></canvas>
     <div class="gend" hidden><h2>Partie terminée</h2><p class="gscore"></p><div class="gwin"></div><button class="gh-btn go" data-act="again">${gIcon('replay')}Rejouer</button><button class="gh-btn" data-gact="home">${gIcon('home')}Menu principal</button></div>
     <button class="gmute" data-act="mute" aria-label="Son">${snd.muted ? SPK_OFF : SPK_ON}</button>`;
   const cv = root.querySelector('canvas'), ctx = cv.getContext('2d', { alpha: false }), over = root.querySelector('.gend');

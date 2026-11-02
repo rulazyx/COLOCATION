@@ -1,5 +1,5 @@
 // Mode démo : même interface que le cloud, avec localStorage (chargé seulement si aucune clé Supabase n'est configurée)
-import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM } from './config.js';
+import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM, CARDINAL_TIERS } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
@@ -61,7 +61,8 @@ export function makeDemoApi() {
   const dayShift = (s, n) => { const [y, m, d] = s.split('-').map(Number); return iso(new Date(y, m - 1, d + n)); };
   const fail = (msg) => { throw new Error(msg); };
   const publicDuel = ({ _move, ...d }) => ({ ...d });
-  const isColoc = (id) => base.find((m) => m.id === id)?.kind === 'coloc';
+  const isColoc = (id) => { const m = base.find((x) => x.id === id); return m?.kind === 'coloc' || m?.name === 'Etienne'; };
+  const canPlayId = isColoc;
 
   return {
     mode: 'demo',
@@ -307,7 +308,7 @@ export function makeDemoApi() {
         addXp(id, X.sudoku + milestoneXp('sudoku', s.sudoku_best, score), 'game:sudoku');
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
       } else fail('Jeu inconnu.');
-      const want = game === 'flappy' ? Math.min(Math.floor(Math.min(score, 5000) / 10), 3) : 0, cap = 15;
+      const want = game === 'flappy' ? CARDINAL_TIERS.at.reduce((t, a, i) => t + (Math.min(score, 5000) >= a ? CARDINAL_TIERS.coins[i] : 0), 0) : 0, cap = CARDINAL_TIERS.dayCap;
       if (want && isColoc(id)) {
         const today = db.chips.filter((c) => c.member_id === id && c.reason === `jeu:${game}` && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
         addChips(id, Math.max(0, Math.min(want, cap - today)), `jeu:${game}`);
@@ -321,7 +322,7 @@ export function makeDemoApi() {
       db.sudokuw ??= []; const s = statsOf(id); let xp = 0, coins = 0, record = false;
       if (mode === 'week') {
         const week = (() => { const t = new Date(); return iso(new Date(t.getFullYear(), t.getMonth(), t.getDate() - ((t.getDay() + 6) % 7))); })(), cur = db.sudokuw.find((r) => r.member_id === id && r.week === week);
-        if (!cur) { xp = X.sudoku + milestoneXp('sudoku', s.sudoku_best, seconds); record = true; db.sudokuw.push({ member_id: id, week, seconds }); }
+        if (!cur) { xp = X.sudoku + milestoneXp('sudoku', s.sudoku_best, seconds); record = true; db.sudokuw.push({ member_id: id, week, seconds }); if (canPlayId(id)) { coins = 10; addChips(id, 10, 'sudokuw'); } }
         else if (seconds < cur.seconds) { record = true; cur.seconds = seconds; }
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? seconds, seconds); s.sudoku_easy = (s.sudoku_easy ?? 0) + 1;
       } else {
@@ -557,7 +558,7 @@ export function makeDemoApi() {
     },
     async readMessages(member) { db.msgs.forEach((m) => { if (m.to_id === member && !m.read_at) m.read_at = now(); }); save(); },
     async reportBlackjack(id, bet, net, hands, wins, blackjack) {
-      if (![...BJ_BETS.low, ...BJ_BETS.high].includes(bet)) fail('Mise invalide.');
+      if (!BJ_BETS.fixed.includes(bet)) fail('Mise invalide.');
       if (!(hands >= 1 && hands <= 2) || wins < 0 || wins > hands || Math.abs(net) > 4 * bet) fail('Résultat invalide.');
       const s = statsOf(id);
       const v = net < 0 ? -Math.min(-net, Math.max(chipsOf(id), 0)) : net;

@@ -19,6 +19,15 @@
   <link rel="stylesheet" href="style.css">
 <style>
   /* ---- écran de chargement ---- */
+  #rzx{position:fixed;inset:0;z-index:10000;background:#0b0d12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s ease}
+  #rzx.out{opacity:0;pointer-events:none}
+  #rzx .rz{display:flex;gap:2px;font:800 64px/1 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.04em;color:#fff}
+  #rzx .rz span{display:inline-block;opacity:0;transform:translateY(18px) scale(.9);animation:rzin .5s cubic-bezier(.2,1.4,.4,1) forwards}
+  #rzx .rz span:nth-child(2){animation-delay:.12s}#rzx .rz span:nth-child(3){animation-delay:.24s;color:#ffc928}
+  #rzx .st{font:600 13px system-ui,sans-serif;letter-spacing:.55em;color:#8b93a7;padding-left:.55em;opacity:0;animation:rzst .5s ease .5s forwards}
+  #rzx i{display:block;width:84px;height:3px;border-radius:2px;background:linear-gradient(90deg,transparent,#ffc928,transparent);transform:scaleX(0);animation:rzline .6s ease .35s forwards}
+  @keyframes rzin{to{opacity:1;transform:none}}@keyframes rzst{to{opacity:1}}@keyframes rzline{to{transform:scaleX(1)}}
+  @media (prefers-reduced-motion:reduce){#rzx .rz span,#rzx .st,#rzx i{animation-duration:.01s;animation-delay:0s}}
   #splash{position:fixed;inset:0;z-index:9999;background:#fff4d6;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;
     transition:opacity .5s ease}
   #splash.out{opacity:0;pointer-events:none}
@@ -54,6 +63,8 @@
 </style>
 </head>
 <body>
+  <div id="rzx" aria-hidden="true"><div class="rz"><span>R</span><span>Z</span><span>X</span></div><i></i><div class="st">STUDIO</div></div>
+  <script>setTimeout(function(){var r=document.getElementById("rzx");if(r){r.classList.add("out");setTimeout(function(){r.remove()},500)}},1500)</script>
   <div id="splash" aria-label="Chargement">
   <div class="sunwrap" id="sunwrap">
     <div class="hopper"><svg viewBox="0 0 80 70" aria-hidden="true">
@@ -104,7 +115,7 @@
   setTimeout(window.splashDone, 15000); // sécurité : on ne bloque jamais l'appli
 })();
 </script>
-  <link rel="modulepreload" href="config.js"><link rel="modulepreload" href="util.js"><link rel="modulepreload" href="challenges.js"><link rel="modulepreload" href="avatar.js"><link rel="modulepreload" href="shopart.js"><link rel="modulepreload" href="budget.js"><link rel="modulepreload" href="api.js"><link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm" crossorigin>
+  <link rel="modulepreload" href="config.js"><link rel="modulepreload" href="util.js"><link rel="modulepreload" href="challenges.js"><link rel="modulepreload" href="avatar.js"><link rel="modulepreload" href="shopart.js"><link rel="modulepreload" href="budget.js"><link rel="modulepreload" href="taskart.js"><link rel="modulepreload" href="gameart.js"><link rel="modulepreload" href="api.js"><link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm" crossorigin>
   <script type="module" src="app.js"></script>
 </body>
 </html>
