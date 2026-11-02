@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 124;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 125;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -946,10 +946,14 @@ function closeGame() {
 
 async function syncSub() {
   // Si les notifications sont déjà activées sur cet appareil, on (ré)associe l'appareil au prénom choisi.
-  if (store.get('coloc-push') !== '1' || state.api.mode !== 'cloud' || !('serviceWorker' in navigator)) return;
+  if (state.api.mode !== 'cloud' || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) return;
+  // Permission déjà accordée (même si le drapeau local a été perdu) : on considère les notifs activées.
+  if (store.get('coloc-push') !== '1' && Notification.permission !== 'granted') return;
   try {
     const reg = await navigator.serviceWorker.ready;
     let sub = await reg.pushManager.getSubscription();
+    if (!sub && Notification.permission === 'granted' && CONFIG.VAPID_PUBLIC_KEY) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(CONFIG.VAPID_PUBLIC_KEY) });
+    if (sub && store.get('coloc-push') !== '1') store.set('coloc-push', '1');
     // Abonnement créé avec une autre clé VAPID que l'actuelle : le serveur le refuse (VapidPkHashMismatch). On le recrée, sans redemander la permission.
     if (sub && CONFIG.VAPID_PUBLIC_KEY && Notification.permission === 'granted') {
       const cur = new Uint8Array(sub.options?.applicationServerKey ?? []), want = b64ToU8(CONFIG.VAPID_PUBLIC_KEY);

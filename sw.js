@@ -1,5 +1,5 @@
 // Service worker : fonctionnement hors-ligne de base + notifications push
-const CACHE = 'coloc-v124';
+const CACHE = 'coloc-v125';
 const ASSETS = ['./', './index.html', './style.css', './app.js', './config.js', './keys.js', './avatar.js', './shopart.js', './gameart.js', './taskart.js', './api.js', './util.js', './challenges.js', './games/flappy.js', './games/cardinal.js', './games/cardinal.css', './games/ferme.css', './fonts/LilitaOne.woff2', './img/rzx.png', './games/sudoku.js', './games/blackjack.js', './games/ferme.js', './games/sea.js', './farmlogic.js', './budget.js', './manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {
