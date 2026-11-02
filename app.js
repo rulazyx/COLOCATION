@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 132;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 133;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -693,7 +693,7 @@ function showGameTuto(id, force = false) {
 }
 let gameHandle = null, gameScrollY = 0;
 // Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
-const MAJ_VERS = { ferme: '132', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '130' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
+const MAJ_VERS = { ferme: '132', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '133' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
 const MAJ_VER = '125';
 const majVer = (id) => MAJ_VERS[id] ?? MAJ_VER;
 const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== majVer(id);
@@ -1267,8 +1267,11 @@ function plateauHTML() {
   const top = ranked[0]?.l ?? 0;
   const center = `<div class="cboard"><span class="cport" title="Port (départ)">${seaArt('anchor')}<span class="pw">${pawnHTML(0, 22)}</span></span>
       ${ranked.map(({ m, l }) => `<span class="ci ${l && l === top ? 'lead' : ''}">${av(m, 22)}<b>${l}</b>${l && l === top ? '<em class="crown">★</em>' : ''}</span>`).join('')}</div>`;
+  const resetMs = addDays(mondayOf(), 7).getTime() - Date.now(), rd = Math.floor(resetMs / 86400000), rh = Math.floor(resetMs % 86400000 / 3600000), rm = Math.floor(resetMs % 3600000 / 60000);
+  const resetIn = rd ? `${rd} j ${rh} h` : rh ? `${rh} h ${String(rm).padStart(2, '0')}` : `${Math.max(1, rm)} min`;
+  const reset = `<div class="creset" title="La course se remet à zéro chaque lundi à minuit">Reset dans <b>${resetIn}</b> · 1000 pièces au gagnant</div>`;
   const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
-  return `<button class="cback" data-action="course-back" aria-label="Retour">${BACK_SVG}</button>${center}
+  return `<button class="cback" data-action="course-back" aria-label="Retour">${BACK_SVG}</button>${center}${reset}
     <div class="cstage"><div class="arch">
       <svg class="apath" viewBox="0 0 ${ARCH.w} ${ARCH.h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#f3dd9a" stroke-opacity=".5" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff7d6" stroke-opacity=".75" stroke-width="3" stroke-dasharray="1 9" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div class="acenter">${SEA_DECOR}</div>

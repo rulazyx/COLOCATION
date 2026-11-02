@@ -1548,3 +1548,7 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .kz-card p{margin:0;font-size:15px;line-height:1.4;color:#4b5563}
 .kz-dots{display:flex;gap:6px;margin:4px 0}.kz-dots i{width:8px;height:8px;border-radius:50%;background:#d1d5db}.kz-dots i.on{background:#ffc928;width:20px;border-radius:4px}
 .kz-skip{border:0;background:none;color:#6b7280;font:700 14px system-ui;padding:6px;cursor:pointer}
+
+.arch .gc{overflow:visible}
+.creset{position:absolute;z-index:5;top:calc(60px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);padding:4px 12px;border-radius:99px;background:rgba(6,58,80,.5);backdrop-filter:blur(3px);color:#fff;font:600 12px system-ui;white-space:nowrap}
+.creset b{color:#ffd23f}
