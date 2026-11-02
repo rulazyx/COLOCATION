@@ -42,11 +42,13 @@ export const isSand = (x, y) => isLand(x, y) && dist(x, y) + wob(x, y) > 0.83;
 export const inStart = (x, y) => x >= FA.start.x0 && x <= FA.start.x1 && y >= FA.start.y0 && y <= FA.start.y1;
 export const isCleared = (d, x, y) => inStart(x, y) || d.cleared.includes(key(x, y));
 export const isTree = (d, x, y) => isLand(x, y) && !isSand(x, y) && !isCleared(d, x, y);
-export const onHouse = (x, y) => x >= FA.house.x && x < FA.house.x + FA.house.w && y >= FA.house.y && y < FA.house.y + FA.house.h;
+export const hpos = (d) => ({ x: d?.hx ?? FA.house.x, y: d?.hy ?? FA.house.y });   // position de la maison (déplaçable)
+export const onHouse = (x, y, d) => { const h = hpos(d); return x >= h.x && x < h.x + FA.house.w && y >= h.y && y < h.y + FA.house.h; };
+export const canHouse = (d, x, y) => { for (let i = 0; i < FA.house.w; i++) for (let j = 0; j < FA.house.h; j++) { const a = x + i, b = y + j; if (!(isLand(a, b) && !isSand(a, b) && isCleared(d, a, b) && !bldAt(d, a, b) && !decorAt(d, a, b) && !d.plots[key(a, b)] && !isOwned(d, a, b))) return false; } return true; };
 export const bldAt = (d, x, y) => d.blds.find((b) => x >= b.x && x < b.x + BUILDINGS[b.k].w && y >= b.y && y < b.y + BUILDINGS[b.k].h);
 export const decorAt = (d, x, y) => d.decor.find((o) => o.x === x && o.y === y);
 export const isOwned = (d, x, y) => d.owned.includes(key(x, y));
-export const free = (d, x, y) => isLand(x, y) && isCleared(d, x, y) && !isSand(x, y) && !onHouse(x, y) && !bldAt(d, x, y) && !decorAt(d, x, y) && !d.plots[key(x, y)] && !isOwned(d, x, y);   // libre pour un bâtiment ou un décor (ni parcelle ni cultures)
+export const free = (d, x, y) => isLand(x, y) && isCleared(d, x, y) && !isSand(x, y) && !onHouse(x, y, d) && !bldAt(d, x, y) && !decorAt(d, x, y) && !d.plots[key(x, y)] && !isOwned(d, x, y);   // libre pour un bâtiment ou un décor (ni parcelle ni cultures)
 export const buyable = (d, x, y) => free(d, x, y);   // une parcelle s'achète sur un terrain dégagé libre
 export const chopMs = (cut) => FA.treeMin(cut) * 60000;
 const freeSand = (d, x, y) => isLand(x, y) && isSand(x, y) && !bldAt(d, x, y) && !decorAt(d, x, y);

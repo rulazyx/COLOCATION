@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 133;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 134;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -693,7 +693,7 @@ function showGameTuto(id, force = false) {
 }
 let gameHandle = null, gameScrollY = 0;
 // Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
-const MAJ_VERS = { ferme: '132', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '133' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
+const MAJ_VERS = { ferme: '134', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '133' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
 const MAJ_VER = '125';
 const majVer = (id) => MAJ_VERS[id] ?? MAJ_VER;
 const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== majVer(id);

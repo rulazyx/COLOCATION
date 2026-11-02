@@ -1,6 +1,6 @@
 // « Colo-Ferme » v3 : une île à faire grandir, dessinée en canvas (rendu en relief, aucun emoji). On glisse le doigt pour se déplacer.
 // Parcelles achetées en colocoins (1, 2, 3…), canne à sucre (2 min), arbres coupés avec du temps. Règles et données : ../farmlogic.js
-import { FA, BUILDINGS, DECORS, newFarm, normalize, isLand, isSand, isCleared, isTree, onHouse, bldAt, decorAt, free, isOwned, canPlace, parcelLimit, nextParcelLevel, hasPort, shipState, shipCoins, frontier, growMs, yieldN, plotState, cycleMs, bldCycles, bldCoins, summary, chopMs } from '../farmlogic.js';
+import { FA, hpos, canHouse, BUILDINGS, DECORS, newFarm, normalize, isLand, isSand, isCleared, isTree, onHouse, bldAt, decorAt, free, isOwned, canPlace, parcelLimit, nextParcelLevel, hasPort, shipState, shipCoins, frontier, growMs, yieldN, plotState, cycleMs, bldCycles, bldCoins, summary, chopMs } from '../farmlogic.js';
 
 const T = FA.T, TAU = Math.PI * 2;
 const CANE_ICON = (s = 16) => `<svg viewBox="0 0 20 20" width="${s}" height="${s}" aria-hidden="true" style="vertical-align:-3px"><path d="M6 19V4M10 19V1M14 19V5" stroke="#5aa832" stroke-width="2.6" stroke-linecap="round"/><path d="M6 8h0M10 6h0M14 10h0" stroke="#e8f7b0" stroke-width="2" stroke-linecap="round"/></svg>`;
@@ -33,7 +33,7 @@ export function mount(root, ctx) {
   const fitSoon = () => { fit(); setTimeout(fit, 250); setTimeout(fit, 900); }; fitSoon(); window.addEventListener('resize', fit);
   const clamp = () => { cam.x = Math.max(-60, Math.min(FA.N * T - W + 60, cam.x)); cam.y = Math.max(-60, Math.min(FA.N * T - H + 60, cam.y)); };
   const center = (tx, ty) => { cam.x = tx * T - W / 2; cam.y = ty * T - H / 2; clamp(); };
-  const home0 = () => center(FA.house.x + 1.5, FA.house.y + 3.5);
+  const home0 = () => center(hpos(mine).x + 1.5, hpos(mine).y + 3.5);
   const touch = () => { dirty = true; clearTimeout(saveT); saveT = setTimeout(flush, 1500); };
   async function flush() { clearTimeout(saveT); if (!dirty) return; dirty = false; try { await ctx.save(mine); } catch (e) { dirty = true; console.warn(e); } }
   const say = (x, y, txt, col = '#fff6b0') => parts.push({ k: 't', x, y, vy: -0.8, life: 0, max: 60, txt, col });
@@ -53,7 +53,7 @@ export function mount(root, ctx) {
       return;
     }
     $ui.className = 'fm-ui m-play';
-    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
+    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' || mode.t === 'house' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
     $ui.innerHTML = `${top}${own ? '' : `<div class="fm-own">Île de ${ctx.esc(ctx.nameOf(owner))}</div>`}${bar ? `<div class="fm-bar">${bar}</div>` : ''}`;
   }
   const closeSheet = () => { $sheet.hidden = true; $sheet.innerHTML = ''; };
@@ -91,6 +91,7 @@ export function mount(root, ctx) {
       ${tu ? `<button class="fm-row" data-fm="upTools" ${mine.cane >= tu ? '' : 'disabled'}><span><b>Améliorer les outils (niveau ${mine.tools + 1})</b><small>Pousse −${Math.round(FA.toolGrow * 100)} % de temps · +1 canne par récolte</small></span>${price(tu)}</button>` : '<p class="fm-max">Outils au niveau maximum.</p>'}
       <h4>Bâtiments</h4>${mine.blds.filter((b) => BUILDINGS[b.k].up).map((b) => { const B = BUILDINGS[b.k], up = B.up[b.lvl - 1], i = mine.blds.indexOf(b);
         return up ? `<button class="fm-row" data-fm="upBld" data-i="${i}" ${mine.cane >= up ? '' : 'disabled'}><span class="fm-ico">${buildIcon(b.k)}</span><span><b>${B.name} · niv. ${b.lvl} → ${b.lvl + 1}</b><small>${B.coins[b.lvl - 1]} → ${B.coins[b.lvl]} colocoins par cycle</small></span>${price(up)}</button>` : `<div class="fm-chk ok">${B.name} · niveau maximum</div>`; }).join('') || '<p class="fm-sub">Construis un bâtiment dans la Boutique pour pouvoir l\'améliorer ici.</p>'}
+      <button class="fm-row" data-fm="movehouse" style="margin-top:12px"><span><b>Déplacer la maison</b><small>Choisis un autre emplacement dégagé</small></span></button>
       <div class="fm-stats"><span><b>${mine.st.harvests}</b> récoltes</span><span><b>${mine.st.trees}</b> arbres coupés</span><span><b>${mine.st.cash}</b> colocoins gagnés</span></div>`;
   }
   function bldHTML(b) {
@@ -134,7 +135,7 @@ export function mount(root, ctx) {
     if (a === 'place') { mode = { t: 'build', k }; closeSheet(); drawUI(); toast('Touche un emplacement libre sur ton terrain.'); return; }
     if (a === 'placed') { mode = { t: 'decor', k }; closeSheet(); drawUI(); toast('Touche un emplacement pour poser le décor.'); return; }
     if (a === 'all') { harvestAll(); return; }
-    if (a === 'upHouse') { const n = FA.houseUp[mine.house]; if (n && buy(n)) { mine.house++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); puff(FA.house.x * T + 66, FA.house.y * T, '#ffd95a', 14); } return; }
+    if (a === 'upHouse') { const n = FA.houseUp[mine.house]; if (n && buy(n)) { mine.house++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); puff(hpos(mine).x * T + 66, hpos(mine).y * T, '#ffd95a', 14); } return; }
     if (a === 'upTools') { const n = FA.toolsUp[mine.tools]; if (n && buy(n)) { mine.tools++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); } return; }
     if (a === 'upBld') { const bl = mine.blds[Number(b.dataset.i)], n = BUILDINGS[bl.k].up[bl.lvl - 1]; if (n && buy(n)) { bl.lvl++; mine.st.builds++; touch(); drawUI(); openSheet(menuHTML('house')); puff((bl.x + 1) * T, bl.y * T, '#ffd95a', 14); } return; }
     if (a === 'collect') { b.disabled = true; await collectBld(mine.blds[Number(b.dataset.i)]); closeSheet(); drawUI(); return; }
@@ -158,6 +159,7 @@ export function mount(root, ctx) {
     if (a === 'settings') { const ic = (d, c) => `<span class="fm-seti" style="background:${c}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
       openSheet(`<h3>Paramètres</h3><div class="fm-set"><button data-fm="tuto">${ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', '#3b9be8')}<span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? `<button data-fm="home">${ic('<path d="M4 11l8-7 8 7v9H4z"/>', '#f2a516')}<span><b>Accueil de la ferme</b><small>Écran d'accueil du jeu</small></span></button>` : ''}<button data-fm="leave">${ic('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>', '#e5543f')}<span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button></div>`, true); return; }
     if (a === 'tab') { shopTab = k; openSheet(menuHTML('shop'), true); return; }
+    if (a === 'movehouse') { mode = { t: 'house' }; closeSheet(); drawUI(); toast('Touche le coin haut-gauche du nouvel emplacement de la maison.'); return; }
     if (a === 'movebld') { const bl = mine.blds[Number(b.dataset.i)]; if (!bl) return; mode = { t: 'move', ref: bl }; closeSheet(); drawUI(); toast('Touche le nouvel emplacement du bâtiment.'); return; }
     if (a === 'tnext') { showTuto(tutoI + 1); return; }
     if (a === 'tskip') { endTuto(); return; }
@@ -278,6 +280,10 @@ export function mount(root, ctx) {
     if (!loaded || !isLand(x, y)) return;
     const own = shown === mine, wx = x * T + T / 2;
     if (!own) { const bl = bldAt(shown, x, y); if (bl) toast(`${BUILDINGS[bl.k].name} · niveau ${bl.lvl}`); return; }
+    if (mode?.t === 'house') {
+      if (!canHouse(mine, x, y)) return toast('Emplacement impossible : il faut 3×3 cases dégagées.');
+      mine.hx = x; mine.hy = y; mode = null; touch(); initAnimals(); drawUI(); puff(x * T + 66, y * T + 66, '#d8c9a8', 18); return;
+    }
     if (mode?.t === 'move') {
       const bl = mode.ref, tmp = { ...mine, blds: mine.blds.filter((z) => z !== bl) };
       if (!canPlace(tmp, bl.k, x, y)) return toast('Emplacement impossible : choisis une zone libre.');
@@ -306,7 +312,7 @@ export function mount(root, ctx) {
       const D = DECORS[mode.k]; if (!buy(D.cost)) { mode = null; return drawUI(); }
       mine.decor.push({ k: mode.k, x, y }); mine.st.decor++; touch(); drawUI(); puff(wx, y * T + T, '#ffe9a8', 8); return;
     }
-    if (onHouse(x, y)) return openSheet(menuHTML('house'));
+    if (onHouse(x, y, mine)) return openSheet(menuHTML('house'));
     const bl = bldAt(mine, x, y); if (bl) { if (BUILDINGS[bl.k].cycleH && bldCoins(mine, bl) > 0) return collectBld(bl); return openSheet(BUILDINGS[bl.k].port ? portHTML() : BUILDINGS[bl.k].market ? marketHTML(bl) : bldHTML(bl)); }
     const dc = decorAt(mine, x, y); if (dc) return openBubble(x, y, `<b>${DECORS[dc.k].name}</b><div class="fm-bbtns"><button class="fm-bb go" data-fm="rm" data-t="${x},${y}">Ranger (+${Math.floor(DECORS[dc.k].cost / 2)} cannes)</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>`);
     if (isSand(x, y)) return;
@@ -520,7 +526,7 @@ export function mount(root, ctx) {
     if (ready) { const by = y - 6 + Math.sin(t * 4) * 3 + (B.animal ? 40 : 0), bx = b.x * T + B.w * T / 2; c.fillStyle = '#ffd23f'; c.beginPath(); c.arc(bx, by, 12, 0, TAU); c.fill(); c.strokeStyle = '#9a6209'; c.lineWidth = 2.5; c.stroke(); c.fillStyle = '#9a6209'; c.font = '800 14px system-ui'; c.textAlign = 'center'; c.fillText('$', bx, by + 5); }
   }
   function drawHouse(t) {
-    const L = shown.house, w = FA.house.w * T + 16, h = FA.house.h * T + 30, x = FA.house.x * T - 6, y = (FA.house.y + FA.house.h) * T + 4 - h;
+    const L = shown.house, w = FA.house.w * T + 16, h = FA.house.h * T + 30, x = hpos(shown).x * T - 6, y = (hpos(shown).y + FA.house.h) * T + 4 - h;
     c.drawImage(houseSpr(L), x, y, w, h);
     if (L >= 2) { c.fillStyle = 'rgba(255,255,255,.7)'; for (let k = 0; k < 3; k++) { const p = (t * 0.4 + k / 3) % 1; c.globalAlpha = 1 - p; c.beginPath(); c.arc(x + 35 + Math.sin(p * 5 + k) * 4, y + 8 - p * 28, 4 + p * 7, 0, TAU); c.fill(); } c.globalAlpha = 1; }
     if (L >= 3) { const fx = x + w - 26, fy = y + 30; c.strokeStyle = '#5b3a1e'; c.lineWidth = 2.4; c.beginPath(); c.moveTo(fx, fy); c.lineTo(fx, fy - 36); c.stroke(); c.fillStyle = '#e63946'; c.beginPath(); c.moveTo(fx, fy - 36); c.lineTo(fx + 20 + Math.sin(t * 4) * 3, fy - 30); c.lineTo(fx, fy - 22); c.fill(); }
@@ -601,7 +607,7 @@ export function mount(root, ctx) {
     if (destroyed) return; raf = requestAnimationFrame(render); if (paused) return;
     const t = ts / 1000;
     if (loaded && ts - lastChop > 1000) { lastChop = ts; resolveChops(); }
-    if (view === 'home') { const bx = (FA.house.x + 1.5) * T - W / 2 + 40, by = (FA.house.y + 3.5) * T - H / 2 - 70; cam.x = bx + Math.sin(t * 0.18) * 40; cam.y = by + Math.cos(t * 0.13) * 24; clamp(); }
+    if (view === 'home') { const bx = (hpos(mine).x + 1.5) * T - W / 2 + 40, by = (hpos(mine).y + 3.5) * T - H / 2 - 70; cam.x = bx + Math.sin(t * 0.18) * 40; cam.y = by + Math.cos(t * 0.13) * 24; clamp(); }
     else if (!down && (Math.abs(cam.vx) > 0.05 || Math.abs(cam.vy) > 0.05)) { cam.x += cam.vx; cam.y += cam.vy; cam.vx *= 0.93; cam.vy *= 0.93; clamp(); placeBubble(); }
     if (carry) { if (carry.pan[0] || carry.pan[1]) { cam.x += carry.pan[0]; cam.y += carry.pan[1]; clamp(); carryUpdate(); } }
     // eau
@@ -627,13 +633,13 @@ export function mount(root, ctx) {
       
       if (shown.owned.includes(`${x},${y}`) && !shown.plots[`${x},${y}`] && !(carry && carry.t === 'parcel' && carry.key === `${x},${y}`)) c.drawImage(soil(), px, py, T, T);
     }
-    if (mode && shown === mine) { const moveTmp = mode.t === 'move' ? { ...mine, blds: mine.blds.filter((z) => z !== mode.ref) } : mine; c.fillStyle = 'rgba(255,255,255,.3)'; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (mode.t === 'decor' || mode.t === 'parcel' ? free(mine, x, y) : mode.t === 'move' ? canPlace(moveTmp, mode.ref.k, x, y) : canPlace(mine, mode.k, x, y)) c.fillRect(x * T + 2, y * T + 2, T - 4, T - 4); }
+    if (mode && shown === mine) { const moveTmp = mode.t === 'move' ? { ...mine, blds: mine.blds.filter((z) => z !== mode.ref) } : mine; c.fillStyle = 'rgba(255,255,255,.3)'; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (mode.t === 'house' ? canHouse(mine, x, y) : mode.t === 'decor' || mode.t === 'parcel' ? free(mine, x, y) : mode.t === 'move' ? canPlace(moveTmp, mode.ref.k, x, y) : canPlace(mine, mode.k, x, y)) c.fillRect(x * T + 2, y * T + 2, T - 4, T - 4); }
     const items = [];
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (isTree(shown, x, y)) items.push({ y: y + 1, f: () => drawTree(x, y, t) });
     for (const [kk, p] of Object.entries(shown.plots)) { const [x, y] = kk.split(',').map(Number); if (x >= x0 && x <= x1 && y >= y0 && y <= y1) { const s = plotState(shown, p); items.push({ y: y + 0.5, f: () => caneDraw(x * T, y * T, s.pct, s.ready, t) }); } }
     for (const o of shown.decor) if (!(carry && carry.ref === o)) items.push({ y: o.y + 1, f: () => drawDecor(o, t) });
     for (const b of shown.blds) { if (carry && carry.ref === b) continue; const B = BUILDINGS[b.k]; if (B.animal) { items.push({ y: b.y + 0.4, f: () => drawBuilding(b, t, 0) }); items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 1) }); } else items.push({ y: b.y + B.h, f: () => drawBuilding(b, t, 2) }); }
-    items.push({ y: FA.house.y + FA.house.h, f: () => drawHouse(t) });
+    items.push({ y: hpos(shown).y + FA.house.h, f: () => drawHouse(t) });
     stepAnimals(); for (const a of anims) items.push({ y: a.y / T, f: () => drawAnimal(a) });
     items.sort((a, b) => a.y - b.y).forEach((i) => i.f());
     if (carry) {
