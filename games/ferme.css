@@ -107,3 +107,21 @@
 .fm-set small { color: #6b7280; font-size: 13px; }
 .fm-shopb { gap: 12px; font-size: 20px; }
 .fm-shopb svg { display: block; filter: drop-shadow(0 2px 0 rgba(0,0,0,.2)); }
+
+.fm-av { overflow: hidden; }
+.fm-av img, .fm-av svg { border-radius: 50%; }
+.fm-dock { display: flex; align-items: flex-end; justify-content: center; gap: 22px; position: relative; }
+.fm-dk { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+.fm-dk small { font: 800 12px system-ui; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.fm-dc { width: 56px; height: 56px; padding: 0; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 4px 0 #c7ccd4, 0 6px 10px rgba(0,0,0,.25); display: grid; place-items: center; cursor: pointer; pointer-events: none; }
+.fm-dc svg { width: 34px; height: 34px; }
+.fm-dc.go { background: #ffc928; box-shadow: 0 4px 0 #c99400, 0 6px 10px rgba(0,0,0,.25); }
+.fm-dk.main .fm-dc { width: 64px; height: 64px; } .fm-dk.main .fm-dc svg { width: 40px; height: 40px; }
+.fm-dk:active .fm-dc { transform: translateY(3px); }
+.fm-dk.lock .fm-dc { filter: grayscale(1); opacity: .6; }
+.fm-dk.lock small { opacity: .7; }
+.fm-tip { position: absolute; bottom: calc(100% + 10px); left: 50%; transform: translateX(-50%); width: min(300px, 86vw); padding: 12px 14px; border-radius: 16px; background: #1d1d22; color: #fff; display: grid; gap: 4px; text-align: center; box-shadow: 0 6px 16px rgba(0,0,0,.35); font: 500 14px system-ui; }
+.fm-tip b { font-weight: 800; font-size: 15px; }
+.fm-tip button { margin-top: 6px; border: 0; border-radius: 99px; padding: 8px 14px; background: #ffc928; color: #1b1d22; font: 800 14px system-ui; cursor: pointer; }
+.fm-tip::after { content: ''; position: absolute; top: 100%; left: 50%; margin-left: -8px; border: 8px solid transparent; border-top-color: #1d1d22; }
+.fm-tip.export { left: 70%; } .fm-tip.marche { left: 30%; }

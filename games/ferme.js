@@ -11,6 +11,7 @@ const I_BUILD = (s) => ICON('<path d="M6 24L24 9l18 15" stroke="#7a2e12" stroke-
 const I_DECOR = (s) => ICON('<path d="M24 41q3-13 0-24" stroke="#8a5a2b" stroke-width="3.4"/><path d="M24 17q-11-8-18 1M24 17q11-8 18 1M24 17q-7-11-12-13M24 17q7-11 12-13" stroke="#1f8f48" stroke-width="3.6"/><circle cx="21" cy="21" r="2.6" fill="#8a5a2b" stroke="none"/>', s);
 const I_HOUSE = (s) => ICON('<path d="M4 24L24 7l20 17" stroke="#7a2e12" stroke-width="2.4" fill="#d96b2b"/><rect x="9" y="24" width="30" height="17" fill="#fbf1d8" stroke="#7a5a2e" stroke-width="2.4"/><rect x="19" y="29" width="8" height="12" rx="3" fill="#7b4a22"/><rect x="31" y="14" width="5" height="9" fill="#9b4b3a" stroke="#6e3427" stroke-width="1.6"/>', s);
 const I_HARVEST = (s) => ICON('<path d="M14 42V16M24 42V8M34 42V18" stroke="#5aa832" stroke-width="5"/><path d="M14 24h0M24 18h0M34 26h0" stroke="#e8f7b0" stroke-width="3"/><path d="M10 40h28" stroke="#7a4d2a" stroke-width="4"/>', s);
+const I_EXIT = (s) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="#1b1d22" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/></svg>`;
 const I_SHOP = (s) => ICON('<path d="M7 18h34l-3-9H10z" fill="#e5543f" stroke="#8a2a1c" stroke-width="2.4"/><path d="M7 18q4 6 8.5 0q4 6 8.5 0q4 6 8.5 0q4 6 8.5 0" fill="#fff4dc" stroke="#8a2a1c" stroke-width="2.2"/><rect x="10" y="24" width="28" height="16" fill="#f2e3c0" stroke="#7a5a2e" stroke-width="2.4"/><rect x="19" y="29" width="10" height="11" rx="2" fill="#7b4a22"/>', s);
 const I_HELP = (s) => ICON('<circle cx="24" cy="24" r="17" fill="#ffc928" stroke="#9a6209" stroke-width="2.6"/><path d="M18 19c0-4 3-6 6-6s6 2 6 5.5c0 4-5 4.5-5 8" stroke="#4a2e05" stroke-width="3.6" fill="none"/><circle cx="25" cy="34" r="2.4" fill="#4a2e05" stroke="none"/>', s);
 const I_GEAR = (s) => ICON('<circle cx="24" cy="24" r="7" stroke="#1b1d22" stroke-width="4"/><path d="M24 6v6M24 36v6M6 24h6M36 24h6M11.3 11.3l4.2 4.2M32.5 32.5l4.2 4.2M11.3 36.7l4.2-4.2M32.5 15.5l4.2-4.2" stroke="#1b1d22" stroke-width="5"/>', s);
@@ -41,9 +42,12 @@ export function mount(root, ctx) {
   const toast = (m) => { $toast.textContent = m; $toast.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { $toast.hidden = true; }, 2300); };
 
   /* ---------- Interface ---------- */
+  let tip = null, tipT = 0;
+  const tipHTML = () => !tip ? '' : `<div class="fm-tip ${tip}"><b>${tip === 'marche' ? 'Marché verrouillé' : 'Export verrouillé'}</b><span>${tip === 'marche' ? 'Achète le marché (10 cannes) dans la boutique pour le débloquer.' : 'Achète le quai et l\'entrepôt d\'export dans la boutique pour le débloquer.'}</span><button data-fm="tipshop">Aller à la boutique</button></div>`;
   function drawUI() {
     const own = shown === mine, s = summary(mine);
-    const top = `<div class="fm-top"><button class="fm-round" data-fm="settings" aria-label="Paramètres">${I_GEAR(26)}</button>
+    const meP = ctx.players?.().find((m) => m.id === ctx.meId);
+    const top = `<div class="fm-top"><button class="fm-round fm-av" data-fm="settings" aria-label="Menu">${meP ? ctx.avatar(meP, 44) : I_GEAR(26)}</button><button class="fm-round" data-fm="leave" aria-label="Quitter">${I_EXIT(22)}</button>
       <span class="fm-pill">${CANE_ICON(20)}<b>${mine.cane}</b></span><span class="fm-pill">${COIN(20)}<b>${ctx.coins()}</b></span>
       </div>`;
     if (view === 'home') {
@@ -53,7 +57,7 @@ export function mount(root, ctx) {
       return;
     }
     $ui.className = 'fm-ui m-play';
-    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : !mode && view === 'play' ? `<button class="fm-btn big go wide fm-shopb" data-fm="menu" data-t="shop">${I_SHOP(30)}<span>Boutique</span></button>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' || mode.t === 'house' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
+    const bar = !own ? `<button class="fm-btn go wide" data-fm="visit" data-id="${ctx.meId}">Retour à ma ferme</button>` : !mode && view === 'play' ? `<div class="fm-dock">${tipHTML()}<div class="fm-dk ${mine.blds.some((z) => z.k === 'marche') ? '' : 'lock'}" data-fm="dock" data-d="marche"><button class="fm-dc">${buildIcon('marche')}</button><small>Marché</small></div><div class="fm-dk main" data-fm="menu" data-t="shop"><button class="fm-dc go">${I_SHOP(40)}</button><small>Boutique</small></div><div class="fm-dk ${hasPort(mine) ? '' : 'lock'}" data-fm="dock" data-d="export"><button class="fm-dc">${buildIcon('quai')}</button><small>Export</small></div></div>` : mode ? `<button class="fm-btn go wide" data-fm="cancel">${mode.t === 'parcel' ? 'Annuler la parcelle' : mode.t === 'move' || mode.t === 'house' ? 'Annuler le déplacement' : 'Terminer le placement'}</button>` : '';
     $ui.innerHTML = `${top}${own ? '' : `<div class="fm-own">Île de ${ctx.esc(ctx.nameOf(owner))}</div>`}${bar ? `<div class="fm-bar">${bar}</div>` : ''}`;
   }
   const closeSheet = () => { $sheet.hidden = true; $sheet.innerHTML = ''; };
@@ -159,6 +163,11 @@ export function mount(root, ctx) {
     if (a === 'settings') { const ic = (d, c) => `<span class="fm-seti" style="background:${c}"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${d}</svg></span>`;
       openSheet(`<h3>Paramètres</h3><div class="fm-set"><button data-fm="tuto">${ic('<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>', '#3b9be8')}<span><b>Didacticiel</b><small>Revoir comment jouer</small></span></button>${view === 'play' ? `<button data-fm="home">${ic('<path d="M4 11l8-7 8 7v9H4z"/>', '#f2a516')}<span><b>Accueil de la ferme</b><small>Écran d'accueil du jeu</small></span></button>` : ''}<button data-fm="friends">${ic('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M16 5.2a3 3 0 0 1 0 5.6M18 14.5c1.8.7 3 2.5 3 5.5"/>', '#8b5cf6')}<span><b>Amis</b><small>Visiter l'île d'un coloc</small></span></button><button data-fm="leave">${ic('<path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9"/>', '#e5543f')}<span><b>Quitter le jeu</b><small>Retourner dans La Kaz</small></span></button></div>`, true); return; }
     if (a === 'tab') { shopTab = k; openSheet(menuHTML('shop'), true); return; }
+    if (a === 'dock') { const d = b.dataset.d;
+      if (d === 'marche') { const m = mine.blds.find((z) => z.k === 'marche'); if (m) { tip = null; openSheet(marketHTML(m)); return; } }
+      else if (hasPort(mine)) { tip = null; openSheet(portHTML()); return; }
+      tip = d; clearTimeout(tipT); tipT = setTimeout(() => { tip = null; drawUI(); }, 5000); drawUI(); return; }
+    if (a === 'tipshop') { tip = null; shopTab = 'bat'; drawUI(); openSheet(menuHTML('shop'), true); return; }
     if (a === 'movehouse') { mode = { t: 'house' }; closeSheet(); drawUI(); toast('Touche le coin haut-gauche du nouvel emplacement de la maison.'); return; }
     if (a === 'movebld') { const bl = mine.blds[Number(b.dataset.i)]; if (!bl) return; mode = { t: 'move', ref: bl }; closeSheet(); drawUI(); toast('Touche le nouvel emplacement du bâtiment.'); return; }
     if (a === 'tnext') { showTuto(tutoI + 1); return; }
