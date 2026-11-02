@@ -85,7 +85,7 @@ export function mount(root, ctx) {
     clearTimeout(toastT); toastT = setTimeout(() => el.remove(), 2400);
   }
 
-  const topbar = () => `<div class="cd-top"><button class="cd-round" data-a="leave" aria-label="Retour à La Kaz">‹</button><span class="cd-pill">${COIN}<b>${ctx.coins()}</b></span></div>`;
+  const topbar = () => `<div class="cd-top"><button class="cd-round" data-a="leave" aria-label="Retour à La Kaz">‹</button><span class="cd-pill">${COIN}<b>${ctx.coins()}</b></span><button class="cd-round cd-help" data-gh="tuto" aria-label="Comment jouer">?</button></div>`;
   function homeHTML() {
     const n = toClaim(), owned = ctx.owned(), pool = SHOP.bird.filter((b) => !owned.has(b.key));
     return `${topbar()}<div class="cd-home">

@@ -19,6 +19,7 @@ export const BUILDINGS = {
   poulailler: { name: 'Poulailler', w: 2, h: 2, cost: 30, cycleH: 4, coins: [3, 5, 8], up: [60, 120], text: 'Des poules qui pondent : des colocoins toutes les 4 h.' },
   brasserie: { name: 'Brasserie de rhum', w: 3, h: 2, cost: 90, cycleH: 6, coins: [10, 16, 24], up: [180, 360], text: 'Le rhum de canne se vend bien : des colocoins toutes les 6 h.' },
   raffinerie: { name: 'Raffinerie de sucre', w: 2, h: 2, cost: 60, cycleH: 5, coins: [6, 10, 15], up: [120, 240], text: 'Du sucre roux : des colocoins toutes les 5 h.' },
+  serre: { name: 'Serre à tomates', w: 3, h: 2, cost: 55, cycleH: 3, coins: [4, 7, 11], up: [80, 160], text: 'Des tomates sous serre : des colocoins toutes les 3 h.' },
   chevrerie: { name: 'Enclos à chèvres', w: 3, h: 2, cost: 45, cycleH: 5, coins: [5, 8, 12], up: [90, 180], animal: 'chevre', text: 'Des chèvres et leur lait : des colocoins toutes les 5 h.' },
   porcherie: { name: 'Enclos à cochons', w: 3, h: 2, cost: 70, cycleH: 6, coins: [8, 13, 19], up: [140, 280], animal: 'cochon', text: 'Des cochons bien nourris : des colocoins toutes les 6 h.' },
   quai: { name: 'Quai', w: 2, h: 1, cost: 80, sand: true, port: true, text: 'Se construit sur la plage. Avec l\'entrepôt, il ouvre l\'accès à la mer.' },
@@ -26,10 +27,10 @@ export const BUILDINGS = {
 };
 export const DECORS = {
   palmier: { name: 'Palmier', cost: 12 }, fleurs: { name: 'Parterre de fleurs', cost: 8 }, fontaine: { name: 'Fontaine', cost: 40 },
-  lanterne: { name: 'Lanterne', cost: 15 }, banc: { name: 'Banc', cost: 20 }, barriere: { name: 'Barrière', cost: 6 }, tonneau: { name: 'Tonneau', cost: 10 },
+  lanterne: { name: 'Lanterne', cost: 15 }, banc: { name: 'Banc', cost: 20 }, barriere: { name: 'Barrière', cost: 6 }, tonneau: { name: 'Tonneau', cost: 10 }, statue: { name: 'Statue de savon', cost: 60, soaps: 50 },
 };
 const key = (x, y) => `${x},${y}`;
-export const newFarm = () => ({ v: 3, cane: FA.startCane, cleared: [], owned: [], chop: {}, ship: null, plots: {}, blds: [], decor: [], house: 1, tools: 1, st: { harvests: 0, builds: 0, trees: 0, decor: 0, cash: 0 } });
+export const newFarm = () => ({ v: 3, cane: FA.startCane, cleared: [], owned: [], chop: {}, ship: null, unl: {}, plots: {}, blds: [], decor: [], house: 1, tools: 1, st: { harvests: 0, builds: 0, trees: 0, decor: 0, cash: 0 } });
 export const normalize = (d) => ({ ...newFarm(), ...(d && d.v === 3 ? d : {}), st: { ...newFarm().st, ...(d?.st ?? {}) } });
 // Forme de l'île : un disque irrégulier
 export const dist = (x, y) => Math.hypot(x - FA.cx + 0.5, y - FA.cy + 0.5) / FA.R;
@@ -64,3 +65,7 @@ export const summary = (d, now = Date.now()) => ({
   plots: Object.values(d.plots).filter((p) => plotState(d, p, now).ready).length,
   blds: d.blds.filter((b) => bldCycles(b, now) > 0).length + (shipState(d, now).st === 'ready' ? 1 : 0),
 });
+
+// Limite de parcelles selon le niveau du joueur : niv. 1 = 3, 5 = 5, 10 = 7, 15 = 9, 20 = 10, 23 = 11, 25 = 12, puis +1 tous les 3 niveaux
+export const parcelLimit = (lvl) => { let n = 3; for (const [l, c] of [[1, 3], [5, 5], [10, 7], [15, 9], [20, 10], [23, 11], [25, 12]]) if (lvl >= l) n = c; return lvl > 25 ? 12 + Math.floor((lvl - 25) / 3) : n; };
+export const nextParcelLevel = (lvl) => { const cur = parcelLimit(lvl); for (let l = lvl + 1; l < lvl + 80; l++) if (parcelLimit(l) > cur) return l; return null; };

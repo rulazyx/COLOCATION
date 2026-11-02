@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 129;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 130;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -662,9 +662,38 @@ const GAMES = {
   ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (2 min), arbres à couper (un à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
+// Didacticiel de chaque jeu : s'ouvre au premier lancement, puis via le bouton « ? » / « Comment jouer »
+const GTUTO = {
+  flappy: [['Bienvenue dans Cardinal !', "Touche l'écran pour battre des ailes et faire monter ton oiseau."], ['Passe entre les colonnes', "Chaque colonne franchie fait grimper ton score. Si tu en touches une, c'est perdu."], ['Des colocoins à gagner', 'Chaque nouveau palier franchi (15, 30, 50, 75, 100…) rapporte des colocoins. Les décors changent au fil des paliers.'], ['Quêtes et boîte mystère', `Accomplis les quêtes du jour. Une boîte mystère coûte ${BIRD_CRATE.price} colocoins et te donne un nouvel oiseau.`]],
+  sudoku: [['Bienvenue au Sudoku !', 'Remplis la grille avec les chiffres de 1 à 9 : jamais deux fois le même chiffre dans une ligne, une colonne ou un carré de 3×3.'], ['Deux façons de jouer', 'La grille de la semaine est la même pour tout le monde et chronométrée. Les grilles aléatoires existent en facile, moyen et expert.'], ['3 vies', 'Chaque erreur te coûte une vie. À zéro, la grille est perdue.'], ['Des récompenses', 'Réussir une grille aléatoire rapporte des colocoins. Ton niveau d\'intelligence grimpe à chaque grille réussie.']],
+  chifoumi: [['Bienvenue au Chifoumi !', 'Défie un coloc ou un copain : pierre, feuille ou ciseaux.'], ['Ton coup reste secret', "Tu choisis ton coup, puis l'autre joueur répond. Rien n'est révélé avant qu'il ait joué."], ['La mise', `Chaque défi met ${XP_RULES.duelStake} colocoins en jeu : le gagnant prend ${XP_RULES.duelStake} colocoins au perdant. En cas d'égalité, personne ne perd rien.`]],
+  blackjack: [['Bienvenue au Blackjack !', 'Rapproche-toi de 21 sans le dépasser, et bats la banque.'], ['Les mises', 'Choisis ta mise (5, 10, 20 ou 30 colocoins) puis tire des cartes. La banque tire jusqu\'à 17.'], ['Doubler et séparer', 'Tu peux doubler ta mise ou séparer deux cartes identiques. Un blackjack paie 3 pour 2.'], ['Des colocoins chaque jour', 'Tu reçois 50 colocoins par jour dans l\'onglet Défis pour jouer.']],
+  course: [['Bienvenue à la Course aux pièces !', 'Lance le dé et avance ton pion d\'îlot en îlot sur le plateau.'], ['Des cases à effet', 'Les îlots dorés rapportent des colocoins, les violets en font perdre. Les voiles doublent ton gain.'], ['Tes dés', 'Tu as une réserve de dés qui se recharge avec le temps. Utilise-les avant qu\'elle soit pleine !'], ['Tours de plateau', 'Le classement en haut compte les tours de chacun. Les pions se placent autour des îlots.']],
+};
+const gTutoIcon = (id) => ({
+  flappy: () => birdSVG(null, 74),
+  sudoku: () => '<svg viewBox="0 0 60 60" width="64" height="64" aria-hidden="true"><rect x="4" y="4" width="52" height="52" rx="6" fill="#fff" stroke="#1e1b4b" stroke-width="3"/><path d="M21.5 4v52M38.5 4v52M4 21.5h52M4 38.5h52" stroke="#1e1b4b" stroke-width="2"/><text x="12.5" y="18" font-size="13" font-weight="800" fill="#4f46e5" text-anchor="middle" font-family="Lilita One,system-ui">5</text><text x="30" y="35" font-size="13" font-weight="800" fill="#4f46e5" text-anchor="middle" font-family="Lilita One,system-ui">3</text><text x="47.5" y="52" font-size="13" font-weight="800" fill="#4f46e5" text-anchor="middle" font-family="Lilita One,system-ui">9</text></svg>',
+  chifoumi: () => ['pierre', 'feuille', 'ciseaux'].map((k) => moveIcon(k, 38)).join(''),
+  blackjack: () => '<svg viewBox="0 0 80 64" width="84" height="68" aria-hidden="true"><rect x="6" y="10" width="34" height="46" rx="5" fill="#fff" stroke="#1b1d22" stroke-width="2.4" transform="rotate(-10 23 33)"/><text x="14" y="30" font-size="17" font-weight="800" fill="#c0392b" font-family="system-ui" transform="rotate(-10 23 33)">A</text><rect x="36" y="8" width="34" height="46" rx="5" fill="#fff" stroke="#1b1d22" stroke-width="2.4" transform="rotate(8 53 31)"/><text x="46" y="28" font-size="17" font-weight="800" fill="#1b1d22" font-family="system-ui" transform="rotate(8 53 31)">K</text></svg>',
+  course: () => CHEST_SVG,
+}[id]?.() ?? '');
+function showGameTuto(id, force = false) {
+  const layer = glayer(), slides = GTUTO[id]; if (!layer || !slides) return;
+  const key = `kaz-tuto-${id}-${state.me.id}`;
+  if (!force && store.get(key) === '1') return;
+  layer.querySelector('.kz-tuto')?.remove();
+  const el = document.createElement('div'); el.className = 'kz-tuto'; layer.appendChild(el);
+  let i = 0;
+  const draw = () => { const [t, p] = slides[i], last = i === slides.length - 1;
+    el.innerHTML = `<div class="kz-card"><div class="kz-ico">${gTutoIcon(id)}</div><h2>${esc(t)}</h2><p>${esc(p)}</p>
+      <div class="kz-dots">${slides.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</div>
+      <button class="gh-btn go" data-k="next">${last ? "C'est parti !" : 'Suivant'}</button>${last ? '' : '<button class="kz-skip" data-k="skip">Passer</button>'}</div>`; };
+  el.addEventListener('click', (e) => { e.stopPropagation(); const b = e.target.closest('[data-k]'); if (!b) return; if (b.dataset.k === 'next' && i < slides.length - 1) { i++; draw(); } else { store.set(key, '1'); el.remove(); } });
+  draw();
+}
 let gameHandle = null, gameScrollY = 0;
 // Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
-const MAJ_VERS = { ferme: '129' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
+const MAJ_VERS = { ferme: '130', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '130' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
 const MAJ_VER = '125';
 const majVer = (id) => MAJ_VERS[id] ?? MAJ_VER;
 const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== majVer(id);
@@ -696,6 +725,7 @@ function farmCtx() {
     save: (d) => api.farm2Save(me.id, d),
     coins: () => chipsOf(me.id),
     spend: async (n) => { await api.farm2Spend(me.id, n); await refresh(true); },
+    level: () => lvlOf(me.id), soaps: () => soapOf(me.id),
     quit: () => closeGame(),
     cash: async (n) => { const got = await api.farm2Cash(me.id, n); refresh(true).catch(() => {}); return got; },
   };
@@ -705,12 +735,12 @@ const GBOARD = { flappy: 'Classement', sudoku: 'Classement', blackjack: 'Classem
 const GHOME = {
   flappy: ['play', 'quit'],   // le choix de l'oiseau se fait via l'icône cardinal en haut à droite
   sudoku: ['play', 'quit'],   // les niveaux se consultent en touchant « Niveau N » en haut
-  chifoumi: ['duel', 'quit'],   // l'historique s'ouvre via l'icône livre en haut à droite
+  chifoumi: ['duel', 'tuto', 'quit'],   // l'historique s'ouvre via l'icône livre en haut à droite
   ferme: ['play', 'quit'],
   course: ['play', 'quit'],
   blackjack: ['play', 'quit'],
 };
-const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', quit: 'Quitter' };
+const GBTN = { play: 'Jouer', perso: 'Perso', board: 'Classement', intel: "Niveau d'intelligence", duel: 'Défier un joueur', hist: 'Historique', tuto: 'Comment jouer', quit: 'Quitter' };
 const GTITLE = { perso: 'Perso', board: 'Classement', intel: 'Niveau suivant', duel: 'Défier un joueur', hist: 'Historique' };
 let gameUI = null;                       // { id, view, mod, handle… } du jeu ouvert
 const glayer = () => document.getElementById('gamelayer');
@@ -816,10 +846,10 @@ function gShow(view) {
 function gBadge() {
   const el = glayer()?.querySelector('.ghead-r'); if (!el) return;
   el.innerHTML = gameUI?.id === 'sudoku' ? `<button class="glvl" data-gh="intel" aria-label="Voir le niveau suivant">Niveau ${intelOf(statsOf(state.me.id)).lvl} ›</button>`
-    : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
+    : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span><button class="chip gq" data-gh="tuto" aria-label="Comment jouer">?</button>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
-  if (gameUI?.id === 'ferme' || gameUI?.id === 'flappy' || gameUI?.id === 'sudoku') return closeGame();
+  if (gameUI?.id === 'ferme' || gameUI?.id === 'flappy' || gameUI?.id === 'sudoku' || gameUI?.id === 'blackjack') return closeGame();
   try { gameHandle?.destroy(); } catch { /* rien */ }
   gameHandle = null;
   const layer = glayer(); if (!layer) return;
@@ -879,6 +909,7 @@ async function gAction(k, el) {
   const id = el.dataset.id ? Number(el.dataset.id) : null;
   switch (k) {
     case 'quit': return closeGame();
+    case 'tuto': return showGameTuto(u.id, true);
     case 'play': return gPlay();
     case 'home': if (u.id === 'sudoku' && gameHandle) { glayer()?.classList.remove('onhome'); return; } return gShow('home');   // Sudoku : on revient directement sur sa page animée
     case 'perso': case 'board': case 'intel': case 'hist': return gShow(k);
@@ -924,20 +955,21 @@ async function openGame(id) {
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id} onhome`;
   // Pas de flèche retour : un bouton Menu en haut à droite (pause : accueil / quitter) ; l'écran d'accueil du jeu est sous l'écran de chargement
-  layer.innerHTML = `<div class="ghead"><span class="ghead-r"></span><button class="chip gmenu gicon" data-gact="menu" aria-label="Menu">${gIcon('menu', 24)}</button></div><div class="gbody"></div><div class="ghome"></div>
+  layer.innerHTML = `<div class="ghead"><button class="chip gback" data-gact="close" aria-label="Retour">‹</button><span class="ghead-r"></span><button class="chip gmenu gicon" data-gact="menu" aria-label="Menu">${gIcon('menu', 24)}</button></div><div class="gbody"></div><div class="ghome"></div>
     <div class="gsplash"><div class="gs-art">${logoArt(id)}</div><div class="gs-name">${esc(G.name)}</div><div class="gs-bar"><i></i></div></div>`;
   gameScrollY = window.scrollY; document.body.classList.add('ingame');   // l'appli en dessous est masquée : ses animations ne coûtent plus rien pendant la partie
   document.body.appendChild(layer);
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
   gShow('home'); gBadge();
-  if (id === 'ferme' || id === 'flappy' || id === 'course' || id === 'sudoku') gPlay();   // Colo-Ferme, Cardinal et la Course : leur accueil est dans le jeu : pas d'écran d'accueil, on arrive directement dans le jeu
+  if (id === 'ferme' || id === 'flappy' || id === 'course' || id === 'sudoku' || id === 'blackjack') gPlay();   // Colo-Ferme, Cardinal et la Course : leur accueil est dans le jeu : pas d'écran d'accueil, on arrive directement dans le jeu
   layer.addEventListener('click', (e) => {
     const a = e.target.closest('[data-gact]'), h = e.target.closest('[data-gh]');
     if (a) { const k = a.dataset.gact; if (k === 'close') closeGame(); else if (k === 'menu') gPauseOpen(); else if (k === 'resume') gPauseClose(); else if (k === 'home') gToHome(); }
     else if (h && !h.disabled) gAction(h.dataset.gh, h).catch((err) => console.error(err));
   });
   setTimeout(() => layer.querySelector('.gsplash')?.remove(), 1150);
+  if (id !== 'ferme') setTimeout(() => { if (gameUI?.id === id) showGameTuto(id); }, 1300);
 }
 
 function closeGame() {
@@ -1207,6 +1239,7 @@ function courseHomeHTML() {
   const me = state.me, left = diceLeft(me.id), laps = lapsOf(posOf(me.id));
   return `<div class="chome"><div class="chome-in"><h1>Course aux pièces</h1><p class="cbest">${laps} tour${laps > 1 ? 's' : ''} de plateau</p>
     <button class="cbtn go big" data-action="course-play">${gIcon('play')}Jouer</button>
+    <button class="cbtn" data-gh="tuto">Comment jouer</button>
     <div class="cpill">${DIE_SVG}<b>${left}</b> dé${left > 1 ? 's' : ''} en réserve${left >= DICE.max ? '' : ` · prochain dans ${fmtDice(nextDiceIn(me.id))}`}</div></div></div>`;
 }
 function courseResultHTML(r) {
@@ -1221,11 +1254,13 @@ function plateauHTML() {
   const pawns = {};
   players().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
   const pawnHTML = (n, sz = 21) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
+  // Les pions se posent AUTOUR de l'îlot (jamais dessus) pour rester bien visibles
+  const ringHTML = (n) => { const list = pawns[n] ?? []; return list.map((m, i) => { const ang = (-55 + i * (list.length > 5 ? 42 : 55)) * Math.PI / 180; return `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}" style="left:${(50 + 66 * Math.cos(ang)).toFixed(1)}%;top:${(50 + 66 * Math.sin(ang)).toFixed(1)}%">${av(m, 22)}</span>`; }).join(''); };
   const cells = [], pts = [];
   for (let n = 1; n <= GOOSE.size; n++) {
     const [x, y] = ISLETS[n - 1];
     pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
-    cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="left:${(x / ARCH.w * 100).toFixed(2)}%;top:${(y / ARCH.h * 100).toFixed(2)}%;--br:${BLOBS[n % 4]}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
+    cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="left:${(x / ARCH.w * 100).toFixed(2)}%;top:${(y / ARCH.h * 100).toFixed(2)}%;--br:${BLOBS[n % 4]}"><b>${n}</b>${cellLabel(n)}<div class="pw ring">${ringHTML(n)}</div></div>`);
   }
   const left = diceLeft(me.id), can = isColoc && left > 0 && !state.rolling;
   const ranked = players().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));

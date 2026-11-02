@@ -1522,3 +1522,29 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .cboard .cport .pw{position:static;transform:none;display:inline-flex}.cboard .pawn{width:22px;height:22px;margin:0 -3px;border:2px solid #fff;border-radius:50%}
 .cboard .ci{display:inline-flex;align-items:center;gap:4px;flex:none;font-size:14px;font-weight:800}
 .cboard .ci.lead b{color:#ffd23f}.cboard .crown{color:#ffd23f;font-style:normal}
+
+.arch .gc .pw.ring{position:absolute;inset:0;left:0;bottom:auto;transform:none;display:block;z-index:5;pointer-events:none}
+.arch .gc .pw.ring .pawn{position:absolute;width:24px;height:24px;margin:0;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.45);background:#fff}
+.arch .gc:has(.pawn){z-index:3}
+
+.arch .gc .pw.ring .pawn.mv{transform:translate(-50%,-50%) scale(1.35);z-index:6}
+/* Retour rond (Chifoumi, Blackjack) et pastille d'aide, identité Cardinal */
+.gback{display:none}
+.g-chifoumi .gback,.g-blackjack .gback{display:grid;place-items:center;width:44px;height:44px;padding:0 0 4px;border:0;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 6px rgba(0,0,0,.25);font:700 30px/1 system-ui;color:#1b1d22;pointer-events:auto;order:-1}
+.g-chifoumi .gmenu,.g-blackjack .gmenu:not(.gcoins){display:none!important}
+.gq{pointer-events:auto;width:40px;height:40px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 6px rgba(0,0,0,.25);font:800 20px system-ui;color:#1b1d22;margin-left:8px;display:grid;place-items:center}
+.g-chifoumi .gh-btn,.g-blackjack .gh-btn{font:400 21px 'Lilita One',system-ui,sans-serif;box-shadow:0 5px 0 #c7ccd4;letter-spacing:.02em}
+.g-chifoumi .gh-btn.go,.g-blackjack .gh-btn.go{box-shadow:0 5px 0 #c99400}
+.g-chifoumi .gh-btn:active,.g-blackjack .gh-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #c7ccd4}
+.g-chifoumi .gcoins,.g-blackjack .gcoins{font-family:system-ui;font-weight:800}
+.cd-help{margin-left:auto}
+.cbtn:not(.go){margin-top:8px}
+/* Didacticiel commun à tous les jeux */
+.kz-tuto{position:absolute;inset:0;z-index:40;background:rgba(4,20,40,.62);display:flex;align-items:center;justify-content:center;padding:20px}
+.kz-card{width:100%;max-width:360px;background:#fff;color:#1b1d22;border-radius:24px;padding:22px 18px 16px;text-align:center;box-shadow:0 14px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;align-items:center;gap:10px}
+.kz-ico{min-width:108px;height:108px;border-radius:54px;padding:0 16px;background:linear-gradient(160deg,#fff3c4,#bfe8f5);display:flex;align-items:center;justify-content:center;gap:2px}
+.kz-ico svg{max-height:84px}
+.kz-card h2{margin:2px 0 0;font:400 26px/1.1 'Lilita One',system-ui,sans-serif}
+.kz-card p{margin:0;font-size:15px;line-height:1.4;color:#4b5563}
+.kz-dots{display:flex;gap:6px;margin:4px 0}.kz-dots i{width:8px;height:8px;border-radius:50%;background:#d1d5db}.kz-dots i.on{background:#ffc928;width:20px;border-radius:4px}
+.kz-skip{border:0;background:none;color:#6b7280;font:700 14px system-ui;padding:6px;cursor:pointer}

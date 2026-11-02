@@ -146,7 +146,7 @@ export function mount(root, ctx = {}) {
   function drawMenu() {
     showBg(true);
     const mine = board?.find((r) => r.member_id === S.me), sv = loadSave();
-    ui.innerHTML = `<div class="sdk-top"><button class="sdk-round" data-act="leave" aria-label="Retour à La Kaz">‹</button><span class="sdk-spacer"></span>${S.level ? `<button class="sdk-pill" data-gh="intel" aria-label="Niveau suivant">Niveau ${S.level()} ›</button>` : ''}<button class="sdk-round" data-gh="board" aria-label="Classement">${TROPHY}</button></div><div class="sdk-menu">
+    ui.innerHTML = `<div class="sdk-top"><button class="sdk-round" data-act="leave" aria-label="Retour à La Kaz">‹</button><span class="sdk-spacer"></span><button class="sdk-round" data-gh="tuto" aria-label="Comment jouer">?</button>${S.level ? `<button class="sdk-pill" data-gh="intel" aria-label="Niveau suivant">Niveau ${S.level()} ›</button>` : ''}<button class="sdk-round" data-gh="board" aria-label="Classement">${TROPHY}</button></div><div class="sdk-menu">
       <div class="sdk-logo">SUDOKU</div>
       ${sv ? `<button class="sdk-mode resume" data-act="resume"><span><b>Reprendre ma partie</b><small>${MODES[sv.mode].label} · ${sv.grid.filter(Boolean).length - sv.puz.filter(Boolean).length} case(s) remplie(s)${sv.mode === 'week' ? ` · ${fmt(sv.elapsed || 0)}` : ''}</small></span></button>` : ''}
       <button class="sdk-mode week" data-act="mode" data-m="week"><span><b>Grille de la semaine</b><small>La même grille pour tout le monde · chrono${mine ? ` · ton temps : ${fmt(mine.seconds)}` : ''}</small></span></button>
