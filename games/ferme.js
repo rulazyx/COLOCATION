@@ -47,8 +47,8 @@ export function mount(root, ctx) {
   function drawUI() {
     const own = shown === mine, s = summary(mine);
     const meP = ctx.players?.().find((m) => m.id === ctx.meId);
-    const top = `<div class="fm-top"><button class="fm-round fm-av" data-fm="settings" aria-label="Menu">${meP ? ctx.avatar(meP, 44) : I_GEAR(26)}</button><button class="fm-round" data-fm="leave" aria-label="Quitter">${I_EXIT(22)}</button>
-      <span class="fm-pill">${CANE_ICON(20)}<b>${mine.cane}</b></span><span class="fm-pill">${COIN(20)}<b>${ctx.coins()}</b></span>
+    const top = `<div class="fm-top"><button class="fm-round fm-av" data-fm="settings" aria-label="Menu">${meP ? ctx.avatar(meP, 44) : I_GEAR(26)}</button><span class="fm-pill">${CANE_ICON(20)}<b>${mine.cane}</b></span><span class="fm-pill">${COIN(20)}<b>${ctx.coins()}</b></span>
+      <button class="fm-round fr" data-fm="leave" aria-label="Quitter">${I_EXIT(22)}</button>
       </div>`;
     if (view === 'home') {
       $ui.className = 'fm-ui m-home';

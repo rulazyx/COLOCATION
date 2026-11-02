@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 136;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 137;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -134,7 +134,7 @@ function computeInitials(members) {
 const TABLE_KEYS = {
   members: ['members', 'scores', 'balances', 'xp', 'chips', 'duelStats', 'spent'], products: ['products'], purchases: ['purchases'], tasks: ['scores', 'weekly', 'logs'],
   duels: ['duels', 'duelStats'], member_stats: ['stats'], coin_ledger: ['balances', 'scores', 'weekly'], unlocks: ['unlocks'], task_logs: ['logs', 'scores', 'weekly'],
-  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
+  xp_log: ['xp'], dice_rolls: ['dice', 'spent', 'pweeks'], course_resets: ['cres', 'dice'], dice_clock: ['diceClk'], messages: ['msgs'], perks: ['perks'], perk_confirms: ['pconf'], chip_ledger: ['chips', 'farmDay'],
   soap_exchanges: ['spent'], farm_plots: ['farm'], farm_state: ['farmSt'], farm2: ['farm2'], farm_stock: ['farmStock'], farm_builds: ['farmBuilds'],
   events: ['events'], event_votes: ['evVotes'], shop_requests: ['shopReqs'], punishments: ['puns', 'spent'], punishment_votes: ['punVotes', 'puns', 'spent'], expenses: ['expenses', 'expShares'], expense_shares: ['expenses', 'expShares'],
 };
@@ -143,12 +143,12 @@ async function refresh(force = false, only = null) {
   if (state.game && !force) { state.pendingRefresh = true; return; }   // (au retour du jeu : relecture complète)
   if (state.sheet?.type === 'wheel' && state.sheet.spinning && !state.sheet.revealed) { state.sheet.pending = true; return; }
   if (state.me?.kind === 'coloc' && Date.now() - (state.recAt ?? 0) > 3600000) { state.recAt = Date.now(); state.api.runRecurring?.().then((n) => { if (n) refresh(true); }).catch(() => {}); }   // dépenses automatiques du 1er du mois
-  if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
+  if (Date.now() - (state.settledAt ?? 0) > 600000) { state.settledAt = Date.now(); state.api.settlePlateau().catch(() => {}); state.api.settleCourse?.().then(() => refresh(true)).catch(() => {}); }   // en parallèle : on n'attend plus ce calcul pour afficher l'appli
   const api = state.api;
   const LOADERS = {
     members: () => api.members(), scores: () => api.scores(), balances: () => api.balances(), products: () => api.products(), purchases: () => api.purchases(), duels: () => api.duels(),
     stats: () => api.stats(), duelStats: () => api.duelStats(), unlocks: () => api.unlocks(), views: () => api.views(), xp: () => api.xp(), weekly: () => api.weekly(), logs: () => api.taskLogs(),
-    spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(),
+    spent: () => api.soapSpent(), dice: () => api.diceRolls(), diceClk: () => api.diceClock?.() ?? [], perks: () => api.perks(), pconf: () => api.perkConfirms(), chips: () => api.chips(), pweeks: () => api.plateauWeeks(), cres: () => api.courseResets?.() ?? [],
     farm: () => api.farm(), farmSt: () => api.farmState(), farm2: () => api.farm2(), farmDay: () => api.farmDay(), farmStock: () => api.farmStock(), farmBuilds: () => api.farmBuilds(),
     events: () => api.events(), evVotes: () => api.eventVotes(), popups: () => api.popups(state.me?.id), msgs: () => (state.me ? api.messages(state.me.id) : []),
     shopReqs: () => api.shopRequests(), puns: () => api.punishments(), punVotes: () => api.punishmentVotes().then((v) => v ?? []), expenses: () => api.expenses(), expShares: () => api.expenseShares(),
@@ -693,7 +693,7 @@ function showGameTuto(id, force = false) {
 }
 let gameHandle = null, gameScrollY = 0;
 // Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
-const MAJ_VERS = { ferme: '136', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '133' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
+const MAJ_VERS = { ferme: '137', flappy: '130', sudoku: '130', chifoumi: '130', blackjack: '130', course: '137' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
 const MAJ_VER = '125';
 const majVer = (id) => MAJ_VERS[id] ?? MAJ_VER;
 const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== majVer(id);
@@ -1170,7 +1170,8 @@ function tasksHTML() {
 
 /* ---------- Course aux pièces (plateau en anneau, jamais remis à zéro) ---------- */
 const shownPos = (id) => (state.moving && state.moving.id === id ? state.moving.pos : posOf(id));
-const posOf = (id) => state.dice.filter((r) => r.member_id === id).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
+const resetAfter = () => Math.max(0, ...(state.cres ?? []).map((r) => Number(r.after_roll_id) || 0));   // les lancers d'avant la dernière remise à zéro ne comptent plus
+const posOf = (id) => state.dice.filter((r) => r.member_id === id && r.id > resetAfter()).reduce((best, r) => (!best || r.id > best.id ? r : best), null)?.to_pos ?? 0;   // position cumulée (tours infinis)
 const cellOfPos = (pos) => (pos <= 0 ? 0 : ((pos - 1) % GOOSE.size) + 1);
 const lapsOf = (pos) => Math.floor(pos / GOOSE.size);
 const weekSoap = (id) => state.logs.filter((l) => l.doer_id === id && l.status === 'validated' && l.answered_at && iso(new Date(l.answered_at)) >= currentWeek()).reduce((a, l) => a + l.soap, 0);
@@ -1263,10 +1264,10 @@ function plateauHTML() {
     cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="left:${(x / ARCH.w * 100).toFixed(2)}%;top:${(y / ARCH.h * 100).toFixed(2)}%;--br:${BLOBS[n % 4]}"><b>${n}</b>${cellLabel(n)}<div class="pw ring">${ringHTML(n)}</div></div>`);
   }
   const left = diceLeft(me.id), can = isColoc && left > 0 && !state.rolling;
-  const ranked = players().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
-  const top = ranked[0]?.l ?? 0;
+  const ranked = players().map((m) => ({ m, p: posOf(m.id), l: lapsOf(posOf(m.id)) })).sort((x, y) => y.p - x.p || x.m.name.localeCompare(y.m.name));
+  const topP = ranked[0]?.p ?? 0, top = ranked[0]?.l ?? 0;
   const center = `<div class="cboard"><span class="cport" title="Port (départ)">${seaArt('anchor')}<span class="pw">${pawnHTML(0, 22)}</span></span>
-      ${ranked.map(({ m, l }) => `<span class="ci ${l && l === top ? 'lead' : ''}">${av(m, 22)}<b>${l}</b>${l && l === top ? '<em class="crown">★</em>' : ''}</span>`).join('')}</div>`;
+      ${ranked.map(({ m, p, l }) => `<span class="ci ${p && p === topP ? 'lead' : ''}">${av(m, 22)}<b>${l}</b>${p && p === topP ? '<em class="crown">★</em>' : ''}</span>`).join('')}</div>`;
   const resetMs = addDays(mondayOf(), 7).getTime() - Date.now(), rd = Math.floor(resetMs / 86400000), rh = Math.floor(resetMs % 86400000 / 3600000), rm = Math.floor(resetMs % 3600000 / 60000);
   const resetIn = rd ? `${rd} j ${rh} h` : rh ? `${rh} h ${String(rm).padStart(2, '0')}` : `${Math.max(1, rm)} min`;
   const reset = `<div class="creset" title="La course se remet à zéro chaque lundi à minuit">Reset dans <b>${resetIn}</b> · 1000 pièces au gagnant</div>`;
@@ -2088,7 +2089,7 @@ document.addEventListener('click', (e) => {
     case 'roll': rollDiceNow(); break;
     case 'course-ok': state.courseRes = null; courseRefresh(); break;
     case 'course-play': state.courseHome = false; courseRefresh(); break;
-    case 'course-back': if (state.courseHome) closeGame(); else { state.courseHome = true; courseRefresh(); } break;
+    case 'course-back': closeGame(); break;
     case 'race': state.sheet = null; state.heads = false; openGame('course'); break;
     case 'dicetip': break;
     case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;

@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 136;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 137;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -61,6 +61,8 @@ export async function makeCloudApi() {
     async farmWater(w, o, slot) { return check(await sb.rpc('farm_water', { p_waterer: w, p_owner: o, p_slot: slot })); },
     async farmUnlock(m) { return check(await sb.rpc('farm_unlock', { p_member: m })); },
     async plateauWeeks() { return check(await sb.from('plateau_weeks').select('*').order('week', { ascending: false }).limit(8)); },
+    async courseResets() { return check(await sb.from('course_resets').select('*').order('id', { ascending: false }).limit(3)); },
+    async settleCourse() { const { error } = await sb.rpc('settle_course'); if (error) console.warn(error.message); },
     async settlePlateau() { const { error } = await sb.rpc('settle_plateau'); if (error) console.warn(error.message); },
     async exchangeSoap(member, soap) { return check(await sb.rpc('exchange_soap', { p_member: member, p_soap: soap })); },
     async buyShop(member, item) { return check(await sb.rpc('buy_shop', { p_member: member, p_item: item })); },
