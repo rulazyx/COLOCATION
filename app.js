@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 128;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 129;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -659,13 +659,15 @@ const GAMES = {
   flappy: { name: 'Cardinal', board: 'flappy', mod: './games/cardinal.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. 16 décors à découvrir : chaque nouveau palier franchi (15, 30, 50, 75, 100…) rapporte des colocoins. Quêtes du jour, 22 oiseaux à débloquer.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
-  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (2 min), arbres à couper (3 à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
+  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (2 min), arbres à couper (un à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
 // Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
+const MAJ_VERS = { ferme: '129' };   // version de la dernière mise à jour de chaque jeu (la pastille revient quand elle change)
 const MAJ_VER = '125';
-const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== MAJ_VER;
+const majVer = (id) => MAJ_VERS[id] ?? MAJ_VER;
+const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== majVer(id);
 const majBadge = (id) => majNew(id) ? '<i class="gtmaj">MAJ</i>' : '';
 // L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
 const appEl = () => document.getElementById('app');
@@ -917,7 +919,7 @@ async function gAction(k, el) {
 async function openGame(id) {
   const G = GAMES[id];
   if (!G || state.game) return;
-  state.game = id; state.sheet = null; if (majNew(id)) store.set(`coloc-maj-${id}`, MAJ_VER); render();
+  state.game = id; state.sheet = null; if (majNew(id)) store.set(`coloc-maj-${id}`, majVer(id)); render();
   state.api.launchGame(state.me.id).then((n) => n && refresh(true)).catch(() => {});   // 1er jeu lancé : XP vers le niveau 2
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id} onhome`;

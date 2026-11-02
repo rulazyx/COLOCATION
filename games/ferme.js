@@ -58,7 +58,7 @@ export function mount(root, ctx) {
     $ui.innerHTML = `${top}${own ? '' : `<div class="fm-own">Île de ${ctx.esc(ctx.nameOf(owner))}</div>`}<div class="fm-bar">${bar}</div>`;
   }
   const closeSheet = () => { $sheet.hidden = true; $sheet.innerHTML = ''; };
-  const openSheet = (html) => { closeBubble(); $sheet.innerHTML = `<div class="fm-card"><button class="fm-x" data-fm="close" aria-label="Fermer">✕</button>${html}</div>`; $sheet.hidden = false; };
+  const openSheet = (html, flat = false) => { closeBubble(); $sheet.className = flat ? 'fm-sheet flat' : 'fm-sheet'; $sheet.innerHTML = `<div class="fm-card"><button class="fm-x" data-fm="close" aria-label="Fermer">✕</button>${html}</div>`; $sheet.hidden = false; };
   const closeBubble = () => { $bub.hidden = true; bubTile = null; };
   function openBubble(x, y, html) {
     closeSheet(); bubTile = { x, y }; $bub.innerHTML = `<div class="fm-bub">${html}</div>`; $bub.hidden = false; placeBubble();
@@ -118,7 +118,7 @@ export function mount(root, ctx) {
     if (a === 'play') { view = 'play'; closeSheet(); closeBubble(); home0(); drawUI(); return; }
     if (a === 'home') { view = 'home'; mode = null; closeSheet(); closeBubble(); shown = mine; owner = ctx.meId; initAnimals(); drawUI(); return; }
     if (a === 'friends') { openSheet(`<h3>Amis</h3><p class="fm-sub">Visite l'île d'un coloc ou d'un copain.</p><div class="fm-friends">${(ctx.players?.() ?? []).filter((m) => m.id !== ctx.meId).map((m) => `<button class="fm-fr" data-fm="visit" data-id="${m.id}">${ctx.avatar(m, 54)}<span>${ctx.esc(m.name)}</span></button>`).join('') || '<p class="fm-sub">Personne d\'autre ne joue pour l\'instant.</p>'}</div>`); return; }
-    if (a === 'menu') { openSheet(menuHTML(b.dataset.t)); return; }
+    if (a === 'menu') { openSheet(menuHTML(b.dataset.t), b.dataset.t === 'shop'); return; }
     if (a === 'visit') { await switchTo(Number(b.dataset.id)); return; }
     if (a === 'cancel') { mode = null; drawUI(); return; }
     if (a === 'bclose') { closeBubble(); return; }
@@ -143,7 +143,7 @@ export function mount(root, ctx) {
     if (a === 'tskip') { endTuto(); return; }
     if (a === 'plant') { const [x, y] = xy(); if (!isOwned(mine, x, y) || mine.plots[`${x},${y}`]) return closeBubble(); mine.plots[`${x},${y}`] = { t: Date.now(), k: 'canne' }; touch(); puff(x * T + 22, y * T + 30, '#7a4d2a', 8); closeBubble(); drawUI(); return; }
     if (a === 'harvest') { const [x, y] = xy(), key = `${x},${y}`, p = mine.plots[key]; if (p && plotState(mine, p).ready) { delete mine.plots[key]; const n = yieldN(mine); mine.cane += n; mine.st.harvests++; touch(); say(x * T + 22, y * T, `+${n}`, '#e6ffb0'); puff(x * T + 22, y * T + 12, '#8fd14f', 8); } closeBubble(); drawUI(); return; }
-    if (a === 'chop') { const [x, y] = xy(); if (!isTree(mine, x, y) || !frontier(mine, x, y) || mine.chop[`${x},${y}`]) return closeBubble(); if (Object.keys(mine.chop).length >= FA.maxChop) { toast(`${FA.maxChop} arbres maximum en même temps.`); return closeBubble(); } mine.chop[`${x},${y}`] = { t: Date.now(), ms: chopMs(mine.st.trees + Object.keys(mine.chop).length) }; touch(); closeBubble(); puff(x * T + 22, y * T + 18, '#c9a46a', 8); return; }
+    if (a === 'chop') { const [x, y] = xy(); if (!isTree(mine, x, y) || !frontier(mine, x, y) || mine.chop[`${x},${y}`]) return closeBubble(); if (Object.keys(mine.chop).length >= FA.maxChop) { toast('Un seul arbre à la fois : attends la fin de la coupe en cours.'); return closeBubble(); } mine.chop[`${x},${y}`] = { t: Date.now(), ms: chopMs(mine.st.trees + Object.keys(mine.chop).length) }; touch(); closeBubble(); puff(x * T + 22, y * T + 18, '#c9a46a', 8); return; }
     if (a === 'rm') { const [x, y] = xy(), o = decorAt(mine, x, y); if (!o) return; mine.decor = mine.decor.filter((z) => z !== o); mine.cane += Math.floor(DECORS[o.k].cost / 2); touch(); closeBubble(); drawUI(); return; }
   });
   async function collectBld(bl) {
@@ -180,7 +180,7 @@ export function mount(root, ctx) {
     { ico: I_HARVEST(76), t: 'Bienvenue à la Colo-Ferme !', p: "Ton île t'attend : fais pousser de la canne à sucre, élève des animaux et envoie ta marchandise par bateau pour gagner des colocoins." },
     { ico: buildIcon('parcelle'), t: 'Tes parcelles', p: "Ouvre la Boutique, choisis « Parcelle de culture » puis touche un terrain dégagé. Les 3 premières parcelles sont gratuites, les suivantes coûtent 1, 2, 3 colocoins…" },
     { ico: CANE_ICON(70), t: 'Planter et récolter', p: "Touche une parcelle vide, puis « Planter canne ». Elle pousse en 2 minutes : touche-la ensuite pour récolter les cannes prêtes. Tout le monde commence avec 0 canne." },
-    { ico: buildIcon('arbre'), t: 'Couper des arbres', p: "Les arbres au bord de ton terrain se coupent avec du temps (pas de canne). Tu peux en couper 3 en même temps, pour agrandir ton île." },
+    { ico: buildIcon('arbre'), t: 'Couper des arbres', p: "Les arbres au bord de ton terrain se coupent avec du temps (pas de canne). Un seul à la fois, pour agrandir ton île." },
     { ico: buildIcon('chevrerie'), t: 'Bâtiments et animaux', p: "Avec ta canne, construis poulailler, enclos à chèvres ou à cochons, brasserie, raffinerie. Ils produisent des colocoins à récolter (2 cycles stockés au maximum)." },
     { ico: buildIcon('quai'), t: 'Le port', p: "Pour accéder à la mer, construis le quai (sur la plage) et l'entrepôt d'export. Charge ensuite le bateau de cannes : il revient avec des colocoins." },
     { ico: FRIENDS(70), t: 'À toi de jouer !', p: "Visite les îles de tes colocs avec le bouton Amis. Tu retrouves ce didacticiel avec le bouton « ? » en haut." },
@@ -295,7 +295,7 @@ export function mount(root, ctx) {
       if (ch) return openBubble(x, y, `<b>Coupe en cours…</b><div class="fm-bar2"><i style="width:${Math.round(Math.min(1, (Date.now() - ch.t) / ch.ms) * 100)}%"></i></div><small>Encore ${fmtT(ch.ms - (Date.now() - ch.t))}</small><div class="fm-bbtns"><button class="fm-bb" data-fm="bclose">Fermer</button></div>`);
       if (!frontier(mine, x, y)) return toast('Coupe d\'abord les arbres au bord de ton terrain.');
       const ms = chopMs(mine.st.trees + nChop);
-      return openBubble(x, y, `<b>Couper cet arbre</b><small>Ça prend ${fmtT(ms)} et agrandit ton terrain · ${nChop}/${FA.maxChop} coupes en cours</small><div class="fm-bbtns"><button class="fm-bb go" data-fm="chop" data-t="${key}" ${nChop >= FA.maxChop ? 'disabled' : ''}>Couper</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>${nChop >= FA.maxChop ? `<small class="fm-no">${FA.maxChop} arbres maximum en même temps</small>` : ''}`);
+      return openBubble(x, y, `<b>Couper cet arbre</b><small>Ça prend ${fmtT(ms)} et agrandit ton terrain</small><div class="fm-bbtns"><button class="fm-bb go" data-fm="chop" data-t="${key}" ${nChop >= FA.maxChop ? 'disabled' : ''}>Couper</button><button class="fm-bb" data-fm="bclose">Annuler</button></div>${nChop >= FA.maxChop ? `<small class="fm-no">Un seul arbre à la fois</small>` : ''}`);
     }
     if (free(mine, x, y)) toast('Pour cultiver ici, achète une parcelle dans la Boutique.');
   }

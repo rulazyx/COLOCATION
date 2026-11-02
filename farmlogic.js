@@ -6,7 +6,7 @@ export const FA = {
   house: { x: 14, y: 9, w: 3, h: 3 },
   growS: 120, yield: 2, startCane: 0,               // une canne pousse en 2 minutes, rapporte 2 cannes ; on commence sans canne
   parcelCost: (n) => (n < 3 ? 0 : n - 2),             // les 3 premières parcelles sont gratuites, puis 1, 2, 3… colocoins (achat en boutique)
-  maxChop: 3,                                         // 3 arbres coupés en même temps au maximum
+  maxChop: 1,                                         // un seul arbre coupé à la fois
   ship: { cane: 25, hours: 3, coins: 12 },            // export par bateau : on charge 25 cannes, retour en 3 h avec 12 colocoins
   treeMin: (cut) => Math.min(60, 5 + cut * 2),        // couper un arbre demande du temps (en minutes), pas de canne
   houseUp: [0, 60, 150],                              // coût pour passer niveau 1 → 2 → 3 (index = niveau visé − 1)
