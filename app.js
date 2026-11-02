@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 123;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 124;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -833,7 +833,7 @@ async function gPlay() {
       const body = layer.querySelector('.gbody');
       body.innerHTML = '<canvas class="seaw" aria-hidden="true"></canvas><div class="cwrap"></div>';
       const stopSea = mod.mountSea(body.querySelector('canvas'));
-      gameHandle = { destroy: stopSea }; state.courseRes = null; courseRefresh();
+      gameHandle = { destroy: stopSea }; state.courseRes = null; state.courseHome = true; courseRefresh();
       return;
     }
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
@@ -925,7 +925,7 @@ async function openGame(id) {
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
   gShow('home'); gBadge();
-  if (id === 'ferme' || id === 'flappy') gPlay();   // Colo-Ferme et Cardinal : pas d'écran d'accueil, on arrive directement dans le jeu
+  if (id === 'ferme' || id === 'flappy' || id === 'course') gPlay();   // Colo-Ferme, Cardinal et la Course : leur accueil est dans le jeu : pas d'écran d'accueil, on arrive directement dans le jeu
   layer.addEventListener('click', (e) => {
     const a = e.target.closest('[data-gact]'), h = e.target.closest('[data-gh]');
     if (a) { const k = a.dataset.gact; if (k === 'close') closeGame(); else if (k === 'menu') gPauseOpen(); else if (k === 'resume') gPauseClose(); else if (k === 'home') gToHome(); }
@@ -1174,18 +1174,35 @@ const SEA_SCENE = `<svg class="seascene" viewBox="0 0 700 600" preserveAspectRat
   <g class="gull"><path d="M0 0q14-14 26 0q12-14 26 0" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/></g>
 </svg>`;
 
-// Plateau en anneau (9 × 8 cases, 30 cases sur le pourtour) : la case 30 rejoint la case 1, on tourne à l'infini
-const RING = { cols: 9, rows: 8 };
-const ringXY = (n) => {                       // n = 1..30 → [colonne, ligne] (ligne 0 = en haut)
-  const { cols, rows } = RING;
-  if (n <= cols) return [n - 1, rows - 1];                                   // bas : gauche → droite
-  if (n <= cols + rows - 1) return [cols - 1, rows - 1 - (n - cols)];        // droite : vers le haut
-  if (n <= 2 * cols + rows - 2) return [cols - 1 - (n - (cols + rows - 1)), 0];   // haut : droite → gauche
-  return [0, n - (2 * cols + rows - 2)];                                     // gauche : vers le bas
-};
+// Plateau : 30 îlots posés sur la mer le long d'une boucle arrondie (la case 30 rejoint la case 1, on tourne à l'infini).
+// Coordonnées dans un cadre de 360 × 560 ; les îlots sont répartis à égale distance sur une forme de « galet » qui remplit l'écran.
+const ARCH = { w: 360, h: 560 };
+const ISLETS = (() => {
+  const cx = 180, cy = 280, a = 140, b = 232, N = GOOSE.size, pts = [], pw = (v) => Math.sign(v) * Math.abs(v) ** (2 / 3);
+  const at = (t) => [cx + a * pw(Math.cos(t)) * (1 + 0.085 * Math.sin(3 * t + 1)), cy + b * pw(Math.sin(t)) * (1 + 0.05 * Math.cos(2 * t + 0.5))];
+  const T0 = Math.PI / 2 + 0.2;                       // départ : en bas à gauche, on avance vers la droite puis on monte
+  let len = 0, prev = at(T0); const cum = [[0, T0]];
+  for (let i = 1; i <= 720; i++) { const t = T0 - (i / 720) * 2 * Math.PI, q = at(t); len += Math.hypot(q[0] - prev[0], q[1] - prev[1]); prev = q; cum.push([len, t]); }
+  for (let n = 1; n <= N; n++) {
+    const want = ((n - 1) / N) * len; let j = 1; while (j < cum.length - 1 && cum[j][0] < want) j++;
+    const [x, y] = at(cum[j][1]);
+    pts.push([x + 4 * Math.sin(n * 1.9), y + 4 * Math.cos(n * 2.3)]);
+  }
+  return pts;
+})();
+const BLOBS = ['58% 42% 55% 45% / 48% 56% 44% 52%', '46% 54% 42% 58% / 56% 44% 56% 44%', '52% 48% 60% 40% / 44% 58% 42% 56%', '44% 56% 48% 52% / 52% 42% 58% 48%'];
+// Décor du centre : l'île au trésor, le bateau, le tentacule et la mouette (sans le fond de mer, dessiné en canvas)
+const SEA_DECOR = SEA_SCENE.replace(/<defs>[\s\S]*?<\/defs>/, '').replace(/<rect [^>]*\/>/, '').replace('<svg class="seascene"', '<svg class="seadecor"').replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="xMidYMax meet"');
 function courseRefresh() {
   const w = glayer()?.querySelector('.cwrap'); if (!w || state.game !== 'course') return;
-  const sc = w.scrollTop; w.innerHTML = plateauHTML(true) + (state.courseRes ? courseResultHTML(state.courseRes) : ''); w.scrollTop = sc;
+  w.innerHTML = plateauHTML(true) + (state.courseHome ? courseHomeHTML() : '') + (state.courseRes ? courseResultHTML(state.courseRes) : '');
+}
+const BACK_SVG = '<svg viewBox="0 0 48 48" width="26" height="26" fill="none" stroke="#1b1d22" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M30 10L16 24l14 14"/></svg>';
+function courseHomeHTML() {
+  const me = state.me, left = diceLeft(me.id), laps = lapsOf(posOf(me.id));
+  return `<div class="chome"><div class="chome-in"><h1>Course aux pièces</h1><p class="cbest">${laps} tour${laps > 1 ? 's' : ''} de plateau</p>
+    <button class="cbtn go big" data-action="course-play">${gIcon('play')}Jouer</button>
+    <div class="cpill">${DIE_SVG}<b>${left}</b> dé${left > 1 ? 's' : ''} en réserve${left >= DICE.max ? '' : ` · prochain dans ${fmtDice(nextDiceIn(me.id))}`}</div></div></div>`;
 }
 function courseResultHTML(r) {
   const c = GOOSE.cells[cellOfPos(r.from + r.roll)];
@@ -1194,21 +1211,19 @@ function courseResultHTML(r) {
     ${r.note ? `<div class="reward">${esc(r.note)}</div>` : '<div class="det">Case sans effet.</div>'}
     <button class="gh-btn go" data-action="course-ok">OK</button></div></div>`;
 }
-function plateauHTML(inGame = false) {
+function plateauHTML() {
   const me = state.me, isColoc = canPlay(me);
-  const { cols, rows } = RING;
   const pawns = {};
   players().forEach((m) => { const p = cellOfPos(shownPos(m.id)); (pawns[p] ??= []).push(m); });
   const pawnHTML = (n, sz = 16) => (pawns[n] ?? []).map((m) => `<span class="pawn ${m.id === me.id ? 'me' : ''} ${state.moving?.id === m.id ? 'mv' : ''}" title="${esc(m.name)}">${av(m, sz)}</span>`).join('');
   const cells = [], pts = [];
   for (let n = 1; n <= GOOSE.size; n++) {
-    const [c, r] = ringXY(n);
-    pts.push(`${(c + 0.5) * 100},${(r + 0.5) * 100}`);
-    cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="grid-column:${c + 1};grid-row:${r + 1}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
+    const [x, y] = ISLETS[n - 1];
+    pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+    cells.push(`<div class="gc ${cellKind(GOOSE.cells[n])} ${GOOSE.cells[n]?.art ?? ''} ${n === GOOSE.size ? 'end' : ''} ${state.moving && cellOfPos(state.moving.pos) === n ? 'on' : ''}" title="${esc(GOOSE.cells[n]?.name ?? (n === GOOSE.size ? 'Île au trésor' : ''))}" style="left:${(x / ARCH.w * 100).toFixed(2)}%;top:${(y / ARCH.h * 100).toFixed(2)}%;--br:${BLOBS[n % 4]}"><b>${n}</b>${cellLabel(n)}<div class="pw">${pawnHTML(n)}</div></div>`);
   }
-  pts.push(pts[0]);                           // boucle fermée
-  const pos = shownPos(me.id), left = diceLeft(me.id);
-  const can = isColoc && left > 0 && !state.rolling;
+  pts.push(pts[0]);
+  const left = diceLeft(me.id), can = isColoc && left > 0 && !state.rolling;
   const ranked = players().map((m) => ({ m, l: lapsOf(posOf(m.id)) })).sort((x, y) => y.l - x.l || x.m.name.localeCompare(y.m.name));
   const top = ranked[0]?.l ?? 0;
   const center = `<div class="gcenter">
@@ -1217,19 +1232,16 @@ function plateauHTML(inGame = false) {
       <div class="gdep"><span>${seaArt('anchor')}Port</span><div class="pw">${pawnHTML(0, 18)}</div></div>
     </div>`;
   const tip = left >= DICE.max ? 'Réserve pleine : lance tes dés !' : `Prochain dé dans ${fmtDice(nextDiceIn(me.id))}`;
-  return `
-    ${inGame ? '' : '<div class="racehead"><button class="mini" data-action="tab" data-tab="games">‹ Jeux</button></div>'}
-    <h2 class="bigttl">La course aux pièces</h2><div class="bigsub">Un dé toutes les ${DICE.everyH} h · ${DICE.max} en réserve au maximum</div>
-    <div class="beach ring pirate ${inGame ? 'atsea' : ''}">${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
-      <div class="ggrid ring" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">
-        <svg class="gpath" viewBox="0 0 ${cols * 100} ${rows * 100}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#5e3415" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#c99a5b" stroke-width="3" stroke-dasharray="7 5" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>
-        <div class="glagoon" style="grid-column:2/${cols};grid-row:2/${rows}">${SEA_SCENE}</div>
-        ${cells.join('')}
-        <div style="grid-column:2/${cols};grid-row:2/${rows};position:relative;z-index:2">${center}</div>
-      </div></div>
-    <div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : 'Lancer le dé'}</button>
+  return `<button class="cback" data-action="course-back" aria-label="Retour">${BACK_SVG}</button>
+    <div class="cstage"><div class="arch">
+      <svg class="apath" viewBox="0 0 ${ARCH.w} ${ARCH.h}" preserveAspectRatio="none" aria-hidden="true"><polyline points="${pts.join(' ')}" fill="none" stroke="#f3dd9a" stroke-opacity=".5" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/><polyline points="${pts.join(' ')}" fill="none" stroke="#fff7d6" stroke-opacity=".75" stroke-width="3" stroke-dasharray="1 9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="acenter">${SEA_DECOR}${center}</div>
+      ${cells.join('')}
+      ${state.moving ? `<div class="dieover"><span class="die d${state.moving.roll} ${state.moving.tumble ? 'tumble' : ''}">${Array.from({ length: state.moving.roll }, () => '<i></i>').join('')}</span></div>` : ''}
+    </div></div>
+    <div class="cfoot"><div class="rollrow"><button class="btn primary" data-action="roll" ${can ? '' : 'disabled'}>${!isColoc ? 'Réservé aux colocataires' : state.rolling ? 'Le dé roule…' : 'Lancer le dé'}</button>
       ${isColoc ? `<div class="dicewrap"><button class="btn dicecount" data-action="dicetip" title="Dés en réserve">${DIE_SVG}<b>${left}</b></button></div>` : ''}</div>
-    ${isColoc ? `<div class="dicenext">${tip}</div>` : ''}`;
+    ${isColoc ? `<div class="dicenext">${tip}</div>` : ''}</div>`;
 }
 
 
@@ -2036,6 +2048,8 @@ document.addEventListener('click', (e) => {
     case 'head': state.heads = false; openProfile(Number(id)); break;
     case 'roll': rollDiceNow(); break;
     case 'course-ok': state.courseRes = null; courseRefresh(); break;
+    case 'course-play': state.courseHome = false; courseRefresh(); break;
+    case 'course-back': if (state.courseHome) closeGame(); else { state.courseHome = true; courseRefresh(); } break;
     case 'race': state.sheet = null; state.heads = false; openGame('course'); break;
     case 'dicetip': break;
     case 'shop': state.heads = false; state.anim = state.tab !== 'shop'; state.tab = 'shop'; state.shopSlot = el.dataset.slot || 'outfit'; state.sheet = null; render(); scrollApp(0); break;

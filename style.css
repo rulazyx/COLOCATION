@@ -1424,7 +1424,7 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .g-course{background:#0d5f86}
 .g-course .gbody{position:relative;padding:0;overflow:hidden;flex:1}
 .seaw{position:absolute;inset:0;width:100%;height:100%;display:block}
-.cwrap{position:absolute;inset:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:calc(64px + env(safe-area-inset-top)) 12px 28px;color:#fff}
+.cwrap{position:absolute;inset:0;overflow:hidden;padding:0;color:#fff}
 .cwrap .bigttl{color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.35);margin:0;text-align:center}
 .cwrap .bigsub{color:#d6f3ff;text-align:center;margin-bottom:10px}
 .cwrap .dicenext{color:#d6f3ff;text-align:center;margin-top:8px}
@@ -1447,3 +1447,48 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 @keyframes rumup{from{transform:translateY(80px)}to{transform:translateY(0)}}
 .gl-rum .rum-wave{animation:rumw 1.6s linear infinite}@keyframes rumw{to{transform:translateX(20px)}}
 .gl-rum svg{filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
+
+/* Course aux pièces v3 : archipel de 30 îlots posés sur la mer, accueil façon Cardinal */
+.g-course .ghead{display:none!important}
+.cwrap{display:flex;flex-direction:column;padding:calc(58px + env(safe-area-inset-top)) 10px calc(10px + env(safe-area-inset-bottom))}
+.cback{position:absolute;z-index:6;top:calc(10px + env(safe-area-inset-top));left:12px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,255,255,.94);box-shadow:0 1px 6px rgba(0,0,0,.25);display:grid;place-items:center;padding:0;cursor:pointer}
+.cstage{flex:1;min-height:0;container-type:size;display:flex;align-items:center;justify-content:center}
+.arch{position:relative;width:min(100cqw,calc(100cqh*360/560));aspect-ratio:360/560}
+.apath{position:absolute;inset:0;width:100%;height:100%;filter:blur(.6px)}
+.arch .gc{position:absolute;width:14.6%;aspect-ratio:1;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;border:0;color:#3a2a10;
+  border-radius:var(--br);background:radial-gradient(circle at 35% 30%,#b9ec86,#6cc24a 70%,#4e9f36);
+  box-shadow:0 0 0 3.5px #f3dd9a,0 0 0 6px rgba(255,255,255,.55),0 7px 9px rgba(0,40,70,.35)}
+.arch .gc.bon{background:radial-gradient(circle at 35% 30%,#fff1b0,#f6cf5c 70%,#e0a52a)}
+.arch .gc.mal{background:radial-gradient(circle at 35% 30%,#e3c4f2,#a36cc8 70%,#7a45a3);box-shadow:0 0 0 3.5px #d9c2a0,0 0 0 6px rgba(255,255,255,.45),0 7px 9px rgba(0,40,70,.4)}
+.arch .gc.end{background:radial-gradient(circle at 35% 30%,#d5f7b0,#7fd45a 70%,#4aa23a);box-shadow:0 0 0 3.5px #ffd23f,0 0 0 6px rgba(255,255,255,.6),0 0 16px #ffd23f}
+.arch .gc b{position:absolute;top:5%;left:50%;transform:translateX(-50%);font-size:8px;line-height:1;color:rgba(40,30,10,.55);font-weight:800}
+.arch .gc .sart{width:46%;height:46%;margin-top:4px}
+.arch .gc .cl{font-style:normal;font-size:8.5px;font-weight:800;line-height:1;display:inline-flex;align-items:center;gap:1px;color:#3a2a10}
+.arch .gc .pw{position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);display:flex;justify-content:center;flex-wrap:nowrap;gap:0;z-index:3}
+.arch .gc .pawn{width:17px;height:17px;margin:0 -2px;box-shadow:0 2px 4px rgba(0,0,0,.35)}
+.arch .gc:nth-child(odd){animation:cbob 3.6s ease-in-out infinite}.arch .gc:nth-child(even){animation:cbob 3.6s ease-in-out -1.8s infinite}
+@keyframes cbob{0%,100%{margin-top:0}50%{margin-top:-2px}}
+.arch .gc.on{animation:none;z-index:4;transform:translate(-50%,-50%) scale(1.12);box-shadow:0 0 0 3.5px #fff6c4,0 0 0 7px var(--accent,#ffc928),0 8px 12px rgba(0,0,0,.35)}
+.acenter{position:absolute;left:25%;right:25%;top:18%;bottom:18%;z-index:1}
+.acenter .seadecor{position:absolute;left:0;right:0;bottom:0;width:100%;height:58%;opacity:.95;pointer-events:none}
+.acenter .gcenter{position:relative;z-index:2;height:auto;max-height:62%;background:rgba(6,58,80,.38);border-radius:16px;color:#fff;padding:7px 8px;font-size:11px;backdrop-filter:blur(2px)}
+.acenter .gcenter .gttl{color:#fff;font-size:11.5px}
+.acenter .glaps{background:rgba(255,255,255,.22)}
+.acenter .glaps .nm{color:#fff}.acenter .gdep{color:#fff}
+.arch .dieover{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);z-index:7;pointer-events:none}
+.cfoot{flex:none;padding-top:8px;text-align:center}
+.cfoot .rollrow{display:flex;gap:8px;justify-content:center;align-items:center}
+.cfoot .rollrow .btn.primary{min-width:200px;padding:14px 22px;font-size:17px}
+.cfoot .dicenext{color:#d6f3ff;margin-top:6px;font-size:13px}
+.chome{position:absolute;inset:0;z-index:5;background:rgba(5,40,64,.38);display:flex;flex-direction:column;align-items:center;justify-content:flex-end;padding:0 16px calc(9vh + env(safe-area-inset-bottom))}
+.chome-in{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:center;gap:12px}
+.chome h1{margin:0;font:400 clamp(34px,10vw,50px)/1.05 'Lilita One',system-ui,sans-serif;color:#fff;letter-spacing:.04em;text-transform:uppercase;text-align:center;text-shadow:0 3px 0 rgba(0,60,100,.4),0 2px 10px rgba(0,30,60,.5)}
+.chome .cbest{margin:0;color:#fff;font-size:17px;font-weight:800;text-shadow:0 1px 4px rgba(0,30,60,.6)}
+.cbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:18px;border:0;border-radius:14px;font:700 22px/1.2 system-ui,sans-serif;background:#ffc928;color:#1b1d22;box-shadow:0 5px 0 #c99400;cursor:pointer}
+.cbtn:active{transform:scale(.98)}
+.cpill{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:99px;background:rgba(255,255,255,.94);color:#1b1d22;font-weight:700;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.cwrap:has(.chome) .cfoot{visibility:hidden}
+@font-face{font-family:'Lilita One';src:url('fonts/LilitaOne.woff2') format('woff2');font-weight:400;font-display:swap}
+.acenter{left:27%;right:27%}
+.acenter .gdep .pw{flex-wrap:nowrap;gap:0}.acenter .gdep .pawn{width:15px;height:15px;margin:0 -3px}
+.acenter .gcenter{font-size:10.5px;padding:6px}

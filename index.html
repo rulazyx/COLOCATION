@@ -19,15 +19,15 @@
   <link rel="stylesheet" href="style.css">
 <style>
   /* ---- écran de chargement ---- */
-  #rzx{position:fixed;inset:0;z-index:10000;background:#0b0d12;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;transition:opacity .45s ease}
+  #rzx{position:fixed;inset:0;z-index:10000;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;transition:opacity .35s ease}
   #rzx.out{opacity:0;pointer-events:none}
-  #rzx .rz{display:flex;gap:2px;font:800 64px/1 system-ui,-apple-system,'Segoe UI',sans-serif;letter-spacing:.04em;color:#fff}
-  #rzx .rz span{display:inline-block;opacity:0;transform:translateY(18px) scale(.9);animation:rzin .5s cubic-bezier(.2,1.4,.4,1) forwards}
-  #rzx .rz span:nth-child(2){animation-delay:.12s}#rzx .rz span:nth-child(3){animation-delay:.24s;color:#ffc928}
-  #rzx .st{font:600 13px system-ui,sans-serif;letter-spacing:.55em;color:#8b93a7;padding-left:.55em;opacity:0;animation:rzst .5s ease .5s forwards}
-  #rzx i{display:block;width:84px;height:3px;border-radius:2px;background:linear-gradient(90deg,transparent,#ffc928,transparent);transform:scaleX(0);animation:rzline .6s ease .35s forwards}
-  @keyframes rzin{to{opacity:1;transform:none}}@keyframes rzst{to{opacity:1}}@keyframes rzline{to{transform:scaleX(1)}}
-  @media (prefers-reduced-motion:reduce){#rzx .rz span,#rzx .st,#rzx i{animation-duration:.01s;animation-delay:0s}}
+  #rzx .rzb{width:min(60vw,360px);opacity:0}
+  #rzx .rzb.go{opacity:1;animation:rzxin 1.75s linear both}
+  #rzx img{display:block;width:100%;height:auto}
+  #rzx .shard{position:fixed;z-index:2;pointer-events:none;will-change:transform,opacity}
+  #rzx .popring{position:absolute;z-index:3;left:50%;top:50%;width:40px;height:40px;margin:-20px;border-radius:50%;border:10px solid #111;pointer-events:none;animation:popring .5s cubic-bezier(.1,.8,.3,1) forwards}
+  @keyframes rzxin{0%{transform:scale(.55);opacity:0}10%{transform:scale(.7);opacity:1}20%{transform:scale(.7)}27%{transform:scale(.9,.86);animation-timing-function:ease-out}32%{transform:scale(.83,.85)}36%{transform:scale(.85)}46%{transform:scale(.85)}53%{transform:scale(1.06,1.01);animation-timing-function:ease-out}58%{transform:scale(.99,1.01)}62%{transform:scale(1)}72%{transform:scale(1)}80%{transform:scale(1.22,1.16);animation-timing-function:ease-out}84%{transform:scale(1.18,1.2) rotate(-1.5deg)}88%{transform:scale(1.22,1.17) rotate(1.5deg)}92%{transform:scale(1.2,1.22) rotate(-1deg)}96%{transform:scale(1.26,1.22) rotate(1deg)}100%{transform:scale(1.32)}}
+  @keyframes popring{from{transform:scale(.4);opacity:.9}to{transform:scale(14);opacity:0;border-width:1px}}
   #splash{position:fixed;inset:0;z-index:9999;background:#fff4d6;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;
     transition:opacity .5s ease}
   #splash.out{opacity:0;pointer-events:none}
@@ -63,8 +63,24 @@
 </style>
 </head>
 <body>
-  <div id="rzx" aria-hidden="true"><div class="rz"><span>R</span><span>Z</span><span>X</span></div><i></i><div class="st">STUDIO</div></div>
-  <script>setTimeout(function(){var r=document.getElementById("rzx");if(r){r.classList.add("out");setTimeout(function(){r.remove()},500)}},1500)</script>
+  <div id="rzx" aria-hidden="true"><div class="rzb"><img src="img/rzx.png" alt="RZX Studio"></div></div>
+  <script>(function(){var el=document.getElementById("rzx");if(!el)return;var box=el.querySelector(".rzb"),img=box.querySelector("img"),done=false;
+  function end(){if(done)return;done=true;el.classList.add("out");setTimeout(function(){el.remove()},400)}
+  el.addEventListener("pointerdown",end,{once:true});
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches){setTimeout(end,900);return}
+  function burst(){if(done)return;var r=box.getBoundingClientRect(),cols=4,rows=3,pt=[],x,y;
+    for(y=0;y<=rows;y++)for(x=0;x<=cols;x++){var e=x===0||y===0||x===cols||y===rows;pt.push([(x+(e?0:(Math.random()-.5)*.7))/cols*100,(y+(e?0:(Math.random()-.5)*.7))/rows*100])}
+    var P=function(x,y){return pt[y*(cols+1)+x]},tris=[];
+    for(y=0;y<rows;y++)for(x=0;x<cols;x++){var a=P(x,y),b=P(x+1,y),c=P(x+1,y+1),d=P(x,y+1);tris.push((x+y)%2?[a,b,c]:[a,b,d],(x+y)%2?[a,c,d]:[b,c,d])}
+    tris.forEach(function(t){var sh=document.createElement("div");sh.className="shard";
+      sh.style.cssText="left:"+r.left+"px;top:"+r.top+"px;width:"+r.width+"px;height:"+r.height+"px;clip-path:polygon("+t.map(function(q){return q[0]+"% "+q[1]+"%"}).join(",")+")";
+      sh.innerHTML='<img src="img/rzx.png" alt="">';el.appendChild(sh);
+      var cx=(t[0][0]+t[1][0]+t[2][0])/3-50,cy=(t[0][1]+t[1][1]+t[2][1])/3-50,k=9+Math.random()*7;
+      if(sh.animate)sh.animate([{transform:"none",opacity:1},{transform:"translate("+cx*k*.6+"px,"+cy*k*.9+"px) rotate("+(Math.random()-.5)*300+"deg) scale(.8)",opacity:1,offset:.35},{transform:"translate("+cx*k+"px,"+(cy*k*1.4+260)+"px) rotate("+(Math.random()-.5)*720+"deg) scale(.5)",opacity:0}],{duration:650+Math.random()*250,easing:"cubic-bezier(.2,.9,.5,1)",fill:"forwards"})});
+    var ring=document.createElement("div");ring.className="popring";el.appendChild(ring);
+    if(navigator.vibrate)navigator.vibrate(30);box.remove();setTimeout(end,650)}
+  function go(){box.classList.add("go");setTimeout(burst,1750)}
+  if(img.decode)img.decode().then(go,go);else img.onload=go;setTimeout(function(){if(!box.classList.contains("go"))go()},1200)})();</script>
   <div id="splash" aria-label="Chargement">
   <div class="sunwrap" id="sunwrap">
     <div class="hopper"><svg viewBox="0 0 80 70" aria-hidden="true">
