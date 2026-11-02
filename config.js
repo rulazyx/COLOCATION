@@ -175,7 +175,25 @@ export const GOOSE = {
 export const LEVEL_BONUS = { every: 10, chips: 100 };
 // Course aux pièces : un dé gagné toutes les 3 heures, 3 dés en réserve au maximum (au-delà de 9 h sans jouer, on n'en gagne plus)
 // Cardinal : seul le passage de palier de score rapporte des colocoins (plafond par jour)
-export const CARDINAL_TIERS = { at: [50, 100, 150, 200, 250], coins: [5, 10, 15, 25, 40], dayCap: 100 };
+// Cardinal : décors par paliers (même ordre que STAGE_AT dans games/flappy.js). Seul le passage d'un palier rapporte des colocoins.
+export const CARDINAL_STAGES = {
+  at:    [0, 15, 30, 50, 75, 100, 150, 200, 300, 400, 500, 600, 700, 800, 900, 1000],
+  coins: [0, 10, 15, 20, 25, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 250],
+  names: ['Prairie', 'Aube rose', 'Désert', 'Soir', 'Automne', 'Crépuscule', 'Nuit', 'Banquise', 'Aurore boréale', 'Monde délabré', 'Enfers', 'Abysses', 'Pays des bonbons', 'Néon', 'Espace', 'Paradis doré'],
+  dayCap: 100,   // colocoins maximum par jour (paliers)
+};
+// Quêtes du jour de Cardinal : 3 tirées chaque jour, récompenses 10 fois plus petites que dans le jeu d'origine
+export const CARDINAL_QUESTS = [
+  { key: 'games3',   text: 'Jouer 3 parties',              goal: 3,   stat: 'games', coins: 2 },
+  { key: 'games8',   text: 'Jouer 8 parties',              goal: 8,   stat: 'games', coins: 5 },
+  { key: 'cols30',   text: 'Passer 30 colonnes au total',  goal: 30,  stat: 'cols',  coins: 3 },
+  { key: 'cols100',  text: 'Passer 100 colonnes au total', goal: 100, stat: 'cols',  coins: 5 },
+  { key: 'run15',    text: 'Atteindre 15 en une partie',   goal: 15,  stat: 'best',  coins: 3 },
+  { key: 'run30',    text: 'Atteindre 30 en une partie',   goal: 30,  stat: 'best',  coins: 5 },
+  { key: 'run50',    text: 'Atteindre 50 en une partie',   goal: 50,  stat: 'best',  coins: 8 },
+  { key: 'flaps200', text: 'Battre des ailes 200 fois',    goal: 200, stat: 'flaps', coins: 2 },
+];
+export const CARDINAL_QUEST_BONUS = 10;
 export const DICE = { everyH: 3, max: 3 };
 // Récompense immatérielle de l'arrivée : change chaque semaine (tourne dans cet ordre). confirm = les autres colocs doivent confirmer qu'ils ont tenu parole.
 export const PERKS = [
@@ -234,6 +252,14 @@ export const SHOP = {
     { key: 'chevalier', name: 'Oiseau chevalier', w: 1.5, body: '#8f99a4', belly: '#d7dde3', wing: '#5b6470', acc: 'knight' },
     { key: 'or',       name: 'Oiseau doré',   w: 1,   body: '#fbbf24', belly: '#fef3c7', wing: '#b45309', acc: 'crown' },
     { key: 'arcenciel', name: 'Arc-en-ciel',  w: 1,   body: '#ef4444', belly: '#fff', wing: '#8b5cf6', rainbow: true },
+    { key: 'pirate',   name: 'Pirate',        w: 8,   body: '#ef4444', belly: '#fecaca', wing: '#991b1b', acc: 'pirate' },
+    { key: 'noel',     name: 'Père Noël',     w: 8,   body: '#ef4444', belly: '#fff',    wing: '#b91c1c', acc: 'santa' },
+    { key: 'zombie',   name: 'Zombie',        w: 5,   body: '#7fa36b', belly: '#b9cfa6', wing: '#4d6b3d', acc: 'zombie' },
+    { key: 'robot',    name: 'Robot',         w: 5,   body: '#9ca3af', belly: '#d1d5db', wing: '#6b7280', acc: 'robot' },
+    { key: 'astro',    name: 'Astronaute',    w: 5,   body: '#f8fafc', belly: '#e2e8f0', wing: '#94a3b8', acc: 'astro' },
+    { key: 'fantome',  name: 'Fantôme',       w: 2,   body: '#eef2ffdd', belly: '#ffffffdd', wing: '#c7d2fecc', acc: 'ghost' },
+    { key: 'licorne',  name: 'Licorne',       w: 2,   body: '#fdf2f8', belly: '#fff',    wing: '#f9a8d4', acc: 'unicorn' },
+    { key: 'phenix',   name: 'Phénix',        w: 1,   body: '#ea580c', belly: '#fde047', wing: '#b91c1c', acc: 'phoenix' },
     { key: 'tenebres', name: 'Oiseau des ténèbres', w: 1, body: '#15121c', belly: '#2c2638', wing: '#0b0910', eye: '#ef1d1d', eyeBg: '#1a0000', acc: 'dark' },
   ],
 };

@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 121;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 122;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -134,6 +134,10 @@ export async function makeCloudApi() {
         if (!/could not find the function|report_flappy/i.test(String(e?.message))) throw e;
         await this.reportGame(id, 'flappy', Math.floor(score)); return { xp: 0, coins: 0 };
       }
+    },
+    async cardinalQuest(id, coins) {
+      try { return check(await sb.rpc('cardinal_quest', { p_member: id, p_coins: Math.floor(coins) })); }
+      catch (e) { if (/could not find the function|cardinal_quest/i.test(String(e?.message))) return 0; throw e; }
     },
     async claimChallenge(id, key) { return check(await sb.rpc('claim_challenge', { p_member: id, p_key: key })); },
     async launchGame(id) { return check(await sb.rpc('launch_game', { p_member: id })); },

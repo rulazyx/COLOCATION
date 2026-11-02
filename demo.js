@@ -1,5 +1,5 @@
 // Mode démo : même interface que le cloud, avec localStorage (chargé seulement si aucune clé Supabase n'est configurée)
-import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM, CARDINAL_TIERS } from './config.js';
+import { SKIN_COLORS, HAIR_COLORS, MOVES, WHEEL_MIN, WHEEL_MAX, XP_RULES as X, MILESTONES, TASK_KINDS, GOOSE, BJ_BETS, BIRD_CRATE, MESSAGE_MAX, DICE, PERKS, perkOfWeek, DAILY, SHOP, SOAP_EXCHANGE, LEVEL_BONUS, levelOf, FARM, CARDINAL_STAGES } from './config.js';
 import { rewardOf } from './challenges.js';
 import { store, iso } from './util.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
@@ -308,7 +308,7 @@ export function makeDemoApi() {
         addXp(id, X.sudoku + milestoneXp('sudoku', s.sudoku_best, score), 'game:sudoku');
         s.sudoku_done++; s.sudoku_best = Math.min(s.sudoku_best ?? score, score);
       } else fail('Jeu inconnu.');
-      const want = game === 'flappy' ? CARDINAL_TIERS.at.reduce((t, a, i) => t + (Math.min(score, 5000) >= a ? CARDINAL_TIERS.coins[i] : 0), 0) : 0, cap = CARDINAL_TIERS.dayCap;
+      const want = game === 'flappy' ? CARDINAL_STAGES.at.reduce((t, a, i) => t + (Math.min(score, 5000) >= a ? CARDINAL_STAGES.coins[i] : 0), 0) : 0, cap = CARDINAL_STAGES.dayCap;
       if (want && canPlayId(id)) {
         const today = db.chips.filter((c) => c.member_id === id && c.reason === `jeu:${game}` && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
         addChips(id, Math.max(0, Math.min(want, cap - today)), `jeu:${game}`);
@@ -339,6 +339,12 @@ export function makeDemoApi() {
       await this.reportGame(id, 'flappy', score);
       const x1 = db.xp.filter((r) => r.member_id === id).reduce((t, r) => t + r.amount, 0), c1 = db.chips.filter((c) => c.member_id === id).reduce((t, c) => t + c.amount, 0);
       return { xp: x1 - x0, coins: c1 - c0 };
+    },
+    async cardinalQuest(id, coins) {
+      const n = Math.max(0, Math.min(10, Math.floor(coins)));
+      const today = db.chips.filter((c) => c.member_id === id && c.reason === 'cardinal:quete' && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0);
+      const got = canPlayId(id) ? Math.max(0, Math.min(n, 40 - today)) : 0;
+      addChips(id, got, 'cardinal:quete'); save(); return got;
     },
     async claimChallenge(id, key) {
       if (db.unlocks.some((u) => u.member_id === id && u.key === key)) return null;

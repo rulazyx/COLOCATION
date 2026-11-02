@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 121;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 122;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -656,7 +656,7 @@ async function openProfile(id) {
 // Les jeux vivent dans une couche à part (hors de #app) pour que les rafraîchissements ne les interrompent pas
 const GAMES = {
   chifoumi: { name: 'Chifoumi', board: 'chifoumi', blurb: "Défie un coloc ou un copain : pierre, feuille, ciseaux. Ton coup reste secret jusqu'à sa réponse. Mise : 10 🪙 — le gagnant prend 10 colocoins au perdant.", duel: true },
-  flappy: { name: 'Cardinal', board: 'flappy', mod: './games/flappy.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. Chaque obstacle rapporte de l\'XP, chaque palier franchi (50, 100, 150, 200, 250) des colocoins.' },
+  flappy: { name: 'Cardinal', board: 'flappy', mod: './games/cardinal.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. 16 décors à découvrir : chaque nouveau palier franchi (15, 30, 50, 75, 100…) rapporte des colocoins. Quêtes du jour, 22 oiseaux à débloquer.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
   ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : plante de la canne à sucre, coupe des arbres pour t\'agrandir, construis poulailler, brasserie et raffinerie.' },
@@ -666,6 +666,21 @@ let gameHandle = null, gameScrollY = 0;
 // L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
 const appEl = () => document.getElementById('app');
 const scrollApp = (y = 0) => window.scrollTo(0, y);
+function cardinalCtx() {
+  const me = state.me, api = state.api;
+  return {
+    meId: me.id,
+    bird: () => state.me.bird || null,
+    coins: () => chipsOf(me.id),
+    best: () => Number(statsOf(me.id)?.flappy_best) || 0,
+    owned: () => { const o = shopOwned(me.id); return new Set(SHOP.bird.filter((b) => o.has(`bird:${b.key}`)).map((b) => b.key)); },
+    equip: (key) => saveProfile({ bird: key }),
+    buyCrate: async () => { const key = await api.openBirdCrate(me.id); await refresh(true); return key; },
+    reportRun: async (score) => { const g = await api.reportFlappy(me.id, score); refresh(true).catch(() => {}); return g; },
+    quest: async (n) => { const got = await api.cardinalQuest(me.id, n); refresh(true).catch(() => {}); return got; },
+    quit: () => closeGame(),
+  };
+}
 function farmCtx() {
   const me = state.me, api = state.api;
   return {
@@ -795,7 +810,7 @@ function gBadge() {
     : gameUI?.id === 'blackjack' ? `<span class="gmenu gcoins" aria-label="Colocoins">${COIN_SVG} ${chipsOf(state.me.id)}</span>` : '';   // solde toujours visible en haut
 }
 function gToHome() {
-  if (gameUI?.id === 'ferme') return closeGame();
+  if (gameUI?.id === 'ferme' || gameUI?.id === 'flappy') return closeGame();
   try { gameHandle?.destroy(); } catch { /* rien */ }
   gameHandle = null;
   const layer = glayer(); if (!layer) return;
@@ -821,6 +836,7 @@ async function gPlay() {
     gameHandle = mod.mount(layer.querySelector('.gbody'), {
       balance: () => chipsOf(state.me.id), bird: state.me.bird, fps: store.get('coloc-fps') === '1',
       ...(id === 'ferme' ? farmCtx() : {}),
+      ...(id === 'flappy' ? cardinalCtx() : {}),
       ...(id === 'sudoku' ? { sudoku: {
         week: currentWeek(), me: state.me.id, name: nameOf,
         report: async (mode, secs) => {
@@ -906,7 +922,7 @@ async function openGame(id) {
   gameUI = { id, view: 'home', modP: G.mod ? import(G.mod) : null };
   gameUI.modP?.catch(() => {});
   gShow('home'); gBadge();
-  if (id === 'ferme') gPlay();   // Colo-Ferme : pas d'écran d'accueil, on arrive directement dans le jeu
+  if (id === 'ferme' || id === 'flappy') gPlay();   // Colo-Ferme et Cardinal : pas d'écran d'accueil, on arrive directement dans le jeu
   layer.addEventListener('click', (e) => {
     const a = e.target.closest('[data-gact]'), h = e.target.closest('[data-gh]');
     if (a) { const k = a.dataset.gact; if (k === 'close') closeGame(); else if (k === 'menu') gPauseOpen(); else if (k === 'resume') gPauseClose(); else if (k === 'home') gToHome(); }
@@ -1741,7 +1757,6 @@ function reglagesHTML() {
       <div class="swatches">${BG_COLORS.map((c) => `<button class="sw ${(me.bg ?? BG_COLORS[0]).toLowerCase() === c ? 'sel' : ''}" style="background:${c}" data-action="bg" data-v="${c}" aria-label="Fond ${c}"></button>`).join('')}</div>` : ''}
     <h3 class="sec">Thème</h3>
     <div class="seg" style="margin-bottom:10px">${[['auto', 'Auto'], ['light', 'Clair'], ['dark', 'Sombre']].map(([k, l]) => `<button class="${(store.get('coloc-theme') || 'auto') === k ? 'on' : ''}" data-action="theme" data-v="${k}">${l}</button>`).join('')}</div>
-    <button class="btn foldbtn" data-action="fps">${store.get('coloc-fps') === '1' ? 'Compteur FPS (Cardinal) : activé' : 'Compteur FPS (Cardinal) : désactivé'}</button>
     <button class="btn foldbtn" data-action="push">${pushOn() ? '🔔 Notifications activées' : '🔕 Activer les notifications'}</button>
     <button class="btn foldbtn" data-action="switch">Changer de prénom <small>(actuellement ${esc(me.name)})</small></button>
     ${suggestHTML()}
@@ -2103,7 +2118,6 @@ document.addEventListener('click', (e) => {
     case 'product': toggleProduct(Number(id)); break;
     case 'push': enablePush(); break;
     case 'theme': setTheme(v); render(); break;
-    case 'fps': store.set('coloc-fps', store.get('coloc-fps') === '1' ? '0' : '1'); render(); break;
     case 'dismiss': store.set('coloc-push-dismiss', '1'); render(); break;
     case 'reload': location.reload(); break;
     case 'sync': refresh(true).then(() => toast(state.syncErr ? 'Toujours en erreur' : 'À jour ✓')).catch((e) => toast(e.message)); break;
