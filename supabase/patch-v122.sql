@@ -60,3 +60,15 @@ begin
   return v_n;
 end $$;
 grant execute on function cardinal_quest(int, int) to anon, authenticated;
+
+-- 4) Colo-Ferme : acheter une parcelle coûte des colocoins (1, 2, 3, 4…), débités ici
+create or replace function farm2_spend(p_member int, p_coins int) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not can_play(p_member) then raise exception 'Seuls les joueurs invités ont une ferme.'; end if;
+  if p_coins is null or p_coins < 1 or p_coins > 500 then raise exception 'Montant invalide.'; end if;
+  perform pg_advisory_xact_lock(hashtext('shop:' || p_member));
+  if chips_of(p_member) < p_coins then raise exception 'Pas assez de colocoins.'; end if;
+  insert into chip_ledger (member_id, amount, reason) values (p_member, -p_coins, 'ferme:parcelle');
+end $$;
+grant execute on function farm2_spend(int, int) to anon, authenticated;

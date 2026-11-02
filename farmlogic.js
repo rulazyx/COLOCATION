@@ -4,8 +4,9 @@ export const FA = {
   N: 30, T: 44, cx: 15, cy: 15, R: 13.4,
   start: { x0: 11, x1: 19, y0: 8, y1: 16 },        // zone dégagée au départ
   house: { x: 14, y: 9, w: 3, h: 3 },
-  growS: 900, yield: 2, startCane: 12,               // une canne pousse en 15 min, rapporte 2 cannes
-  treeCost: (cut) => Math.min(30, 5 + Math.floor(cut / 4)),
+  growS: 3600, yield: 2, startCane: 0,               // une canne pousse en 1 h, rapporte 2 cannes ; on commence sans canne
+  parcelCost: (n) => n + 1,                           // 1ère parcelle : 1 colocoin, puis 2, 3, 4…
+  treeMin: (cut) => Math.min(60, 5 + cut * 2),        // couper un arbre demande du temps (en minutes), pas de canne
   houseUp: [0, 60, 150],                              // coût pour passer niveau 1 → 2 → 3 (index = niveau visé − 1)
   toolsUp: [0, 40, 100],
   houseBonus: 0.2,                                    // +20 % de colocoins par niveau de maison au-dessus de 1
@@ -22,8 +23,8 @@ export const DECORS = {
   lanterne: { name: 'Lanterne', cost: 15 }, banc: { name: 'Banc', cost: 20 }, barriere: { name: 'Barrière', cost: 6 }, tonneau: { name: 'Tonneau', cost: 10 },
 };
 const key = (x, y) => `${x},${y}`;
-export const newFarm = () => ({ v: 2, cane: FA.startCane, cleared: [], plots: {}, blds: [], decor: [], house: 1, tools: 1, st: { harvests: 0, builds: 0, trees: 0, decor: 0, cash: 0 } });
-export const normalize = (d) => ({ ...newFarm(), ...(d && d.v === 2 ? d : {}), st: { ...newFarm().st, ...(d?.st ?? {}) } });
+export const newFarm = () => ({ v: 3, cane: FA.startCane, cleared: [], owned: [], chop: {}, plots: {}, blds: [], decor: [], house: 1, tools: 1, st: { harvests: 0, builds: 0, trees: 0, decor: 0, cash: 0 } });
+export const normalize = (d) => ({ ...newFarm(), ...(d && d.v === 3 ? d : {}), st: { ...newFarm().st, ...(d?.st ?? {}) } });
 // Forme de l'île : un disque irrégulier
 export const dist = (x, y) => Math.hypot(x - FA.cx + 0.5, y - FA.cy + 0.5) / FA.R;
 export const wob = (x, y) => 0.06 * Math.sin(x * 1.7 + y * 0.9) + 0.05 * Math.cos(y * 1.3 - x * 0.6);
@@ -35,7 +36,10 @@ export const isTree = (d, x, y) => isLand(x, y) && !isSand(x, y) && !isCleared(d
 export const onHouse = (x, y) => x >= FA.house.x && x < FA.house.x + FA.house.w && y >= FA.house.y && y < FA.house.y + FA.house.h;
 export const bldAt = (d, x, y) => d.blds.find((b) => x >= b.x && x < b.x + BUILDINGS[b.k].w && y >= b.y && y < b.y + BUILDINGS[b.k].h);
 export const decorAt = (d, x, y) => d.decor.find((o) => o.x === x && o.y === y);
-export const free = (d, x, y) => isLand(x, y) && isCleared(d, x, y) && !isSand(x, y) && !onHouse(x, y) && !bldAt(d, x, y) && !decorAt(d, x, y) && !d.plots[key(x, y)];
+export const isOwned = (d, x, y) => d.owned.includes(key(x, y));
+export const free = (d, x, y) => isLand(x, y) && isCleared(d, x, y) && !isSand(x, y) && !onHouse(x, y) && !bldAt(d, x, y) && !decorAt(d, x, y) && !d.plots[key(x, y)] && !isOwned(d, x, y);   // libre pour un bâtiment ou un décor (ni parcelle ni cultures)
+export const buyable = (d, x, y) => free(d, x, y);   // une parcelle s'achète sur un terrain dégagé libre
+export const chopMs = (cut) => FA.treeMin(cut) * 60000;
 export const canPlace = (d, k, x, y) => { const B = BUILDINGS[k]; for (let i = 0; i < B.w; i++) for (let j = 0; j < B.h; j++) if (!free(d, x + i, y + j)) return false; return true; };
 export const frontier = (d, x, y) => isTree(d, x, y) && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => (isCleared(d, x + a, y + b) && isLand(x + a, y + b)));
 export const growMs = (d) => FA.growS * 1000 * (1 - FA.toolGrow * (d.tools - 1));

@@ -3,7 +3,7 @@
 import { CONFIG } from './config.js';
 const reunionDay = () => new Date(Date.now() + 4 * 3600000).toISOString().slice(0, 10);   // jour à La Réunion (UTC+4), comme la base
 
-export const BUILD = 122;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
+export const BUILD = 123;   // doit être égal à BUILD dans app.js (voir tools/bump.mjs)
 export async function makeCloudApi() {
   const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm');
   const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
@@ -48,6 +48,7 @@ export async function makeCloudApi() {
     async farm() { return check(await sb.from('farm_plots').select('*')); },
     async farm2() { try { return check(await sb.from('farm2').select('*')); } catch { return []; } },
     async farm2Save(m, data) { return check(await sb.rpc('farm2_save', { p_member: m, p_data: data })); },
+    async farm2Spend(m, n) { check(await sb.rpc('farm2_spend', { p_member: m, p_coins: n })); },
     async farm2Cash(m, n) { return Number(check(await sb.rpc('farm2_cash', { p_member: m, p_coins: n }))) || 0; },
     async farmState() { return check(await sb.from('farm_state').select('*')); },
     async farmDay() { return check(await sb.from('farm_day').select('*')); },

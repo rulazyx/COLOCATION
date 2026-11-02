@@ -400,6 +400,7 @@ export function makeDemoApi() {
     async farm() { return db.farm.map((p) => ({ ...p })); },
     async farm2() { return Object.entries(db.farm2 ?? {}).map(([id, data]) => ({ member_id: Number(id), data })); },
     async farm2Save(m, data) { db.farm2 ??= {}; db.farm2[m] = data; const s = statsOf(m), t = data.st ?? {}; s.farm_harvests = Math.max(s.farm_harvests ?? 0, t.harvests ?? 0); s.farm_builds = Math.max(s.farm_builds ?? 0, t.builds ?? 0); s.farm_slots = Math.max(s.farm_slots ?? 0, t.trees ?? 0); s.farm_waters = Math.max(s.farm_waters ?? 0, t.decor ?? 0); s.farm_coins = Math.max(s.farm_coins ?? 0, t.cash ?? 0); save(); },
+    async farm2Spend(m, n) { if (!canPlayId(m)) fail('Réservé aux joueurs de la ferme.'); const bal = db.chips.filter((c) => c.member_id === m).reduce((t, c) => t + c.amount, 0); if (bal < n) fail('Pas assez de colocoins.'); addChips(m, -n, 'ferme:parcelle'); save(); },
     async farm2Cash(m, n) { if (!canPlayId(m)) fail('Réservé aux joueurs de la ferme.'); const today = db.chips.filter((c) => c.member_id === m && c.reason === 'ferme' && String(c.at).slice(0, 10) === now().slice(0, 10)).reduce((t, c) => t + c.amount, 0); const got = Math.max(0, Math.min(n, 200 - today)); if (got) addChips(m, got, 'ferme'); save(); return got; },
     async farmState() { return Object.entries(db.farmSt).map(([id, slots]) => ({ member_id: Number(id), slots })); },
     async farmDay() {
