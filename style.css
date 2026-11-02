@@ -1492,3 +1492,10 @@ h2.hico{display:flex;align-items:center;gap:8px}h2.hico .tico{font-size:30px}
 .acenter{left:27%;right:27%}
 .acenter .gdep .pw{flex-wrap:nowrap;gap:0}.acenter .gdep .pawn{width:15px;height:15px;margin:0 -3px}
 .acenter .gcenter{font-size:10.5px;padding:6px}
+
+/* Pastille MAJ jaune brillante (disparaît dès que le jeu est lancé) */
+.gtmaj{position:absolute;top:8px;left:8px;z-index:3;padding:3px 9px 2px;border-radius:9px;font:900 12px/1.2 system-ui,sans-serif;font-style:normal;letter-spacing:.06em;color:#5a3a00;background:linear-gradient(180deg,#fff7b0 0%,#ffe14d 45%,#ffc928 100%);border:1.5px solid #fff2a6;box-shadow:0 0 10px 2px rgba(255,214,60,.85),0 2px 5px rgba(0,0,0,.3);overflow:hidden;animation:majglow 1.6s ease-in-out infinite}
+.gtmaj::after{content:"";position:absolute;top:-30%;bottom:-30%;width:40%;left:-60%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.9),transparent);transform:skewX(-20deg);animation:majshine 2.4s ease-in-out infinite}
+@keyframes majglow{0%,100%{box-shadow:0 0 8px 1px rgba(255,214,60,.7),0 2px 5px rgba(0,0,0,.3)}50%{box-shadow:0 0 16px 4px rgba(255,226,90,1),0 2px 5px rgba(0,0,0,.3)}}
+@keyframes majshine{0%,55%{left:-60%}100%{left:140%}}
+@media (prefers-reduced-motion:reduce){.gtmaj,.gtmaj::after{animation:none}}

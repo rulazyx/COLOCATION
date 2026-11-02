@@ -10,7 +10,7 @@ import { avatarSVG } from './avatar.js';
 import { logoArt, moveIcon, gIcon } from './gameart.js';
 import { makeCloudApi } from './api.js';
 import * as APIMOD from './api.js';
-const BUILD = 125;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
+const BUILD = 126;   // doit être égal à BUILD dans api.js (voir tools/bump.mjs) : sinon des fichiers de versions différentes se sont mélangés
 import { CHALLENGES, challengeByKey, rewardOf, titleOf, BOARDS, ranking, leaderOf, firstPlaces, fmtValue, fmtTime, weekRanking, weekWinners, BADGES, TIER_NAMES, tierOf, questDone } from './challenges.js';
 
 /* =========================================================
@@ -659,10 +659,14 @@ const GAMES = {
   flappy: { name: 'Cardinal', board: 'flappy', mod: './games/cardinal.js', blurb: 'Touche l\'écran pour battre des ailes et passe entre les colonnes sans les toucher. 16 décors à découvrir : chaque nouveau palier franchi (15, 30, 50, 75, 100…) rapporte des colocoins. Quêtes du jour, 22 oiseaux à débloquer.' },
   blackjack: { name: 'Blackjack', board: 'blackjack', paid: true, mod: './games/blackjack.js', blurb: 'Bats la banque sans dépasser 21, en misant tes colocoins : 5, 10, 20 ou 30. Double ou sépare tes cartes, le blackjack paie 3 pour 2. Tu reçois 50 colocoins chaque jour dans Défis.' },
   course: { name: 'Course aux pièces', hidden: true, mod: './games/sea.js', blurb: '' },
-  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : achète des parcelles (1, 2, 3 colocoins…), plante de la canne à sucre (1 h), coupe des arbres (ça prend du temps), construis poulailler, brasserie et raffinerie.' },
+  ferme: { name: 'Colo-Ferme', board: 'ferme', hidden: true, mod: './games/ferme.js', blurb: 'Fais grandir ton île : 3 parcelles offertes (puis 1, 2, 3 colocoins… en boutique), canne à sucre (1 h), arbres à couper (3 à la fois), poulailler, enclos à chèvres et cochons, brasserie, raffinerie, et un port pour exporter par bateau.' },
   sudoku: { name: 'Sudoku', board: 'sudoku', mod: './games/sudoku.js', blurb: 'Grille de la semaine (la même pour tous, chronométrée) ou grilles aléatoires : facile, moyen, expert (petit gain de colocoins). Tu as 3 vies : chaque erreur en coûte une.' },
 };
 let gameHandle = null, gameScrollY = 0;
+// Pastille « MAJ » jaune sur les jeux mis à jour ; elle disparaît dès que le jeu est lancé (pas pour Chifoumi ni Blackjack)
+const MAJ_VER = '125';
+const majNew = (id) => id !== 'chifoumi' && id !== 'blackjack' && store.get(`coloc-maj-${id}`) !== MAJ_VER;
+const majBadge = (id) => majNew(id) ? '<i class="gtmaj">MAJ</i>' : '';
 // L'appli défile dans #app (le corps de la page ne bouge pas) : la barre du bas reste collée au bas de l'écran
 const appEl = () => document.getElementById('app');
 const scrollApp = (y = 0) => window.scrollTo(0, y);
@@ -913,7 +917,7 @@ async function gAction(k, el) {
 async function openGame(id) {
   const G = GAMES[id];
   if (!G || state.game) return;
-  state.game = id; state.sheet = null; render();
+  state.game = id; state.sheet = null; if (majNew(id)) store.set(`coloc-maj-${id}`, MAJ_VER); render();
   state.api.launchGame(state.me.id).then((n) => n && refresh(true)).catch(() => {});   // 1er jeu lancé : XP vers le niveau 2
   const layer = document.createElement('div');
   layer.id = 'gamelayer'; layer.className = `gamelayer g-${id} onhome`;
@@ -1556,9 +1560,9 @@ function gamesListHTML() {
     ${(() => { const nready = readyChals().length, due = dailyDue() || statsOf(me.id).wheel_ready;
       return `<button class="gfarm gspace" data-action="tab" data-tab="defis" aria-label="Défis"><span class="gf-ico">${DEFIS_ICON}</span><span class="gf-txt"><span class="gt-name">Défis</span><small>${nready ? `${nready} défi${nready > 1 ? 's' : ''} à récupérer !` : due ? 'Une récompense t\'attend !' : 'Défis et récompense du jour'}</small></span>${nready || due ? `<span class="gbadge">${nready || '!'}</span>` : ''}</button>`; })()}
     <div class="gtiles">
-      <button class="gtile g-ferme" data-action="game" data-id="ferme" aria-label="Colo-Ferme"><span class="gt-ico">${FARM_ICON.replace(/width="38" height="38"/, 'width="64" height="64"')}</span><span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
-      <button class="gtile g-race" data-action="game" data-id="course" aria-label="Course aux pièces"><span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${canPlay(me) && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
-      <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}"><span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
+      <button class="gtile g-ferme" data-action="game" data-id="ferme" aria-label="Colo-Ferme">${majBadge('ferme')}<span class="gt-ico">${FARM_ICON.replace(/width="38" height="38"/, 'width="64" height="64"')}</span><span class="gt-name">Colo-Ferme</span>${farmReadyBadge()}</button>
+      <button class="gtile g-race" data-action="game" data-id="course" aria-label="Course aux pièces">${majBadge('course')}<span class="gt-ico">${CHEST_SVG}</span><span class="gt-name">Course aux pièces</span>${canPlay(me) && diceLeft(me.id) ? `<i class="gtbadge gold">${diceLeft(me.id)}</i>` : ''}</button>${Object.entries(GAMES).filter(([, g]) => !g.hidden).map(([id, g]) => `
+      <button class="gtile g-${id}" data-action="game" data-id="${id}" aria-label="${esc(g.name)}">${majBadge(id)}<span class="gt-art">${logoArt(id)}</span><span class="gt-name">${esc(g.name)}</span>${id === 'chifoumi' && received.length ? `<i class="gtbadge">${received.length}</i>` : ''}</button>`).join('')}</div>
 `;
 }
 

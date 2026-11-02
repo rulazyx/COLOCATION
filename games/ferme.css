@@ -61,3 +61,15 @@
 .fm-friends { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
 .fm-fr { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 4px; border: 0; border-radius: 14px; background: #f1f5f9; font: 700 13px system-ui; color: inherit; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .fm-tool.ready { animation: none; } }
+
+.fm-card h4 { margin: 14px 0 6px; font: 400 17px/1.1 'Lilita One', system-ui, sans-serif; color: #7a4d2a; }
+.fm-chk { padding: 9px 12px; margin-bottom: 6px; border-radius: 12px; background: #f1f5f9; font-weight: 700; color: #6b7280; } .fm-chk.ok { background: #dcfce7; color: #166534; }
+.fm-tuto { position: absolute; inset: 0; z-index: 10; background: rgba(4,28,40,.62); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.fm-tuto[hidden] { display: none; }
+.fm-tcard { width: 100%; max-width: 360px; background: #fff; border-radius: 24px; padding: 22px 18px 16px; text-align: center; box-shadow: 0 14px 40px rgba(0,0,0,.4); animation: fmpop .22s cubic-bezier(.2,1.3,.4,1); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.fm-tico { width: 108px; height: 108px; border-radius: 50%; background: linear-gradient(160deg, #e9f9d8, #bfe8f5); display: grid; place-items: center; box-shadow: inset 0 -4px 0 rgba(0,0,0,.06); }
+.fm-tico svg { width: 66px; height: 66px; }
+.fm-tcard h2 { margin: 2px 0 0; font: 400 26px/1.1 'Lilita One', system-ui, sans-serif; color: #1b1d22; }
+.fm-tcard p { margin: 0; font-size: 15px; line-height: 1.4; color: #4b5563; }
+.fm-tdots { display: flex; gap: 6px; margin: 4px 0; } .fm-tdots i { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; } .fm-tdots i.on { background: #ffc928; width: 20px; border-radius: 4px; }
+.fm-tcard .fm-btn { margin-top: 2px; } .fm-tskip { border: 0; background: none; color: #6b7280; font: 700 14px system-ui; padding: 6px; cursor: pointer; }
